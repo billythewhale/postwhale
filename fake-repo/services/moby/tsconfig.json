@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "es2021",
+    "module": "commonjs",
+    "resolveJsonModule": true,
+    "outDir": "./dist/",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "experimentalDecorators": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@tw/shared-types": [
+        "../../../packages/shared-types/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "src/"
+  ],
+  "exclude": [
+    "**/__test__/**",
+    "**/*.test.ts"
+  ]
+}

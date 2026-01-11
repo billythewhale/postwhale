@@ -1,0 +1,12 @@
+{
+  "name": "moby-infra",
+  "dependencies": {
+    "@pulumi/gcp": "^9.6.0",
+    "@pulumi/pulumi": "^3.203.0",
+    "@tw/pulumi": "^0.11.9"
+  },
+  "devDependencies": {
+    "@types/node": "^24.8.1",
+    "typescript": "^5.9.3"
+  }
+}

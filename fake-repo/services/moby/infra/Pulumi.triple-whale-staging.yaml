@@ -1,0 +1,3 @@
+config:
+  gcp:project: triple-whale-staging
+  moby:gcpLocation: us-central1

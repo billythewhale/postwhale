@@ -1,0 +1,3 @@
+config:
+  gcp:project: shofifi
+  moby:gcpLocation: us-central1
