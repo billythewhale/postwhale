@@ -1,182 +1,176 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Header } from '@/components/layout/Header'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { RequestBuilder } from '@/components/request/RequestBuilder'
 import { ResponseViewer } from '@/components/response/ResponseViewer'
+import { AddRepositoryDialog } from '@/components/sidebar/AddRepositoryDialog'
+import { useIPC } from '@/hooks/useIPC'
 import type { Environment, Repository, Service, Endpoint, Response } from '@/types'
-
-// Mock data for development
-const mockRepositories: Repository[] = [
-  { id: 1, name: 'fake-repo', path: '/Users/billy/postwhale/fake-repo' }
-]
-
-const mockServices: Service[] = [
-  { id: 1, repoId: 1, serviceId: 'fusion', name: 'Fusion', port: 8080 },
-  { id: 2, repoId: 1, serviceId: 'moby', name: 'Moby', port: 8080 }
-]
-
-const mockEndpoints: Endpoint[] = [
-  {
-    id: 1,
-    serviceId: 1,
-    method: 'POST',
-    path: '/orders',
-    operationId: 'createOrder',
-    spec: {
-      summary: 'Create a new order',
-      parameters: [],
-      requestBody: {
-        required: true,
-        content: {
-          'application/json': {
-            schema: { type: 'object' }
-          }
-        }
-      }
-    }
-  },
-  {
-    id: 2,
-    serviceId: 2,
-    method: 'POST',
-    path: '/chat',
-    operationId: 'chat',
-    spec: {
-      summary: 'Send a chat message',
-      parameters: [],
-    }
-  },
-  {
-    id: 3,
-    serviceId: 2,
-    method: 'GET',
-    path: '/sessions/{sessionId}',
-    operationId: 'getSession',
-    spec: {
-      summary: 'Get session by ID',
-      parameters: [
-        {
-          name: 'sessionId',
-          in: 'path',
-          required: true,
-          schema: { type: 'string' }
-        },
-        {
-          name: 'includeMessages',
-          in: 'query',
-          required: false,
-          schema: { type: 'boolean' }
-        }
-      ]
-    }
-  },
-  {
-    id: 4,
-    serviceId: 1,
-    method: 'GET',
-    path: '/orders/{orderId}',
-    operationId: 'getOrder',
-    spec: {
-      summary: 'Get order by ID',
-      parameters: [
-        {
-          name: 'orderId',
-          in: 'path',
-          required: true,
-          schema: { type: 'string' }
-        }
-      ]
-    }
-  },
-  {
-    id: 5,
-    serviceId: 1,
-    method: 'DELETE',
-    path: '/orders/{orderId}',
-    operationId: 'deleteOrder',
-    spec: {
-      summary: 'Delete an order',
-      parameters: [
-        {
-          name: 'orderId',
-          in: 'path',
-          required: true,
-          schema: { type: 'string' }
-        }
-      ]
-    }
-  }
-]
 
 function App() {
   const [environment, setEnvironment] = useState<Environment>('LOCAL')
-  const [repositories] = useState<Repository[]>(mockRepositories)
-  const [services] = useState<Service[]>(mockServices)
-  const [endpoints] = useState<Endpoint[]>(mockEndpoints)
+  const [repositories, setRepositories] = useState<Repository[]>([])
+  const [services, setServices] = useState<Service[]>([])
+  const [endpoints, setEndpoints] = useState<Endpoint[]>([])
   const [selectedEndpoint, setSelectedEndpoint] = useState<Endpoint | null>(null)
   const [response, setResponse] = useState<Response | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingData, setIsLoadingData] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [showAddDialog, setShowAddDialog] = useState(false)
 
-  const handleAddRepository = () => {
-    alert('Add repository dialog will be implemented')
+  const { invoke } = useIPC()
+
+  // Load all data from backend
+  const loadData = async () => {
+    try {
+      setIsLoadingData(true)
+      setError(null)
+      const repos = await invoke<Repository[]>('getRepositories', {})
+      setRepositories(repos || [])
+
+      // Load all services for all repositories
+      if (repos && repos.length > 0) {
+        const allServices: Service[] = []
+        const allEndpoints: Endpoint[] = []
+
+        for (const repo of repos) {
+          const repoServices = await invoke<Service[]>('getServices', {
+            repositoryId: repo.id,
+          })
+
+          if (repoServices) {
+            allServices.push(...repoServices)
+
+            // Load endpoints for each service
+            for (const service of repoServices) {
+              const serviceEndpoints = await invoke<Endpoint[]>('getEndpoints', {
+                serviceId: service.id,
+              })
+
+              if (serviceEndpoints) {
+                allEndpoints.push(...serviceEndpoints)
+              }
+            }
+          }
+        }
+
+        setServices(allServices)
+        setEndpoints(allEndpoints)
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load data'
+      setError(errorMessage)
+    } finally {
+      setIsLoadingData(false)
+    }
   }
 
-  const handleSend = async (_config: {
+  // Load repositories on app mount
+  useEffect(() => {
+    loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleAddRepository = async (path: string) => {
+    await invoke('addRepository', { path })
+    // Reload all data after adding repository
+    await loadData()
+  }
+
+  const handleSend = async (config: {
     method: string
     path: string
     headers: Record<string, string>
     body: string
   }) => {
-    setIsLoading(true)
+    if (!selectedEndpoint) return
 
-    // Simulate API call - in production this will use the IPC hook
-    // const result = await invoke('executeRequest', config);
-    setTimeout(() => {
-      const mockResponse: Response = {
-        statusCode: 200,
-        status: 'OK',
-        headers: {
-          'content-type': ['application/json'],
-          'x-request-id': ['123e4567-e89b-12d3-a456-426614174000']
-        },
-        body: JSON.stringify({
-          success: true,
-          message: 'This is a mock response',
-          data: { id: '123', created: new Date().toISOString() }
-        }),
-        responseTime: Math.floor(Math.random() * 500) + 100
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      // Find the service for this endpoint
+      const service = services.find((s) => s.id === selectedEndpoint.serviceId)
+      if (!service) {
+        throw new Error('Service not found for endpoint')
       }
 
-      setResponse(mockResponse)
+      const result = await invoke<Response>('executeRequest', {
+        serviceId: service.serviceId,
+        port: service.port,
+        endpoint: config.path,
+        method: config.method,
+        headers: config.headers,
+        body: config.body,
+        environment: environment,
+        endpointId: selectedEndpoint.id,
+      })
+
+      setResponse(result)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Request failed'
+      setResponse({
+        statusCode: 0,
+        status: 'Error',
+        headers: {},
+        body: '',
+        responseTime: 0,
+        error: errorMessage,
+      })
+    } finally {
       setIsLoading(false)
-    }, 1000)
+    }
   }
 
   return (
     <div className="h-screen flex flex-col">
       <Header environment={environment} onEnvironmentChange={setEnvironment} />
 
-      <div className="flex-1 flex overflow-hidden">
-        <Sidebar
-          repositories={repositories}
-          services={services}
-          endpoints={endpoints}
-          selectedEndpoint={selectedEndpoint}
-          onSelectEndpoint={setSelectedEndpoint}
-          onAddRepository={handleAddRepository}
-        />
-
-        <div className="flex-1 flex flex-col overflow-auto">
-          <RequestBuilder
-            endpoint={selectedEndpoint}
-            environment={environment}
-            onSend={handleSend}
-            isLoading={isLoading}
-          />
-
-          <ResponseViewer response={response} />
+      {error && (
+        <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-2 text-sm text-red-600 dark:text-red-400">
+          {error}
         </div>
+      )}
+
+      <div className="flex-1 flex overflow-hidden">
+        {isLoadingData ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+              <p className="text-muted-foreground">Loading repositories...</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Sidebar
+              repositories={repositories}
+              services={services}
+              endpoints={endpoints}
+              selectedEndpoint={selectedEndpoint}
+              onSelectEndpoint={setSelectedEndpoint}
+              onAddRepository={() => setShowAddDialog(true)}
+            />
+
+            <div className="flex-1 flex flex-col overflow-auto">
+              <RequestBuilder
+                endpoint={selectedEndpoint}
+                environment={environment}
+                onSend={handleSend}
+                isLoading={isLoading}
+              />
+
+              <ResponseViewer response={response} />
+            </div>
+          </>
+        )}
       </div>
+
+      <AddRepositoryDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        onAddRepository={handleAddRepository}
+      />
     </div>
   )
 }
