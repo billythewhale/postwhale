@@ -103,4 +103,59 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 **Pattern:** Define theme in CSS vars, manage with React Context, persist to localStorage
 **Why:** Enables runtime theme switching without CSS-in-JS overhead
 
-Last updated: 2026-01-11 (Phase 3 complete)
+### 16. Electron IPC Bridge Pattern - contextBridge for Security
+**Pattern:** Use contextBridge in preload script to expose limited API
+**Example:**
+```javascript
+// preload.js
+contextBridge.exposeInMainWorld('electron', {
+  invoke: (action, data) => ipcRenderer.invoke('ipc-request', action, data)
+});
+
+// renderer (React)
+window.electron.invoke('addRepository', {path: '/Users/...'})
+```
+**Why:** contextIsolation prevents renderer from accessing Node.js directly
+**Security:** nodeIntegration: false, contextIsolation: true
+
+### 17. Request-Response Correlation Pattern - RequestId
+**Pattern:** Add requestId to requests, echo it back in responses for async correlation
+**Example:**
+```go
+type IPCRequest struct {
+  Action    string      `json:"action"`
+  Data      json.RawMessage `json:"data"`
+  RequestID interface{} `json:"requestId,omitempty"`
+}
+
+response.RequestID = request.RequestID
+```
+**Why:** Electron spawns backend as child process, multiple requests can be in flight
+**Use:** Map requestId to Promise resolve/reject handlers
+
+### 18. Electron Environment Detection Pattern
+**Pattern:** Use NODE_ENV to switch between dev and production modes
+**Development:**
+- Load frontend from Vite dev server (http://localhost:5173)
+- Open DevTools
+- Backend from ../backend/postwhale
+**Production:**
+- Load frontend from ../frontend/dist/index.html
+- No DevTools
+- Backend from process.resourcesPath/postwhale
+
+### 19. Child Process IPC Pattern - stdin/stdout JSON
+**Pattern:** Spawn backend with stdio: ['pipe', 'pipe', 'pipe'], use readline for responses
+**Example:**
+```javascript
+const backendProcess = spawn(backendPath, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+const rl = readline.createInterface({ input: backendProcess.stdout });
+rl.on('line', (line) => {
+  const response = JSON.parse(line);
+  // Match requestId to resolve promise
+});
+backendProcess.stdin.write(JSON.stringify(request) + '\n');
+```
+**Why:** Avoids complex binary protocols, easy to debug
+
+Last updated: 2026-01-11 (Phase 4 complete - Electron integration)
