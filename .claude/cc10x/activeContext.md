@@ -1,65 +1,120 @@
-# Active Context
-
-## Current Focus
-Building PostWhale - an Electron-based Postman clone for testing Triple Whale microservices locally. Using TDD approach with small incremental steps.
+# PostWhale - Active Context
 
 ## Project Overview
-- Desktop app (Electron for Mac)
-- Backend: Golang (IPC communication, not REST)
+PostWhale is a Postman clone for testing Triple Whale microservice endpoints. Desktop Electron app running locally on Mac.
+
+**Tech Stack:**
+- Backend: Golang (embedded in Electron via IPC)
 - Frontend: React + TypeScript + shadcn/ui + Tailwind CSS
+- Desktop: Electron for Mac
 - Database: SQLite
-- Theme: Royal Blue (#4169E1) primary, light/dark mode
+- Design: Royal Blue (#4169E1) primary, light/dark mode
 
-## Architecture
+## Current Status: Phase 3 Complete ✅
+
+### Phase 3: React Frontend (COMPLETE)
+**Status:** Frontend built with Vite, React 19, TypeScript, Tailwind CSS 4.1, shadcn/ui
+**Build status:** Successful (240.83 kB JS, 16.97 kB CSS)
+**Dev server:** Tested and working on http://localhost:5173
+
+#### Built Components (Phase 1 + Phase 2)
+1. **Service Discovery** (backend/discovery/) - Phase 1
+   - Parse tw-config.json and openapi.private.yaml
+
+2. **SQLite Database** (backend/db/) - Phase 1
+   - CRUD operations with CASCADE deletes
+
+3. **HTTP Client** (backend/client/) - Phase 2 ✅
+   - URL construction for LOCAL/STAGING/PRODUCTION
+   - Execute HTTP requests with timeout handling
+   - Custom headers, request/response body
+
+4. **Repository Scanner** (backend/scanner/) - Phase 2 ✅
+   - Scan /services subdirectory
+   - Discover all services and endpoints
+   - Graceful error handling
+
+5. **IPC Handler** (backend/ipc/) - Phase 2 ✅
+   - Actions: addRepository, getRepositories, removeRepository, getServices, getEndpoints, getRequestHistory
+   - JSON request/response protocol
+   - Coordinates scanner + database
+
+6. **Main Entry Point** (backend/main.go) - Phase 2 ✅
+   - Stdin/stdout JSON protocol for Electron
+   - Database initialization in ~/.postwhale/
+   - IPC message loop
+
+#### Quality Metrics
+- Tests: 47/47 passing
+  - client: 10 tests (81.8% coverage)
+  - scanner: 3 tests (78.4% coverage)
+  - ipc: 6 tests (57.8% coverage)
+  - db: 25 tests (71.2% coverage)
+  - discovery: 3 tests (84.1% coverage)
+- Total Coverage: 70.6%
+
+#### Manual Testing
+```bash
+# Test IPC protocol
+echo '{"action":"getRepositories","data":{}}' | ./postwhale
+# => {"success":true,"data":[]}
+
+echo '{"action":"addRepository","data":{"path":"../fake-repo"}}' | ./postwhale
+# => Scans and adds fusion + moby services with 6 endpoints
 ```
-postwhale/
-├── electron/           # Main process, preload
-├── backend/           # Go backend (IPC handler, DB, HTTP client, service discovery)
-├── frontend/          # React + TypeScript UI
-└── fake-repo/         # Test data (exists)
-    └── services/
-        ├── fusion/    # Data ingestion service
-        └── moby/      # AI chat service
-```
 
-## Next Steps
-1. Initialize project structure (git, directories, Go module, npm)
-2. Create openapi.private.yaml for fusion and moby (minimal 2-3 endpoints)
-3. Backend: Service discovery (TDD) - parse tw-config.json and openapi.private.yaml
-4. Backend: SQLite database layer (TDD)
-5. Backend: IPC handler (TDD)
-6. Backend: HTTP client for environments (TDD)
-7. Frontend: Setup React + shadcn/ui + Tailwind
-8. Frontend: Repository management UI
-9. Frontend: Service tree UI
-10. Frontend: Request builder UI
-11. Frontend: Response viewer UI
-12. Electron integration
-13. End-to-end testing
+### Phase 3: Frontend Components ✅
 
-## Active Decisions
-| Decision | Choice | Why |
-|----------|--------|-----|
-| IPC vs REST API | IPC | User specified, embedded backend |
-| OpenAPI scope | Minimal 2-3 endpoints | Start small, functional |
-| Build approach | TDD | Required by spec |
-| Commit strategy | Small logical commits | After each feature |
+7. **UI Components** (frontend/src/components/ui/)
+   - Button, Badge, Card, Tabs, Input, Textarea, Select
+   - Based on shadcn/ui patterns with Tailwind CSS
+   - Full TypeScript support
 
-## Learnings This Session
-- Fusion service: Data ingestion (orders, customers, products, ads, etc.)
-- Moby service: AI chat (POST /chat, GET /sessions/:sessionId)
-- tw-config.json structure: PORT, SERVICE_ID, deployments with endpoints
-- Environment URL patterns: LOCAL, STAGING, PRODUCTION
+8. **Layout Components** (frontend/src/components/layout/)
+   - Header with environment selector and theme toggle
+   - Royal Blue (#4169E1) primary color
+   - Light/dark mode support
 
-## Blockers / Issues
-None yet
+9. **Sidebar** (frontend/src/components/sidebar/)
+   - Collapsible repository tree
+   - Service and endpoint navigation
+   - HTTP method badges (GET=green, POST=blue, PUT=orange, DELETE=red)
+   - Add repository button
 
-## User Preferences Discovered
-- TDD is mandatory
-- Small incremental commits
-- Backend-frontend via IPC, not separate server
-- Royal Blue theme (#4169E1)
-- Dark/light mode support
+10. **Request Builder** (frontend/src/components/request/)
+    - Dynamic form based on endpoint spec
+    - Tabs: Params | Headers | Body
+    - Path and query parameter handling
+    - Send button with loading state
 
-## Last Updated
-2026-01-11 (Session start)
+11. **Response Viewer** (frontend/src/components/response/)
+    - Status code with color coding (2xx=green, 4xx=yellow, 5xx=red)
+    - Response time display
+    - Tabs: Body | Headers
+    - Copy to clipboard functionality
+    - JSON formatting
+
+12. **Utilities**
+    - TypeScript types (types/index.ts)
+    - IPC hook (hooks/useIPC.ts) - ready for Electron integration
+    - Theme provider with localStorage persistence
+
+#### Frontend Stack
+- React 19.2.0
+- TypeScript 5.9.3
+- Vite 7.2.4
+- Tailwind CSS 4.1.18 with @tailwindcss/postcss
+- lucide-react icons
+- Mock data for development testing
+
+#### Mock Data
+- 1 repository (fake-repo)
+- 2 services (Fusion, Moby)
+- 5 endpoints (POST /orders, POST /chat, GET /sessions/{sessionId}, GET /orders/{orderId}, DELETE /orders/{orderId})
+
+### Next Phase: Electron Integration (TODO)
+- Wire IPC hook to Electron main process
+- Implement Add Repository dialog
+- Connect to backend Go binary
+
+Last updated: 2026-01-11 (Phase 3 complete)
