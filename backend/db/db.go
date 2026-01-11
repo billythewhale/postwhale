@@ -2,6 +2,9 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
+	"path/filepath"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -46,9 +49,26 @@ type Request struct {
 
 // InitDB initializes the SQLite database and creates tables
 func InitDB(dbPath string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", dbPath)
+	// Validate and sanitize database path
+	if dbPath == "" {
+		return nil, fmt.Errorf("database path cannot be empty")
+	}
+
+	// Prevent path traversal by checking for suspicious patterns
+	cleanPath := filepath.Clean(dbPath)
+	if strings.Contains(cleanPath, "..") {
+		return nil, fmt.Errorf("invalid database path: path traversal not allowed")
+	}
+
+	db, err := sql.Open("sqlite3", cleanPath)
 	if err != nil {
 		return nil, err
+	}
+
+	// Verify connection works
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	// Create tables
@@ -98,6 +118,7 @@ func InitDB(dbPath string) (*sql.DB, error) {
 
 	_, err = db.Exec(schema)
 	if err != nil {
+		db.Close()
 		return nil, err
 	}
 
@@ -106,6 +127,14 @@ func InitDB(dbPath string) (*sql.DB, error) {
 
 // AddRepository adds a new repository to the database
 func AddRepository(db *sql.DB, repo Repository) (int64, error) {
+	// Validate inputs
+	if repo.Name == "" {
+		return 0, fmt.Errorf("repository name cannot be empty")
+	}
+	if repo.Path == "" {
+		return 0, fmt.Errorf("repository path cannot be empty")
+	}
+
 	result, err := db.Exec(
 		"INSERT INTO repositories (name, path) VALUES (?, ?)",
 		repo.Name, repo.Path,
@@ -125,7 +154,8 @@ func GetRepositories(db *sql.DB) ([]Repository, error) {
 	}
 	defer rows.Close()
 
-	var repositories []Repository
+	// Initialize as empty slice, not nil
+	repositories := []Repository{}
 	for rows.Next() {
 		var repo Repository
 		if err := rows.Scan(&repo.ID, &repo.Name, &repo.Path); err != nil {
@@ -134,11 +164,27 @@ func GetRepositories(db *sql.DB) ([]Repository, error) {
 		repositories = append(repositories, repo)
 	}
 
+	// Check for errors during iteration
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return repositories, nil
 }
 
 // AddService adds a new service to the database
 func AddService(db *sql.DB, service Service) (int64, error) {
+	// Validate inputs
+	if service.ServiceID == "" {
+		return 0, fmt.Errorf("service_id cannot be empty")
+	}
+	if service.Name == "" {
+		return 0, fmt.Errorf("service name cannot be empty")
+	}
+	if service.Port <= 0 || service.Port > 65535 {
+		return 0, fmt.Errorf("port must be between 1 and 65535")
+	}
+
 	result, err := db.Exec(
 		"INSERT INTO services (repo_id, service_id, name, port, config_json) VALUES (?, ?, ?, ?, ?)",
 		service.RepoID, service.ServiceID, service.Name, service.Port, service.ConfigJSON,
@@ -161,7 +207,8 @@ func GetServicesByRepo(db *sql.DB, repoID int64) ([]Service, error) {
 	}
 	defer rows.Close()
 
-	var services []Service
+	// Initialize as empty slice, not nil
+	services := []Service{}
 	for rows.Next() {
 		var svc Service
 		if err := rows.Scan(&svc.ID, &svc.RepoID, &svc.ServiceID, &svc.Name, &svc.Port, &svc.ConfigJSON); err != nil {
@@ -170,11 +217,38 @@ func GetServicesByRepo(db *sql.DB, repoID int64) ([]Service, error) {
 		services = append(services, svc)
 	}
 
+	// Check for errors during iteration
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return services, nil
 }
 
 // AddEndpoint adds a new endpoint to the database
 func AddEndpoint(db *sql.DB, endpoint Endpoint) (int64, error) {
+	// Validate inputs
+	if endpoint.Method == "" {
+		return 0, fmt.Errorf("endpoint method cannot be empty")
+	}
+	if endpoint.Path == "" {
+		return 0, fmt.Errorf("endpoint path cannot be empty")
+	}
+
+	// Validate HTTP method
+	validMethods := map[string]bool{
+		"GET":     true,
+		"POST":    true,
+		"PUT":     true,
+		"PATCH":   true,
+		"DELETE":  true,
+		"HEAD":    true,
+		"OPTIONS": true,
+	}
+	if !validMethods[strings.ToUpper(endpoint.Method)] {
+		return 0, fmt.Errorf("invalid HTTP method: %s", endpoint.Method)
+	}
+
 	result, err := db.Exec(
 		"INSERT INTO endpoints (service_id, method, path, operation_id, spec_json) VALUES (?, ?, ?, ?, ?)",
 		endpoint.ServiceID, endpoint.Method, endpoint.Path, endpoint.OperationID, endpoint.SpecJSON,
@@ -197,7 +271,8 @@ func GetEndpointsByService(db *sql.DB, serviceID int64) ([]Endpoint, error) {
 	}
 	defer rows.Close()
 
-	var endpoints []Endpoint
+	// Initialize as empty slice, not nil
+	endpoints := []Endpoint{}
 	for rows.Next() {
 		var ep Endpoint
 		if err := rows.Scan(&ep.ID, &ep.ServiceID, &ep.Method, &ep.Path, &ep.OperationID, &ep.SpecJSON); err != nil {
@@ -206,11 +281,21 @@ func GetEndpointsByService(db *sql.DB, serviceID int64) ([]Endpoint, error) {
 		endpoints = append(endpoints, ep)
 	}
 
+	// Check for errors during iteration
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return endpoints, nil
 }
 
 // AddRequest adds a new request to the database
 func AddRequest(db *sql.DB, request Request) (int64, error) {
+	// Validate inputs
+	if request.Environment == "" {
+		return 0, fmt.Errorf("environment cannot be empty")
+	}
+
 	result, err := db.Exec(
 		"INSERT INTO requests (endpoint_id, environment, headers, body, response) VALUES (?, ?, ?, ?, ?)",
 		request.EndpointID, request.Environment, request.Headers, request.Body, request.Response,
@@ -237,13 +322,19 @@ func GetRequestHistory(db *sql.DB, endpointID int64, limit int) ([]Request, erro
 	}
 	defer rows.Close()
 
-	var requests []Request
+	// Initialize as empty slice, not nil
+	requests := []Request{}
 	for rows.Next() {
 		var req Request
 		if err := rows.Scan(&req.ID, &req.EndpointID, &req.Environment, &req.Headers, &req.Body, &req.Response, &req.CreatedAt); err != nil {
 			return nil, err
 		}
 		requests = append(requests, req)
+	}
+
+	// Check for errors during iteration
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return requests, nil
