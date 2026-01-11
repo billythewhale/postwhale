@@ -1,0 +1,1 @@
+{"watch":["src/","/Users/billy/triplewhale/packages/shared-types"],"execMap":{"js":"npm run build && node --expose-gc  dist/app.js","ts":"npm run build && node --expose-gc  dist/app.js"},"ext":"js,ts","delay":2}

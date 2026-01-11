@@ -1,0 +1,11 @@
+{
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "groundcover"
+  ],
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)"
+    ]
+  }
+}

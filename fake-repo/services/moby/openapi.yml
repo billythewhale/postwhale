@@ -1,0 +1,130 @@
+openapi: 3.0.0
+info:
+  title: moby
+  version: 1.0.0
+paths:
+  /sessions/get:
+    get:
+      operationId: sessions-get-get
+      responses:
+        '200':
+          description: A successful response
+      security:
+        - firebase: []
+      parameters: []
+      tags:
+        - moby
+      x-tw:
+        pathPrefix: moby
+        serviceId: moby
+        interfaces:
+          - client
+  /sessions/list:
+    get:
+      operationId: sessions-list-get
+      responses:
+        '200':
+          description: A successful response
+      security:
+        - firebase: []
+      parameters: []
+      tags:
+        - moby
+      x-tw:
+        pathPrefix: moby
+        serviceId: moby
+        interfaces:
+          - client
+  /sessions/branch:
+    get:
+      operationId: sessions-branch-get
+      responses:
+        '200':
+          description: A successful response
+      security:
+        - firebase: []
+      parameters: []
+      tags:
+        - moby
+      x-tw:
+        pathPrefix: moby
+        serviceId: moby
+        interfaces:
+          - client
+  /chat:
+    post:
+      operationId: chat-post
+      responses:
+        '200':
+          description: A successful response
+      security:
+        - firebase: []
+      parameters: []
+      tags:
+        - moby
+      x-tw:
+        pathPrefix: moby
+        serviceId: moby
+        interfaces:
+          - client
+  /tasks/cancel/{taskId}:
+    post:
+      operationId: tasks-cancel-taskId-post
+      responses:
+        '200':
+          description: A successful response
+      security:
+        - firebase: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - moby
+      x-tw:
+        pathPrefix: moby
+        serviceId: moby
+        interfaces:
+          - client
+  /stream/{taskId}:
+    get:
+      operationId: stream-taskId-get
+      responses:
+        '200':
+          description: A successful response
+      security:
+        - firebase: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      tags:
+        - moby
+      x-tw:
+        pathPrefix: moby
+        serviceId: moby
+        interfaces:
+          - client
+        deployment: moby-stream
+  /files/preview:
+    get:
+      operationId: files-preview-get
+      responses:
+        '200':
+          description: A successful response
+      security:
+        - firebase: []
+      parameters: []
+      tags:
+        - moby
+      x-tw:
+        pathPrefix: moby
+        serviceId: moby
+        interfaces:
+          - client
+components:
+  schemas: {}

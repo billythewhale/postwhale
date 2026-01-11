@@ -1,0 +1,281 @@
+openapi: 3.0.0
+info:
+  title: Fusion Service - Private API
+  description: Data ingestion service for Triple Whale
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://stg.fusion.srv.whale3.io
+    description: Staging
+  - url: https://fusion.srv.whale3.io
+    description: Production
+
+paths:
+  /orders:
+    post:
+      operationId: createOrder
+      summary: Create a new order
+      tags:
+        - Orders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Order'
+            example:
+              shop: "test-shop.myshopify.com"
+              order_id: "12345"
+              platform: "shopify"
+              created_at: "2026-01-11T12:00:00Z"
+              currency: "USD"
+              customer:
+                id: "cust_123"
+                email: "customer@example.com"
+                first_name: "John"
+                last_name: "Doe"
+              line_items:
+                - id: "line_1"
+                  name: "Test Product"
+                  price: 29.99
+                  quantity: 2
+                  product_id: "prod_123"
+              order_revenue: 59.98
+      responses:
+        '200':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  order_id:
+                    type: string
+        '400':
+          description: Invalid order data
+        '429':
+          description: Too many requests
+
+  /customers:
+    post:
+      operationId: createCustomer
+      summary: Create a new customer
+      tags:
+        - Customers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - shop
+                - customer_id
+              properties:
+                shop:
+                  type: string
+                  example: "test-shop.myshopify.com"
+                customer_id:
+                  type: string
+                  example: "cust_123"
+                email:
+                  type: string
+                  format: email
+                  example: "customer@example.com"
+                first_name:
+                  type: string
+                  example: "John"
+                last_name:
+                  type: string
+                  example: "Doe"
+                phone:
+                  type: string
+                  example: "+1234567890"
+                created_at:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  customer_id:
+                    type: string
+
+  /products:
+    post:
+      operationId: createProduct
+      summary: Create a new product
+      tags:
+        - Products
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - shop
+                - product_id
+                - name
+              properties:
+                shop:
+                  type: string
+                  example: "test-shop.myshopify.com"
+                product_id:
+                  type: string
+                  example: "prod_123"
+                name:
+                  type: string
+                  example: "Test Product"
+                description:
+                  type: string
+                  example: "A test product description"
+                price:
+                  type: number
+                  format: float
+                  example: 29.99
+                sku:
+                  type: string
+                  example: "TEST-SKU-123"
+                inventory:
+                  type: integer
+                  example: 100
+      responses:
+        '200':
+          description: Product created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  product_id:
+                    type: string
+
+components:
+  schemas:
+    Order:
+      type: object
+      required:
+        - shop
+        - order_id
+        - created_at
+        - currency
+        - customer
+        - order_revenue
+      properties:
+        shop:
+          type: string
+          description: Shop domain
+          example: "test-shop.myshopify.com"
+        order_id:
+          type: string
+          description: Unique order identifier
+          example: "12345"
+        platform:
+          type: string
+          default: "shopify"
+          example: "shopify"
+        platform_account_id:
+          type: string
+          example: "account_123"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-01-11T12:00:00Z"
+        currency:
+          type: string
+          example: "USD"
+        customer:
+          $ref: '#/components/schemas/Customer'
+        line_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineItem'
+          default: []
+        order_revenue:
+          type: number
+          format: float
+          minimum: 0
+          example: 59.98
+        discount_amount:
+          type: number
+          format: float
+          minimum: 0
+        shipping_price:
+          type: number
+          format: float
+          minimum: 0
+        taxes:
+          type: number
+          format: float
+        status:
+          type: string
+          example: "completed"
+        void:
+          type: boolean
+          default: false
+
+    Customer:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          example: "cust_123"
+        email:
+          type: string
+          format: email
+          example: "customer@example.com"
+        phone:
+          type: string
+          example: "+1234567890"
+        first_name:
+          type: string
+          example: "John"
+        last_name:
+          type: string
+          example: "Doe"
+
+    LineItem:
+      type: object
+      required:
+        - id
+        - price
+        - quantity
+      properties:
+        id:
+          type: string
+          example: "line_1"
+        name:
+          type: string
+          example: "Test Product"
+        price:
+          type: number
+          format: float
+          minimum: 0
+          example: 29.99
+        quantity:
+          type: integer
+          minimum: 1
+          example: 2
+        product_id:
+          type: string
+          example: "prod_123"
+        variant_id:
+          type: string
+        sku:
+          type: string
+          example: "TEST-SKU-123"

@@ -1,0 +1,32 @@
+{
+  "name": "fusion",
+  "description": "Triple Whale Fusion Service",
+  "version": "1.0.0",
+  "main": "dist/app.js",
+  "scripts": {
+    "start": "node dist/app.js",
+    "dev": "npx nodemon ${nodemonArgs}",
+    "build": "tsc",
+    "deploy": "tw deploy ."
+  },
+  "author": "Triple Whale, Inc.",
+  "license": "ISC",
+  "dependencies": {
+    "@tw/saber": "^0.7.86",
+    "@tw/sonic-tools": "^0.7.17",
+    "@tw/utils": "^0.12.239",
+    "express": "^4.21.1",
+    "mongodb": "^6.15.0",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@tw/test-utils": "^0.1.28",
+    "@tw/types": "^0.5.1593",
+    "@types/express": "^4.17.17",
+    "@types/jest": "^29.5.14",
+    "@types/uuid": "^10.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5"
+  }
+}

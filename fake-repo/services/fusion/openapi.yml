@@ -1,0 +1,407 @@
+openapi: 3.0.0
+info:
+  title: fusion
+  version: 1.0.0
+paths:
+  /orders:
+    post:
+      operationId: orders-post
+      responses:
+        '200':
+          description: A successful response
+          headers:
+            RateLimit-Policy:
+              schema:
+                type: string
+              description: The rate limit policy for this endpoint, given as
+                {quota};w={window} where window is in seconds and quota is the
+                allowed number of calls a user can make per window.
+              example: 100;w=60
+            RateLimit:
+              schema:
+                type: string
+              description: Information about the user's rate limit usage for this endpoint.
+        '429':
+          description: Too many requests
+          headers:
+            Retry-After:
+              schema:
+                type: string
+              description: The number of seconds until the user can make another request.
+              example: '60'
+      security:
+        - apiKey:
+            - orders:write
+      parameters: []
+      tags:
+        - fusion
+      x-tw:
+        pathPrefix: data-in
+        serviceId: fusion
+        interfaces:
+          - public
+        rateLimits: '[{"window":1,"quota":500},{"window":60,"quota":25000}]'
+  /bulk-orders:
+    post:
+      operationId: bulk-orders-post
+      responses:
+        '200':
+          description: A successful response
+          headers:
+            RateLimit-Policy:
+              schema:
+                type: string
+              description: The rate limit policy for this endpoint, given as
+                {quota};w={window} where window is in seconds and quota is the
+                allowed number of calls a user can make per window.
+              example: 100;w=60
+            RateLimit:
+              schema:
+                type: string
+              description: Information about the user's rate limit usage for this endpoint.
+        '429':
+          description: Too many requests
+          headers:
+            Retry-After:
+              schema:
+                type: string
+              description: The number of seconds until the user can make another request.
+              example: '60'
+      security:
+        - apiKey:
+            - orders:write
+      parameters: []
+      tags:
+        - fusion
+      x-tw:
+        pathPrefix: data-in
+        serviceId: fusion
+        interfaces:
+          - public
+        deployment: bulk
+        rateLimits: '[{"window":1,"quota":500},{"window":60,"quota":25000}]'
+  /customers:
+    post:
+      operationId: customers-post
+      responses:
+        '200':
+          description: A successful response
+          headers:
+            RateLimit-Policy:
+              schema:
+                type: string
+              description: The rate limit policy for this endpoint, given as
+                {quota};w={window} where window is in seconds and quota is the
+                allowed number of calls a user can make per window.
+              example: 100;w=60
+            RateLimit:
+              schema:
+                type: string
+              description: Information about the user's rate limit usage for this endpoint.
+        '429':
+          description: Too many requests
+          headers:
+            Retry-After:
+              schema:
+                type: string
+              description: The number of seconds until the user can make another request.
+              example: '60'
+      security:
+        - apiKey:
+            - customers:write
+            - orders:write
+      parameters: []
+      tags:
+        - fusion
+      x-tw:
+        pathPrefix: data-in
+        serviceId: fusion
+        interfaces:
+          - public
+        rateLimits: '[{"window":1,"quota":500},{"window":60,"quota":25000}]'
+  /ads:
+    post:
+      operationId: ads-post
+      responses:
+        '200':
+          description: A successful response
+          headers:
+            RateLimit-Policy:
+              schema:
+                type: string
+              description: The rate limit policy for this endpoint, given as
+                {quota};w={window} where window is in seconds and quota is the
+                allowed number of calls a user can make per window.
+              example: 100;w=60
+            RateLimit:
+              schema:
+                type: string
+              description: Information about the user's rate limit usage for this endpoint.
+        '429':
+          description: Too many requests
+          headers:
+            Retry-After:
+              schema:
+                type: string
+              description: The number of seconds until the user can make another request.
+              example: '60'
+      security:
+        - apiKey:
+            - ads:write
+        - hydra:
+            - ads:write
+      parameters: []
+      tags:
+        - fusion
+      x-tw:
+        pathPrefix: data-in
+        serviceId: fusion
+        interfaces:
+          - public
+        rateLimits: '[{"window":1,"quota":500},{"window":60,"quota":25000}]'
+  /products:
+    post:
+      operationId: products-post
+      responses:
+        '200':
+          description: A successful response
+          headers:
+            RateLimit-Policy:
+              schema:
+                type: string
+              description: The rate limit policy for this endpoint, given as
+                {quota};w={window} where window is in seconds and quota is the
+                allowed number of calls a user can make per window.
+              example: 100;w=60
+            RateLimit:
+              schema:
+                type: string
+              description: Information about the user's rate limit usage for this endpoint.
+        '429':
+          description: Too many requests
+          headers:
+            Retry-After:
+              schema:
+                type: string
+              description: The number of seconds until the user can make another request.
+              example: '60'
+      security:
+        - apiKey:
+            - products:write
+      parameters: []
+      tags:
+        - fusion
+      x-tw:
+        pathPrefix: data-in
+        serviceId: fusion
+        interfaces:
+          - public
+        rateLimits: '[{"window":1,"quota":500},{"window":60,"quota":25000}]'
+  /subscriptions:
+    post:
+      operationId: subscriptions-post
+      responses:
+        '200':
+          description: A successful response
+          headers:
+            RateLimit-Policy:
+              schema:
+                type: string
+              description: The rate limit policy for this endpoint, given as
+                {quota};w={window} where window is in seconds and quota is the
+                allowed number of calls a user can make per window.
+              example: 100;w=60
+            RateLimit:
+              schema:
+                type: string
+              description: Information about the user's rate limit usage for this endpoint.
+        '429':
+          description: Too many requests
+          headers:
+            Retry-After:
+              schema:
+                type: string
+              description: The number of seconds until the user can make another request.
+              example: '60'
+      security:
+        - apiKey:
+            - subscriptions:write
+      parameters: []
+      tags:
+        - fusion
+      x-tw:
+        pathPrefix: data-in
+        serviceId: fusion
+        interfaces:
+          - public
+        rateLimits: '[{"window":1,"quota":500},{"window":60,"quota":25000}]'
+  /pps:
+    post:
+      operationId: pps-post
+      responses:
+        '200':
+          description: A successful response
+          headers:
+            RateLimit-Policy:
+              schema:
+                type: string
+              description: The rate limit policy for this endpoint, given as
+                {quota};w={window} where window is in seconds and quota is the
+                allowed number of calls a user can make per window.
+              example: 100;w=60
+            RateLimit:
+              schema:
+                type: string
+              description: Information about the user's rate limit usage for this endpoint.
+        '429':
+          description: Too many requests
+          headers:
+            Retry-After:
+              schema:
+                type: string
+              description: The number of seconds until the user can make another request.
+              example: '60'
+      security:
+        - apiKey:
+            - pps:write
+      parameters: []
+      tags:
+        - fusion
+      x-tw:
+        pathPrefix: data-in
+        serviceId: fusion
+        interfaces:
+          - public
+        rateLimits: '[{"window":1,"quota":500},{"window":60,"quota":25000}]'
+  /shipping:
+    post:
+      operationId: shipping-post
+      responses:
+        '200':
+          description: A successful response
+          headers:
+            RateLimit-Policy:
+              schema:
+                type: string
+              description: The rate limit policy for this endpoint, given as
+                {quota};w={window} where window is in seconds and quota is the
+                allowed number of calls a user can make per window.
+              example: 100;w=60
+            RateLimit:
+              schema:
+                type: string
+              description: Information about the user's rate limit usage for this endpoint.
+        '429':
+          description: Too many requests
+          headers:
+            Retry-After:
+              schema:
+                type: string
+              description: The number of seconds until the user can make another request.
+              example: '60'
+      security:
+        - apiKey:
+            - shipping:write
+      parameters: []
+      tags:
+        - fusion
+      x-tw:
+        pathPrefix: data-in
+        serviceId: fusion
+        interfaces:
+          - public
+        rateLimits: '[{"window":1,"quota":500},{"window":60,"quota":25000}]'
+  /orders-enrichment:
+    post:
+      operationId: orders-enrichment-post
+      responses:
+        '200':
+          description: A successful response
+          headers:
+            RateLimit-Policy:
+              schema:
+                type: string
+              description: The rate limit policy for this endpoint, given as
+                {quota};w={window} where window is in seconds and quota is the
+                allowed number of calls a user can make per window.
+              example: 100;w=60
+            RateLimit:
+              schema:
+                type: string
+              description: Information about the user's rate limit usage for this endpoint.
+        '429':
+          description: Too many requests
+          headers:
+            Retry-After:
+              schema:
+                type: string
+              description: The number of seconds until the user can make another request.
+              example: '60'
+      security:
+        - apiKey:
+            - orders:write
+      parameters: []
+      tags:
+        - fusion
+      x-tw:
+        pathPrefix: data-in
+        serviceId: fusion
+        interfaces:
+          - public
+        rateLimits: '[{"window":1,"quota":500},{"window":60,"quota":25000}]'
+  /products-enrichment:
+    post:
+      operationId: products-enrichment-post
+      responses:
+        '200':
+          description: A successful response
+          headers:
+            RateLimit-Policy:
+              schema:
+                type: string
+              description: The rate limit policy for this endpoint, given as
+                {quota};w={window} where window is in seconds and quota is the
+                allowed number of calls a user can make per window.
+              example: 100;w=60
+            RateLimit:
+              schema:
+                type: string
+              description: Information about the user's rate limit usage for this endpoint.
+        '429':
+          description: Too many requests
+          headers:
+            Retry-After:
+              schema:
+                type: string
+              description: The number of seconds until the user can make another request.
+              example: '60'
+      security:
+        - apiKey:
+            - products:write
+      parameters: []
+      tags:
+        - fusion
+      x-tw:
+        pathPrefix: data-in
+        serviceId: fusion
+        interfaces:
+          - public
+        rateLimits: '[{"window":1,"quota":500},{"window":60,"quota":25000}]'
+  /healthcheck/stats:
+    post:
+      operationId: healthcheck-stats-post
+      responses:
+        '200':
+          description: A successful response
+      security:
+        - firebase: []
+      parameters: []
+      tags:
+        - fusion
+      x-tw:
+        pathPrefix: fusion
+        serviceId: fusion
+        interfaces:
+          - client
+components:
+  schemas: {}
