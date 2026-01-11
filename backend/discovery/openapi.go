@@ -8,11 +8,11 @@ import (
 
 // OpenAPISpec represents a simplified OpenAPI 3.0 spec
 type OpenAPISpec struct {
-	OpenAPI    string                `yaml:"openapi"`
-	Info       Info                  `yaml:"info"`
-	Servers    []Server              `yaml:"servers"`
-	Paths      map[string]PathItem   `yaml:"paths"`
-	Components Components            `yaml:"components"`
+	OpenAPI    string              `yaml:"openapi"`
+	Info       Info                `yaml:"info"`
+	Servers    []Server            `yaml:"servers"`
+	Paths      map[string]PathItem `yaml:"paths"`
+	Components Components          `yaml:"components"`
 }
 
 // Info represents OpenAPI info section
@@ -39,13 +39,13 @@ type PathItem struct {
 
 // Operation represents an OpenAPI operation
 type Operation struct {
-	OperationID string                  `yaml:"operationId"`
-	Summary     string                  `yaml:"summary"`
-	Description string                  `yaml:"description"`
-	Tags        []string                `yaml:"tags"`
-	Parameters  []OAParameter           `yaml:"parameters"`
-	RequestBody *OARequestBody          `yaml:"requestBody"`
-	Responses   map[string]OAResponse   `yaml:"responses"`
+	OperationID string                `yaml:"operationId"`
+	Summary     string                `yaml:"summary"`
+	Description string                `yaml:"description"`
+	Tags        []string              `yaml:"tags"`
+	Parameters  []OAParameter         `yaml:"parameters"`
+	RequestBody *OARequestBody        `yaml:"requestBody"`
+	Responses   map[string]OAResponse `yaml:"responses"`
 }
 
 // OAParameter represents OpenAPI parameter
@@ -58,8 +58,8 @@ type OAParameter struct {
 
 // OARequestBody represents OpenAPI request body
 type OARequestBody struct {
-	Required bool                       `yaml:"required"`
-	Content  map[string]OAMediaType     `yaml:"content"`
+	Required bool                   `yaml:"required"`
+	Content  map[string]OAMediaType `yaml:"content"`
 }
 
 // OAMediaType represents OpenAPI media type
@@ -76,13 +76,13 @@ type OAResponse struct {
 
 // OASchema represents OpenAPI schema (simplified)
 type OASchema struct {
-	Type       string               `yaml:"type"`
-	Format     string               `yaml:"format"`
-	Required   []string             `yaml:"required"`
-	Properties map[string]OASchema  `yaml:"properties"`
-	Items      *OASchema            `yaml:"items"`
-	Example    interface{}          `yaml:"example"`
-	Ref        string               `yaml:"$ref"`
+	Type       string              `yaml:"type"`
+	Format     string              `yaml:"format"`
+	Required   []string            `yaml:"required"`
+	Properties map[string]OASchema `yaml:"properties"`
+	Items      *OASchema           `yaml:"items"`
+	Example    interface{}         `yaml:"example"`
+	Ref        string              `yaml:"$ref"`
 }
 
 // Components represents OpenAPI components section

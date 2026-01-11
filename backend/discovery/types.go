@@ -6,11 +6,11 @@ type TWConfig struct {
 		Port      int    `json:"PORT"`
 		ServiceID string `json:"SERVICE_ID"`
 	} `json:"env"`
-	ServiceID   string                 `json:"serviceId"`
-	GitRepo     string                 `json:"gitRepo"`
-	Deployments map[string]Deployment  `json:"deployments"`
-	Color       string                 `json:"color,omitempty"`
-	Runtime     string                 `json:"runtime,omitempty"`
+	ServiceID   string                `json:"serviceId"`
+	GitRepo     string                `json:"gitRepo"`
+	Deployments map[string]Deployment `json:"deployments"`
+	Color       string                `json:"color,omitempty"`
+	Runtime     string                `json:"runtime,omitempty"`
 }
 
 // Deployment represents deployment configuration
@@ -28,11 +28,11 @@ type Endpoint struct {
 
 // Service represents a discovered service
 type Service struct {
-	ID   string
-	Name string
-	Path string
-	Port int
-	Config *TWConfig
+	ID        string
+	Name      string
+	Path      string
+	Port      int
+	Config    *TWConfig
 	Endpoints []APIEndpoint
 }
 
