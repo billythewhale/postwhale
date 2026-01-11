@@ -5,22 +5,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"time"
 
+	"github.com/triplewhale/postwhale/client"
 	"github.com/triplewhale/postwhale/db"
 	"github.com/triplewhale/postwhale/scanner"
 )
 
 // IPCRequest represents an incoming IPC message
 type IPCRequest struct {
-	Action string          `json:"action"`
-	Data   json.RawMessage `json:"data"`
+	Action    string          `json:"action"`
+	Data      json.RawMessage `json:"data"`
+	RequestID interface{}     `json:"requestId,omitempty"`
 }
 
 // IPCResponse represents an outgoing IPC message
 type IPCResponse struct {
-	Success bool        `json:"success"`
-	Data    interface{} `json:"data,omitempty"`
-	Error   string      `json:"error,omitempty"`
+	Success   bool        `json:"success"`
+	Data      interface{} `json:"data,omitempty"`
+	Error     string      `json:"error,omitempty"`
+	RequestID interface{} `json:"requestId,omitempty"`
 }
 
 // Handler manages IPC requests and database operations
@@ -48,27 +52,33 @@ func (h *Handler) Close() error {
 
 // HandleRequest processes an IPC request and returns a response
 func (h *Handler) HandleRequest(request IPCRequest) IPCResponse {
+	var response IPCResponse
+
 	switch request.Action {
 	case "addRepository":
-		return h.handleAddRepository(request.Data)
+		response = h.handleAddRepository(request.Data)
 	case "getRepositories":
-		return h.handleGetRepositories()
+		response = h.handleGetRepositories()
 	case "removeRepository":
-		return h.handleRemoveRepository(request.Data)
+		response = h.handleRemoveRepository(request.Data)
 	case "getServices":
-		return h.handleGetServices(request.Data)
+		response = h.handleGetServices(request.Data)
 	case "getEndpoints":
-		return h.handleGetEndpoints(request.Data)
+		response = h.handleGetEndpoints(request.Data)
 	case "executeRequest":
-		return h.handleExecuteRequest(request.Data)
+		response = h.handleExecuteRequest(request.Data)
 	case "getRequestHistory":
-		return h.handleGetRequestHistory(request.Data)
+		response = h.handleGetRequestHistory(request.Data)
 	default:
-		return IPCResponse{
+		response = IPCResponse{
 			Success: false,
 			Error:   fmt.Sprintf("unknown action: %s", request.Action),
 		}
 	}
+
+	// Pass through requestId for correlation
+	response.RequestID = request.RequestID
+	return response
 }
 
 // handleAddRepository adds a repository and scans it for services
@@ -170,6 +180,7 @@ func (h *Handler) handleAddRepository(data json.RawMessage) IPCResponse {
 		Success: true,
 		Data: map[string]interface{}{
 			"id":   addedRepo.ID,
+			"name": addedRepo.Name,
 			"path": addedRepo.Path,
 		},
 	}
@@ -190,6 +201,7 @@ func (h *Handler) handleGetRepositories() IPCResponse {
 	for i, repo := range repos {
 		result[i] = map[string]interface{}{
 			"id":   repo.ID,
+			"name": repo.Name,
 			"path": repo.Path,
 		}
 	}
@@ -306,10 +318,70 @@ func (h *Handler) handleGetEndpoints(data json.RawMessage) IPCResponse {
 
 // handleExecuteRequest executes an HTTP request
 func (h *Handler) handleExecuteRequest(data json.RawMessage) IPCResponse {
-	// TODO: Implement executeRequest action
+	var input struct {
+		ServiceID   string            `json:"serviceId"`
+		Port        int               `json:"port"`
+		Endpoint    string            `json:"endpoint"`
+		Method      string            `json:"method"`
+		Environment string            `json:"environment"`
+		Headers     map[string]string `json:"headers"`
+		Body        string            `json:"body"`
+		EndpointID  int64             `json:"endpointId,omitempty"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	// Build client config
+	config := client.RequestConfig{
+		ServiceID:   input.ServiceID,
+		Port:        input.Port,
+		Endpoint:    input.Endpoint,
+		Method:      input.Method,
+		Environment: client.Environment(input.Environment),
+		Headers:     input.Headers,
+		Body:        input.Body,
+		Timeout:     30 * time.Second,
+	}
+
+	// Execute the HTTP request
+	response := client.ExecuteRequest(config)
+
+	// Convert response to map for JSON serialization
+	result := map[string]interface{}{
+		"statusCode":   response.StatusCode,
+		"status":       response.Status,
+		"headers":      response.Headers,
+		"body":         response.Body,
+		"responseTime": response.ResponseTime.Milliseconds(),
+	}
+
+	// Include error if present
+	if response.Error != "" {
+		result["error"] = response.Error
+	}
+
+	// Save to request history if endpointId provided
+	if input.EndpointID > 0 {
+		headersJSON, _ := json.Marshal(input.Headers)
+		responseJSON, _ := json.Marshal(result)
+
+		_, _ = db.AddRequest(h.database, db.Request{
+			EndpointID:  input.EndpointID,
+			Environment: input.Environment,
+			Headers:     string(headersJSON),
+			Body:        input.Body,
+			Response:    string(responseJSON),
+		})
+	}
+
 	return IPCResponse{
-		Success: false,
-		Error:   "executeRequest not yet implemented",
+		Success: true,
+		Data:    result,
 	}
 }
 

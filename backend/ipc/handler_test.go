@@ -231,3 +231,47 @@ func TestHandleRequest_RemoveRepository(t *testing.T) {
 		t.Errorf("Expected 0 repositories after removal, got %d", len(repos))
 	}
 }
+
+func TestHandleRequest_ExecuteRequest(t *testing.T) {
+	handler := NewHandler(":memory:")
+	defer handler.Close()
+
+	// Test executeRequest with minimal configuration
+	requestData := map[string]interface{}{
+		"serviceId":   "test-service",
+		"port":        8080,
+		"endpoint":    "/health",
+		"method":      "GET",
+		"environment": "LOCAL",
+		"headers":     map[string]string{},
+		"body":        "",
+	}
+	requestJSON, _ := json.Marshal(requestData)
+
+	request := IPCRequest{
+		Action: "executeRequest",
+		Data:   json.RawMessage(requestJSON),
+	}
+
+	response := handler.HandleRequest(request)
+
+	// Response should have data (even if request fails due to no running service)
+	// We're testing the handler parses the request correctly, not that the HTTP call succeeds
+	if response.Data == nil {
+		t.Fatal("Expected data in response")
+	}
+
+	dataMap, ok := response.Data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected data to be map, got %T", response.Data)
+	}
+
+	// Should have status code and response time
+	if dataMap["statusCode"] == nil && dataMap["error"] == nil {
+		t.Error("Expected either statusCode or error in response")
+	}
+
+	if dataMap["responseTime"] == nil {
+		t.Error("Expected responseTime in response")
+	}
+}
