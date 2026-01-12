@@ -75,6 +75,8 @@ func (h *Handler) HandleRequest(request IPCRequest) IPCResponse {
 		response = h.handleScanDirectory(request.Data)
 	case "checkPath":
 		response = h.handleCheckPath(request.Data)
+	case "refreshRepository":
+		response = h.handleRefreshRepository(request.Data)
 	default:
 		response = IPCResponse{
 			Success: false,
@@ -272,6 +274,7 @@ func (h *Handler) handleGetServices(data json.RawMessage) IPCResponse {
 	for i, svc := range services {
 		result[i] = map[string]interface{}{
 			"id":        svc.ID,
+			"repoId":    svc.RepoID,
 			"serviceId": svc.ServiceID,
 			"name":      svc.Name,
 			"port":      svc.Port,
@@ -310,6 +313,7 @@ func (h *Handler) handleGetEndpoints(data json.RawMessage) IPCResponse {
 	for i, ep := range endpoints {
 		result[i] = map[string]interface{}{
 			"id":          ep.ID,
+			"serviceId":   ep.ServiceID,
 			"operationId": ep.OperationID,
 			"method":      ep.Method,
 			"path":        ep.Path,
@@ -550,6 +554,105 @@ func (h *Handler) handleCheckPath(data json.RawMessage) IPCResponse {
 			"exists":       exists,
 			"isDirectory":  isDir,
 			"resolvedPath": path,
+		},
+	}
+}
+
+// handleRefreshRepository re-scans a repository to update services and endpoints
+func (h *Handler) handleRefreshRepository(data json.RawMessage) IPCResponse {
+	var input struct {
+		ID int64 `json:"id"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	// Get the repository from database
+	repos, err := db.GetRepositories(h.database)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to get repositories: %v", err),
+		}
+	}
+
+	var repo *db.Repository
+	for i := range repos {
+		if repos[i].ID == input.ID {
+			repo = &repos[i]
+			break
+		}
+	}
+
+	if repo == nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("repository not found: %d", input.ID),
+		}
+	}
+
+	// Delete existing services for this repo (CASCADE will delete endpoints)
+	_, err = h.database.Exec("DELETE FROM services WHERE repo_id = ?", input.ID)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to clear existing services: %v", err),
+		}
+	}
+
+	// Re-scan the repository
+	scanResult := scanner.ScanRepository(repo.Path)
+	if len(scanResult.Errors) > 0 && len(scanResult.Services) == 0 {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("scan failed: %s", scanResult.Errors[0]),
+		}
+	}
+
+	// Add discovered services to database
+	servicesAdded := 0
+	endpointsAdded := 0
+	for _, svc := range scanResult.Services {
+		serviceID, err := db.AddService(h.database, db.Service{
+			RepoID:     input.ID,
+			ServiceID:  svc.ServiceID,
+			Name:       svc.Name,
+			Port:       svc.Port,
+			ConfigJSON: "{}",
+		})
+		if err != nil {
+			continue // Skip services that fail to add
+		}
+		servicesAdded++
+
+		// Add endpoints for this service
+		for _, endpoint := range svc.Endpoints {
+			_, err := db.AddEndpoint(h.database, db.Endpoint{
+				ServiceID:   serviceID,
+				Method:      endpoint.Method,
+				Path:        endpoint.Path,
+				OperationID: endpoint.OperationID,
+				SpecJSON:    "{}",
+			})
+			if err == nil {
+				endpointsAdded++
+			}
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"id":             repo.ID,
+			"name":           repo.Name,
+			"path":           repo.Path,
+			"servicesAdded":  servicesAdded,
+			"endpointsAdded": endpointsAdded,
+			"warnings":       scanResult.Errors,
 		},
 	}
 }

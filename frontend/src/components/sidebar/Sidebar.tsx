@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Plus, ChevronRight, ChevronDown } from "lucide-react"
+import { Plus, ChevronRight, ChevronDown, RefreshCcw, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -13,6 +13,8 @@ interface SidebarProps {
   onSelectEndpoint: (endpoint: Endpoint) => void
   onAddRepository: () => void
   onAutoAddRepos: () => void
+  onRefreshAll: () => void
+  onRemoveRepository: (id: number) => void
 }
 
 export function Sidebar({
@@ -23,6 +25,8 @@ export function Sidebar({
   onSelectEndpoint,
   onAddRepository,
   onAutoAddRepos,
+  onRefreshAll,
+  onRemoveRepository,
 }: SidebarProps) {
   const [expandedRepos, setExpandedRepos] = useState<Set<number>>(new Set())
   const [expandedServices, setExpandedServices] = useState<Set<number>>(new Set())
@@ -73,20 +77,33 @@ export function Sidebar({
 
               return (
                 <div key={repo.id}>
-                  <button
-                    onClick={() => toggleRepo(repo.id)}
-                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded hover:bg-accent text-sm font-medium"
-                  >
-                    {isExpanded ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                    <span className="flex-1 text-left">{repo.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {repoServices.length}
-                    </span>
-                  </button>
+                  <div className="flex items-center gap-1 w-full">
+                    <button
+                      onClick={() => toggleRepo(repo.id)}
+                      className="flex items-center gap-2 flex-1 px-2 py-1.5 rounded hover:bg-accent text-sm font-medium"
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                      <span className="flex-1 text-left">{repo.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {repoServices.length}
+                      </span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRemoveRepository(repo.id)
+                      }}
+                      className="p-1.5 rounded hover:bg-destructive/10 hover:text-destructive transition-colors"
+                      title="Remove repository"
+                      aria-label={`Remove ${repo.name}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
 
                   {isExpanded && (
                     <div className="ml-4 mt-1 space-y-1">
@@ -158,6 +175,17 @@ export function Sidebar({
       </div>
 
       <div className="border-t p-4 space-y-2">
+        {repositories.length > 0 && (
+          <Button
+            onClick={onRefreshAll}
+            className="w-full"
+            size="sm"
+            variant="outline"
+          >
+            <RefreshCcw className="h-4 w-4 mr-2" />
+            Refresh All
+          </Button>
+        )}
         <Button
           onClick={onAutoAddRepos}
           className="w-full"
