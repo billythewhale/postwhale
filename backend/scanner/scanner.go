@@ -75,6 +75,24 @@ func ScanRepository(repoPath string) ScanResult {
 	return result
 }
 
+// findOpenAPIFile finds an OpenAPI file in the service directory
+// Matches pattern: openapi*.yaml or openapi*.yml (e.g., openapi.private.yaml, openapi.public.yml)
+func findOpenAPIFile(servicePath string) string {
+	// Try yaml extension first
+	yamlMatches, _ := filepath.Glob(filepath.Join(servicePath, "openapi*.yaml"))
+	if len(yamlMatches) > 0 {
+		return yamlMatches[0]
+	}
+
+	// Try yml extension
+	ymlMatches, _ := filepath.Glob(filepath.Join(servicePath, "openapi*.yml"))
+	if len(ymlMatches) > 0 {
+		return ymlMatches[0]
+	}
+
+	return ""
+}
+
 // scanService scans a single service directory for config and endpoints
 func scanService(servicePath string) *DiscoveredService {
 	// Look for tw-config.json
@@ -93,11 +111,17 @@ func scanService(servicePath string) *DiscoveredService {
 		Endpoints: []discovery.APIEndpoint{},
 	}
 
-	// Look for openapi.private.yaml
-	openapiPath := filepath.Join(servicePath, "openapi.private.yaml")
+	// Find OpenAPI file (matches openapi*.yaml or openapi*.yml)
+	openapiPath := findOpenAPIFile(servicePath)
+	if openapiPath == "" {
+		// Service has config but no OpenAPI - use serviceID as name
+		service.Name = config.ServiceID
+		return service
+	}
+
 	openapi, err := discovery.ParseOpenAPI(openapiPath)
 	if err != nil {
-		// Service has config but no OpenAPI - use serviceID as name
+		// Service has config but OpenAPI failed to parse - use serviceID as name
 		service.Name = config.ServiceID
 		return service
 	}

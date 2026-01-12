@@ -117,6 +117,40 @@ function App() {
     }
   }
 
+  const handleRefreshAll = async () => {
+    try {
+      setError(null)
+      // Refresh each repository
+      for (const repo of repositories) {
+        await invoke('refreshRepository', { id: repo.id })
+      }
+      // Reload all data after refreshing
+      await loadData()
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to refresh repositories'
+      setError(errorMessage)
+    }
+  }
+
+  const handleRemoveRepository = async (id: number) => {
+    try {
+      setError(null)
+      // Clear selected endpoint if it belongs to repo being removed
+      if (selectedEndpoint) {
+        const service = services.find(s => s.id === selectedEndpoint.serviceId)
+        if (service && service.repoId === id) {
+          setSelectedEndpoint(null)
+        }
+      }
+      await invoke('removeRepository', { id })
+      // Reload all data after removing
+      await loadData()
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to remove repository'
+      setError(errorMessage)
+    }
+  }
+
   const handleSend = async (config: {
     method: string
     path: string
@@ -190,6 +224,8 @@ function App() {
               onSelectEndpoint={setSelectedEndpoint}
               onAddRepository={() => setShowAddDialog(true)}
               onAutoAddRepos={() => setShowAutoAddDialog(true)}
+              onRefreshAll={handleRefreshAll}
+              onRemoveRepository={handleRemoveRepository}
             />
 
             <div className="flex-1 flex flex-col overflow-auto">
