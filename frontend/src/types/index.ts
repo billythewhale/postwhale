@@ -87,3 +87,20 @@ export interface RequestHistoryEntry {
   responseTime: number;
   timestamp: string;
 }
+
+export interface SubdirInfo {
+  name: string;
+  path: string;
+  hasServices: boolean;
+}
+
+export interface ScanDirectoryResult {
+  basePath: string;
+  subdirs: SubdirInfo[];
+}
+
+export interface CheckPathResult {
+  exists: boolean;
+  isDirectory: boolean;
+  resolvedPath: string;
+}

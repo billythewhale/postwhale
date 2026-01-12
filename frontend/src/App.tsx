@@ -4,8 +4,9 @@ import { Sidebar } from '@/components/sidebar/Sidebar'
 import { RequestBuilder } from '@/components/request/RequestBuilder'
 import { ResponseViewer } from '@/components/response/ResponseViewer'
 import { AddRepositoryDialog } from '@/components/sidebar/AddRepositoryDialog'
+import { AutoAddReposDialog } from '@/components/sidebar/AutoAddReposDialog'
 import { useIPC } from '@/hooks/useIPC'
-import type { Environment, Repository, Service, Endpoint, Response } from '@/types'
+import type { Environment, Repository, Service, Endpoint, Response, CheckPathResult, ScanDirectoryResult } from '@/types'
 
 function App() {
   const [environment, setEnvironment] = useState<Environment>('LOCAL')
@@ -18,6 +19,7 @@ function App() {
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showAutoAddDialog, setShowAutoAddDialog] = useState(false)
 
   const { invoke } = useIPC()
 
@@ -76,6 +78,43 @@ function App() {
     await invoke('addRepository', { path })
     // Reload all data after adding repository
     await loadData()
+  }
+
+  const handleCheckPath = async (path: string): Promise<CheckPathResult> => {
+    return await invoke<CheckPathResult>('checkPath', { path })
+  }
+
+  const handleScanDirectory = async (path: string): Promise<ScanDirectoryResult> => {
+    return await invoke<ScanDirectoryResult>('scanDirectory', { path })
+  }
+
+  const handleAddRepositories = async (paths: string[]) => {
+    // Track results for each repository add attempt
+    const results: { path: string; success: boolean; error?: string }[] = []
+
+    // Add repositories sequentially, collecting results
+    for (const path of paths) {
+      try {
+        await invoke('addRepository', { path })
+        results.push({ path, success: true })
+      } catch (err: unknown) {
+        results.push({
+          path,
+          success: false,
+          error: err instanceof Error ? err.message : String(err)
+        })
+      }
+    }
+
+    // Reload all data after adding repositories
+    await loadData()
+
+    // Report failures if any
+    const failed = results.filter(r => !r.success)
+    if (failed.length > 0) {
+      const failedNames = failed.map(f => f.path.split('/').pop()).join(', ')
+      setError(`Failed to add ${failed.length} repository(s): ${failedNames}`)
+    }
   }
 
   const handleSend = async (config: {
@@ -150,6 +189,7 @@ function App() {
               selectedEndpoint={selectedEndpoint}
               onSelectEndpoint={setSelectedEndpoint}
               onAddRepository={() => setShowAddDialog(true)}
+              onAutoAddRepos={() => setShowAutoAddDialog(true)}
             />
 
             <div className="flex-1 flex flex-col overflow-auto">
@@ -170,6 +210,14 @@ function App() {
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
         onAddRepository={handleAddRepository}
+      />
+
+      <AutoAddReposDialog
+        open={showAutoAddDialog}
+        onOpenChange={setShowAutoAddDialog}
+        onCheckPath={handleCheckPath}
+        onScanDirectory={handleScanDirectory}
+        onAddRepositories={handleAddRepositories}
       />
     </div>
   )

@@ -44,7 +44,36 @@ export function useIPC() {
     // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 300));
 
-    // Return empty successful response
+    // Return appropriate mock data based on action
+    // Actions that return arrays should return empty arrays
+    const arrayActions = [
+      'getRepositories',
+      'getServices',
+      'getEndpoints',
+      'getRequestHistory'
+    ];
+
+    if (arrayActions.includes(action)) {
+      return [] as unknown as T;
+    }
+
+    // Actions that return specific object shapes
+    if (action === 'checkPath') {
+      return {
+        exists: false,
+        isDirectory: false,
+        resolvedPath: data?.path || ''
+      } as unknown as T;
+    }
+
+    if (action === 'scanDirectory') {
+      return {
+        basePath: data?.path || '',
+        subdirs: []
+      } as unknown as T;
+    }
+
+    // Default: return empty object for other actions
     return {} as T;
   }, []);
 
