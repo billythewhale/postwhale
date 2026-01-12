@@ -48,9 +48,9 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
-        'glow-sm': '0 0 8px rgba(65, 105, 225, 0.4)',
-        'glow-md': '0 0 12px rgba(65, 105, 225, 0.5), 0 4px 6px rgba(65, 105, 225, 0.2)',
-        'glow-lg': '0 0 20px rgba(65, 105, 225, 0.6), 0 8px 16px rgba(65, 105, 225, 0.3)',
+        'glow-sm': '0 0 16px rgba(65, 105, 225, 0.8), 0 0 8px rgba(65, 105, 225, 0.5)',
+        'glow-md': '0 0 24px rgba(65, 105, 225, 0.9), 0 4px 12px rgba(65, 105, 225, 0.6)',
+        'glow-lg': '0 0 32px rgba(65, 105, 225, 1.0), 0 8px 24px rgba(65, 105, 225, 0.8)',
       },
     },
   },
