@@ -181,8 +181,8 @@ func AddService(db *sql.DB, service Service) (int64, error) {
 	if service.Name == "" {
 		return 0, fmt.Errorf("service name cannot be empty")
 	}
-	if service.Port <= 0 || service.Port > 65535 {
-		return 0, fmt.Errorf("port must be between 1 and 65535")
+	if service.Port < 0 || service.Port > 65535 {
+		return 0, fmt.Errorf("port must be between 0 and 65535")
 	}
 
 	result, err := db.Exec(
