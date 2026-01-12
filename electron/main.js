@@ -11,22 +11,32 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    minWidth: 800,
+    minHeight: 600,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false
     },
-    titleBarStyle: 'hiddenInset',
-    vibrancy: 'under-window'
+    titleBarStyle: 'default',
+    show: false  // Don't show until ready
+  });
+
+  // Show window when ready to prevent white flash
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
   });
 
   // In development, load from Vite dev server
-  // In production, load from built files
+  // In production, load from extraResources
   if (process.env.NODE_ENV === 'development') {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../frontend/dist/index.html'));
+    // In production, frontend is in Resources/dist
+    const frontendPath = path.join(process.resourcesPath, 'dist', 'index.html');
+    console.log('[Electron] Loading frontend from:', frontendPath);
+    mainWindow.loadFile(frontendPath);
   }
 
   mainWindow.on('closed', () => {
