@@ -106,38 +106,38 @@ export function RequestBuilder({
   // Extract path parameters
   const pathParamNames = endpoint.path.match(/\{([^}]+)\}/g)?.map((p) => p.slice(1, -1)) || []
 
-  // Extract query parameters from spec
+  // Extract query parameters from spec (spec may be undefined if not sent from backend)
   const queryParamNames =
-    endpoint.spec.parameters?.filter((p) => p.in === "query").map((p) => p.name) || []
+    endpoint.spec?.parameters?.filter((p) => p.in === "query").map((p) => p.name) || []
 
   return (
     <div className="flex-1 flex flex-col">
-      <Card className="m-4 mb-0">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-3">
+      <Card className="m-4 mb-0 shadow-lg">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-4">
             <Badge
-              className={cn("text-white", getMethodColor(endpoint.method))}
+              className={cn("text-white text-sm px-4 py-1.5", getMethodColor(endpoint.method))}
             >
               {endpoint.method}
             </Badge>
-            <span className="font-mono text-lg">{endpoint.path}</span>
+            <span className="font-mono text-xl font-semibold">{endpoint.path}</span>
           </CardTitle>
-          {endpoint.spec.summary && (
-            <p className="text-sm text-muted-foreground mt-2">{endpoint.spec.summary}</p>
+          {endpoint.spec?.summary && (
+            <p className="text-sm text-muted-foreground mt-3 leading-relaxed">{endpoint.spec.summary}</p>
           )}
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <Tabs defaultValue="params">
-            <TabsList>
+            <TabsList className="w-full justify-start">
               <TabsTrigger value="params">Params</TabsTrigger>
               <TabsTrigger value="headers">Headers</TabsTrigger>
               <TabsTrigger value="body">Body</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="params" className="space-y-4">
+            <TabsContent value="params" className="space-y-6 mt-6">
               {pathParamNames.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Path Parameters</h4>
+                  <h4 className="text-sm font-semibold mb-3 text-foreground">Path Parameters</h4>
                   <div className="space-y-2">
                     {pathParamNames.map((param) => (
                       <div key={param} className="flex items-center gap-2">
@@ -157,7 +157,7 @@ export function RequestBuilder({
 
               {queryParamNames.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Query Parameters</h4>
+                  <h4 className="text-sm font-semibold mb-3 text-foreground">Query Parameters</h4>
                   <div className="space-y-2">
                     {queryParamNames.map((param) => (
                       <div key={param} className="flex items-center gap-2">
@@ -180,7 +180,7 @@ export function RequestBuilder({
               )}
             </TabsContent>
 
-            <TabsContent value="headers" className="space-y-2">
+            <TabsContent value="headers" className="space-y-3 mt-6">
               {headers.map((header, index) => (
                 <div key={index} className="flex items-center gap-2">
                   <Input
@@ -209,7 +209,7 @@ export function RequestBuilder({
               </Button>
             </TabsContent>
 
-            <TabsContent value="body">
+            <TabsContent value="body" className="mt-6">
               <Textarea
                 placeholder="Request body (JSON)"
                 value={body}
@@ -219,8 +219,8 @@ export function RequestBuilder({
             </TabsContent>
           </Tabs>
 
-          <div className="mt-4 flex justify-end">
-            <Button onClick={handleSend} disabled={isLoading}>
+          <div className="mt-8 pt-6 border-t flex justify-end">
+            <Button onClick={handleSend} disabled={isLoading} size="lg">
               <Send className="h-4 w-4 mr-2" />
               {isLoading ? "Sending..." : "Send Request"}
             </Button>

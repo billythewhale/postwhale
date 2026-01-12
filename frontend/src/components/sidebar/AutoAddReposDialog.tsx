@@ -19,6 +19,7 @@ interface AutoAddReposDialogProps {
   onCheckPath: (path: string) => Promise<{ exists: boolean; isDirectory: boolean; resolvedPath: string }>
   onScanDirectory: (path: string) => Promise<{ basePath: string; subdirs: SubdirInfo[] }>
   onAddRepositories: (paths: string[]) => Promise<void>
+  existingPaths: Set<string>
 }
 
 type Phase = "check" | "select"
@@ -29,6 +30,7 @@ export function AutoAddReposDialog({
   onCheckPath,
   onScanDirectory,
   onAddRepositories,
+  existingPaths,
 }: AutoAddReposDialogProps) {
   const [phase, setPhase] = useState<Phase>("check")
   const [customPath, setCustomPath] = useState("")
@@ -77,16 +79,24 @@ export function AutoAddReposDialog({
 
     try {
       const result = await onScanDirectory(path)
-      if (result.subdirs.length === 0) {
-        setError("No subdirectories found in this path")
+
+      // Filter out repos that are already added
+      const availableSubdirs = result.subdirs.filter(
+        (subdir) => !existingPaths.has(subdir.path)
+      )
+
+      if (availableSubdirs.length === 0) {
+        setError(result.subdirs.length > 0
+          ? "All repositories in this directory have already been added"
+          : "No subdirectories found in this path")
         setPhase("check")
         return
       }
 
-      setSubdirs(result.subdirs)
+      setSubdirs(availableSubdirs)
       // Auto-select repos with services/ folder
       const autoSelected = new Set(
-        result.subdirs
+        availableSubdirs
           .filter((subdir) => subdir.hasServices)
           .map((subdir) => subdir.path)
       )
