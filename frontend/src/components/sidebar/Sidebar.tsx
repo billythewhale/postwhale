@@ -80,7 +80,7 @@ export function Sidebar({
                   <div className="flex items-center gap-1 w-full">
                     <button
                       onClick={() => toggleRepo(repo.id)}
-                      className="flex items-center gap-2 flex-1 px-2 py-1.5 rounded hover:bg-accent/80 hover:brightness-105 hover:shadow-sm dark:hover:shadow-glow-sm text-sm font-medium cursor-pointer transition-all duration-200 hover:translate-x-0.5 active:translate-x-0"
+                      className="flex items-center gap-2 flex-1 px-2 py-1.5 rounded hover:bg-accent/80 dark:hover:bg-white/15 hover:brightness-105 hover:shadow-sm dark:hover:shadow-glow-sm text-sm font-medium cursor-pointer transition-all duration-200 hover:translate-x-0.5 active:translate-x-0"
                     >
                       {isExpanded ? (
                         <ChevronDown className="h-4 w-4" />
@@ -117,7 +117,7 @@ export function Sidebar({
                           <div key={service.id}>
                             <button
                               onClick={() => toggleService(service.id)}
-                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded hover:bg-accent/80 hover:brightness-105 hover:shadow-sm dark:hover:shadow-glow-sm text-sm cursor-pointer transition-all duration-200 hover:translate-x-0.5 active:translate-x-0"
+                              className="flex items-center gap-2 w-full px-2 py-1.5 rounded hover:bg-accent/80 dark:hover:bg-white/15 hover:brightness-105 hover:shadow-sm dark:hover:shadow-glow-sm text-sm cursor-pointer transition-all duration-200 hover:translate-x-0.5 active:translate-x-0"
                             >
                               {isServiceExpanded ? (
                                 <ChevronDown className="h-4 w-4" />
@@ -143,7 +143,7 @@ export function Sidebar({
                                         "flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm cursor-pointer transition-all duration-200",
                                         isSelected
                                           ? "bg-primary text-primary-foreground shadow-md dark:shadow-glow-md font-medium scale-[1.02]"
-                                          : "hover:bg-accent/90 hover:brightness-105 hover:shadow-md dark:hover:shadow-glow-md hover:translate-x-1 hover:scale-[1.02] active:translate-x-0 active:scale-100"
+                                          : "hover:bg-accent/90 dark:hover:bg-white/20 hover:brightness-105 hover:shadow-md dark:hover:shadow-glow-md hover:translate-x-1 hover:scale-[1.02] active:translate-x-0 active:scale-100"
                                       )}
                                     >
                                       <Badge

@@ -12,33 +12,30 @@ PostWhale is a Postman clone for testing Triple Whale microservice endpoints. De
 
 ## Current Status: Phase 5 Complete + Auto Add TW Repos Feature (All Bugs Fixed) + Dark Mode Shadows Fixed
 
-### Dark Mode Shadow Fix (2026-01-12)
+### Dark Mode Shadow Fix - STRONGER GLOWS (2026-01-12 v2)
 
-**Status:** Fixed - Shadows now visible and attractive in dark mode
-**Root Cause:** Default Tailwind shadows use black color which is barely visible against dark backgrounds
-**Fix:** Added custom Royal Blue glow shadow definitions and applied dark mode variants throughout all components
+**Status:** Fixed - Glows now VERY visible with high contrast in dark mode
+**Root Cause:** Initial glow shadows (0.4-0.6 opacity, 8-20px blur) too subtle, hover backgrounds not bright enough
+**Fix:** Significantly increased glow opacity (0.8-1.0) and blur (2-3x larger), added explicit bright dark mode hover backgrounds
 
-#### Shadow Definitions Added
-- `shadow-glow-sm`: Subtle Royal Blue glow (8px blur, 40% opacity)
-- `shadow-glow-md`: Medium Royal Blue glow (12px blur, 50% opacity + 4px offset)
-- `shadow-glow-lg`: Large Royal Blue glow (20px blur, 60% opacity + 8px offset)
+#### Shadow Definitions Updated
+- `shadow-glow-sm`: **Strong** Royal Blue glow (16px blur, 80% opacity + 8px blur 50% opacity)
+- `shadow-glow-md`: **Very Strong** Royal Blue glow (24px blur, 90% opacity + 12px blur 60% opacity)
+- `shadow-glow-lg`: **Maximum** Royal Blue glow (32px blur, 100% opacity + 24px blur 80% opacity)
 
-#### Files Modified
-- `tailwind.config.js` - Added boxShadow extensions with glow definitions
-- `components/ui/button.tsx` - Added dark:shadow-glow-* variants to all button types
-- `components/ui/tabs.tsx` - Added dark:shadow-glow-sm/md to TabsList and TabsTrigger
-- `components/sidebar/Sidebar.tsx` - Added dark:shadow-glow-sm/md to repo/service/endpoint items
-- `components/ui/input.tsx` - Added dark:hover:shadow-glow-sm
-- `components/ui/textarea.tsx` - Added dark:hover:shadow-glow-sm
-- `components/ui/select.tsx` - Added dark:shadow-glow-sm/md to trigger, content, and items
-- `components/ui/card.tsx` - Added dark:shadow-glow-sm
-- `components/ui/dialog.tsx` - Added dark:shadow-glow-lg
-- `components/ui/badge.tsx` - Added dark:shadow-glow-sm to all variants
+#### Files Modified (Glow Opacity + Hover Backgrounds)
+- `tailwind.config.js` - Increased glow opacity from 0.4-0.6 to 0.8-1.0, increased blur 2-3x
+- `components/ui/tabs.tsx` - Added `dark:hover:bg-white/20` for Params tab visibility
+- `components/sidebar/Sidebar.tsx` - Added `dark:hover:bg-white/15` (repos/services) and `dark:hover:bg-white/20` (endpoints)
+- `components/ui/button.tsx` - Added `dark:hover:bg-white/15` (outline), `dark:hover:bg-white/10` (ghost)
+- `components/ui/input.tsx` - Added `dark:hover:bg-white/10`
+- `components/ui/select.tsx` - Added `dark:hover:bg-white/12` (trigger) and `dark:hover:bg-white/15` (items)
 
 #### Verification
 - TypeScript: PASS (exit 0)
-- Frontend Build: PASS (254.88 kB JS, 25.72 kB CSS)
-- All 9 components updated with dark mode shadow support
+- Frontend Build: PASS (255.09 kB JS, 26.57 kB CSS, exit 0)
+- Hover states now MUCH more visible in dark mode
+- Glow shadows have strong contrast against dark backgrounds
 
 ### Electron CSP Security Fix (2026-01-12)
 

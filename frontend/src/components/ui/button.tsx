@@ -14,9 +14,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const variants = {
       default: "bg-primary text-primary-foreground hover:brightness-110 shadow-md dark:shadow-glow-md hover:shadow-xl dark:hover:shadow-glow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow-md dark:active:shadow-glow-md font-semibold",
       destructive: "bg-destructive text-destructive-foreground hover:brightness-110 shadow-md dark:shadow-glow-md hover:shadow-xl dark:hover:shadow-glow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow-md dark:active:shadow-glow-md font-semibold",
-      outline: "border-2 border-input bg-background hover:bg-accent/80 hover:text-accent-foreground hover:border-accent-foreground hover:shadow-md dark:hover:shadow-glow-md hover:-translate-y-0.5 active:translate-y-0 font-medium",
+      outline: "border-2 border-input bg-background hover:bg-accent/80 dark:hover:bg-white/15 hover:text-accent-foreground hover:border-accent-foreground hover:shadow-md dark:hover:shadow-glow-md hover:-translate-y-0.5 active:translate-y-0 font-medium",
       secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/50 hover:brightness-110 hover:shadow-md dark:hover:shadow-glow-md font-medium",
-      ghost: "hover:bg-accent/60 hover:text-accent-foreground hover:shadow-sm dark:hover:shadow-glow-sm",
+      ghost: "hover:bg-accent/60 dark:hover:bg-white/10 hover:text-accent-foreground hover:shadow-sm dark:hover:shadow-glow-sm",
       link: "text-primary underline-offset-4 hover:underline hover:brightness-110",
     }
 

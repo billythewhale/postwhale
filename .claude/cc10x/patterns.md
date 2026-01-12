@@ -193,21 +193,68 @@ app.whenReady().then(() => {
 **Why:** Eliminates "Insecure Content-Security-Policy" warning
 **Note:** Vite HMR requires `unsafe-eval` in development mode - acceptable tradeoff
 
-### 21. Dark Mode Shadow Pattern - Royal Blue Glow Effects
-**Pattern:** Use custom glow shadows in dark mode for better visibility
+### 21. Dark Mode Shadow Pattern - Strong Royal Blue Glow Effects
+**Pattern:** Use strong custom glow shadows (0.8-1.0 opacity) with explicit bright hover backgrounds in dark mode
 **Example:**
-```javascript
-// tailwind.config.js
-boxShadow: {
-  'glow-sm': '0 0 8px rgba(65, 105, 225, 0.4)',
-  'glow-md': '0 0 12px rgba(65, 105, 225, 0.5), 0 4px 6px rgba(65, 105, 225, 0.2)',
-  'glow-lg': '0 0 20px rgba(65, 105, 225, 0.6), 0 8px 16px rgba(65, 105, 225, 0.3)',
+```css
+/* index.css - Tailwind v4 REQUIRES @theme directive */
+@theme {
+  --shadow-glow-sm: 0 0 16px rgb(65 105 225 / 0.8), 0 0 8px rgb(65 105 225 / 0.5);
+  --shadow-glow-md: 0 0 24px rgb(65 105 225 / 0.9), 0 4px 12px rgb(65 105 225 / 0.6);
+  --shadow-glow-lg: 0 0 32px rgb(65 105 225 / 1.0), 0 8px 24px rgb(65 105 225 / 0.8);
 }
 
-// Component usage
-className="shadow-md dark:shadow-glow-md hover:shadow-xl dark:hover:shadow-glow-lg"
+// Component usage - Add BOTH glow AND bright background for dark mode
+className="shadow-md dark:shadow-glow-md hover:bg-accent/80 dark:hover:bg-white/15 hover:shadow-xl dark:hover:shadow-glow-lg"
 ```
-**Why:** Default black shadows invisible against dark backgrounds. Royal Blue (#4169E1) glow provides visibility and reinforces brand color.
+**Why:** Default black shadows invisible against dark backgrounds. High opacity (0.8-1.0) Royal Blue glow + bright white/15-20 backgrounds ensure VERY visible hover states.
 **When:** Apply to all interactive elements (buttons, tabs, inputs, cards) that use shadows
+**Gotcha:** Original 0.4-0.6 opacity was too subtle - always use 0.8-1.0 for dark mode visibility
+**CRITICAL:** Tailwind v4 requires @theme directive in CSS - JavaScript config silently ignored!
 
-Last updated: 2026-01-12 (Dark mode shadow pattern added)
+### 22. Tailwind CSS v4 Custom Theme Values Pattern
+**Pattern:** Use `@theme` directive in CSS files for custom theme values (NOT JavaScript config)
+**Example:**
+```css
+/* index.css or any CSS file */
+@import "tailwindcss";
+
+@theme {
+  /* Custom shadows */
+  --shadow-glow-sm: 0 0 16px rgb(65 105 225 / 0.8);
+  --shadow-glow-md: 0 0 24px rgb(65 105 225 / 0.9), 0 4px 12px rgb(65 105 225 / 0.6);
+
+  /* Custom colors */
+  --color-brand: #4169E1;
+
+  /* Custom spacing */
+  --spacing-huge: 128px;
+}
+
+:root {
+  /* Regular CSS variables still work here */
+  --my-custom-var: 10px;
+}
+```
+
+**JavaScript config (v3.x style) - DOES NOT WORK in v4:**
+```javascript
+// tailwind.config.js - SILENTLY IGNORED in Tailwind v4!
+module.exports = {
+  theme: {
+    extend: {
+      boxShadow: {
+        'glow-sm': '0 0 16px rgba(65, 105, 225, 0.8)', // ❌ Won't work!
+      }
+    }
+  }
+}
+```
+
+**Why:** Tailwind CSS v4 changed theme extension syntax. JavaScript config no longer supports custom theme values - they're silently ignored without errors.
+**When:** Adding ANY custom theme values (shadows, colors, spacing, etc.) in Tailwind v4 projects
+**How to verify:** After build, grep for your custom class in dist CSS. If not found, you're using wrong syntax.
+**Migration:** Move all `theme.extend.*` from JavaScript config to `@theme {}` in CSS
+**Gotcha:** No error or warning when JavaScript config is ignored - debugging requires checking built CSS
+
+Last updated: 2026-01-12 (Tailwind v4 @theme pattern added)
