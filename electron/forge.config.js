@@ -6,7 +6,8 @@ module.exports = {
     executableName: 'PostWhale',
     asar: true,
     extraResource: [
-      path.join(__dirname, '../backend/postwhale')
+      path.join(__dirname, '../backend/postwhale'),
+      path.join(__dirname, '../frontend/dist')
     ],
     osxSign: {},
     osxNotarize: false
