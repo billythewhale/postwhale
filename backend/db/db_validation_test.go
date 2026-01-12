@@ -127,8 +127,8 @@ func TestAddService_EmptyName(t *testing.T) {
 	}
 }
 
-// RED: Test that AddService validates invalid port (0)
-func TestAddService_InvalidPortZero(t *testing.T) {
+// Test that AddService allows port 0 (unset - service works in STAGING/PRODUCTION without local port)
+func TestAddService_PortZeroAllowed(t *testing.T) {
 	dbPath := "/tmp/postwhale_test_validation_service_port_zero.db"
 	defer os.Remove(dbPath)
 
@@ -149,16 +149,16 @@ func TestAddService_InvalidPortZero(t *testing.T) {
 		RepoID:     repoID,
 		ServiceID:  "valid-id",
 		Name:       "Valid Name",
-		Port:       0, // Port 0 should be rejected
+		Port:       0, // Port 0 means "unset" - service works in STAGING/PRODUCTION
 		ConfigJSON: `{}`,
 	}
 
-	_, err = AddService(database, service)
-	if err == nil {
-		t.Error("Expected error for port 0, got nil")
+	serviceID, err := AddService(database, service)
+	if err != nil {
+		t.Errorf("Port 0 should be allowed (unset), got error: %v", err)
 	}
-	if err != nil && !strings.Contains(err.Error(), "port") {
-		t.Errorf("Expected error message to mention 'port', got: %v", err)
+	if serviceID == 0 {
+		t.Error("Expected valid service ID, got 0")
 	}
 }
 

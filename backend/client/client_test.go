@@ -12,13 +12,12 @@ import (
 func TestBuildURL_Local(t *testing.T) {
 	config := RequestConfig{
 		ServiceID:   "fusion",
-		Port:        3001,
 		Endpoint:    "/orders",
 		Environment: EnvLocal,
 	}
 
 	url := buildURL(config)
-	expected := "http://localhost:3001/orders"
+	expected := "http://localhost/fusion/orders"
 
 	if url != expected {
 		t.Errorf("buildURL() = %q, want %q", url, expected)
@@ -58,13 +57,12 @@ func TestBuildURL_Production(t *testing.T) {
 func TestBuildURL_WithLeadingSlash(t *testing.T) {
 	config := RequestConfig{
 		ServiceID:   "moby",
-		Port:        3002,
 		Endpoint:    "/chat",
 		Environment: EnvLocal,
 	}
 
 	url := buildURL(config)
-	expected := "http://localhost:3002/chat"
+	expected := "http://localhost/moby/chat"
 
 	if url != expected {
 		t.Errorf("buildURL() = %q, want %q", url, expected)
@@ -74,13 +72,12 @@ func TestBuildURL_WithLeadingSlash(t *testing.T) {
 func TestBuildURL_WithoutLeadingSlash(t *testing.T) {
 	config := RequestConfig{
 		ServiceID:   "moby",
-		Port:        3002,
 		Endpoint:    "chat",
 		Environment: EnvLocal,
 	}
 
 	url := buildURL(config)
-	expected := "http://localhost:3002/chat"
+	expected := "http://localhost/moby/chat"
 
 	if url != expected {
 		t.Errorf("buildURL() = %q, want %q", url, expected)

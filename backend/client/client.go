@@ -21,7 +21,7 @@ const (
 // RequestConfig contains all parameters for making an HTTP request
 type RequestConfig struct {
 	ServiceID   string
-	Port        int // Only used for LOCAL
+	Port        int // Unused - local proxy on port 80 handles routing
 	Endpoint    string
 	Method      string
 	Headers     map[string]string
@@ -41,6 +41,8 @@ type Response struct {
 }
 
 // buildURL constructs the full URL based on environment and config
+// LOCAL uses http://localhost/<service_id>/<endpoint> (local proxy on port 80 routes to services)
+// STAGING/PRODUCTION use DNS records with service_id in subdomain
 func buildURL(config RequestConfig) string {
 	// Ensure endpoint starts with /
 	endpoint := config.Endpoint
@@ -50,7 +52,7 @@ func buildURL(config RequestConfig) string {
 
 	switch config.Environment {
 	case EnvLocal:
-		return fmt.Sprintf("http://localhost:%d%s", config.Port, endpoint)
+		return fmt.Sprintf("http://localhost/%s%s", config.ServiceID, endpoint)
 	case EnvStaging:
 		return fmt.Sprintf("https://stg.%s.srv.whale3.io%s", config.ServiceID, endpoint)
 	case EnvProduction:

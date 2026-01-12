@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, session } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const readline = require('readline');
@@ -6,6 +6,52 @@ const readline = require('readline');
 let mainWindow;
 let backendProcess;
 let requestHandlers = new Map(); // Track pending requests
+
+// Content Security Policy for Electron security
+// Development: allows Vite HMR (requires unsafe-eval for hot reloading)
+// Production: strict CSP with no unsafe-eval
+function setupContentSecurityPolicy() {
+  const isDev = process.env.NODE_ENV === 'development';
+
+  // Build CSP based on environment
+  let csp;
+  if (isDev) {
+    // Development CSP - allows Vite dev server and HMR
+    // unsafe-eval is required by Vite for hot module replacement
+    csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "connect-src 'self' http://localhost:5173 ws://localhost:5173",
+      "img-src 'self' data: blob:",
+      "font-src 'self' data:",
+      "worker-src 'self' blob:"
+    ].join('; ');
+  } else {
+    // Production CSP - strict, no unsafe-eval
+    csp = [
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline'",
+      "connect-src 'self'",
+      "img-src 'self' data: blob:",
+      "font-src 'self' data:",
+      "worker-src 'self' blob:"
+    ].join('; ');
+  }
+
+  // Set CSP header on all responses
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [csp]
+      }
+    });
+  });
+
+  console.log('[Electron] CSP configured for', isDev ? 'development' : 'production');
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -131,6 +177,9 @@ ipcMain.handle('ipc-request', async (event, action, data) => {
 });
 
 app.whenReady().then(() => {
+  // Set up Content Security Policy before creating any windows
+  setupContentSecurityPolicy();
+
   startBackend();
 
   // Wait a bit for backend to start before creating window

@@ -44,6 +44,9 @@
 - Empty vs nil slices (JSON marshaling)
 - JSON unmarshaling numbers as float64 (use type switch for int64)
 - CASCADE DELETE in SQLite (foreign key constraints handle cleanup)
+- Bulk add dialogs must filter existing items (UNIQUE constraints will fail on duplicates)
+- Port=0 is valid (means "unset") - only LOCAL env uses port; STAGING/PRODUCTION use domain patterns
+- Backend IPC may not include all fields - use optional chaining in frontend (e.g., `spec?.parameters`)
 
 ### 10. IPC Protocol Pattern - Line-based JSON
 **Pattern:** Read from stdin line-by-line, write to stdout line-by-line
@@ -158,4 +161,53 @@ backendProcess.stdin.write(JSON.stringify(request) + '\n');
 ```
 **Why:** Avoids complex binary protocols, easy to debug
 
-Last updated: 2026-01-11 (Phase 4 complete - Electron integration)
+### 20. Electron Content Security Policy Pattern
+**Pattern:** Use `session.webRequest.onHeadersReceived` to inject CSP headers
+**Example:**
+```javascript
+const { session } = require('electron');
+
+function setupContentSecurityPolicy() {
+  const isDev = process.env.NODE_ENV === 'development';
+
+  const csp = isDev
+    ? "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; ..."
+    : "default-src 'self'; script-src 'self'; ..."; // strict, no unsafe-eval
+
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [csp]
+      }
+    });
+  });
+}
+
+// Call in app.whenReady() BEFORE creating windows
+app.whenReady().then(() => {
+  setupContentSecurityPolicy();
+  createWindow();
+});
+```
+**Why:** Eliminates "Insecure Content-Security-Policy" warning
+**Note:** Vite HMR requires `unsafe-eval` in development mode - acceptable tradeoff
+
+### 21. Dark Mode Shadow Pattern - Royal Blue Glow Effects
+**Pattern:** Use custom glow shadows in dark mode for better visibility
+**Example:**
+```javascript
+// tailwind.config.js
+boxShadow: {
+  'glow-sm': '0 0 8px rgba(65, 105, 225, 0.4)',
+  'glow-md': '0 0 12px rgba(65, 105, 225, 0.5), 0 4px 6px rgba(65, 105, 225, 0.2)',
+  'glow-lg': '0 0 20px rgba(65, 105, 225, 0.6), 0 8px 16px rgba(65, 105, 225, 0.3)',
+}
+
+// Component usage
+className="shadow-md dark:shadow-glow-md hover:shadow-xl dark:hover:shadow-glow-lg"
+```
+**Why:** Default black shadows invisible against dark backgrounds. Royal Blue (#4169E1) glow provides visibility and reinforces brand color.
+**When:** Apply to all interactive elements (buttons, tabs, inputs, cards) that use shadows
+
+Last updated: 2026-01-12 (Dark mode shadow pattern added)
