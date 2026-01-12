@@ -12,6 +12,7 @@ interface SidebarProps {
   selectedEndpoint: Endpoint | null
   onSelectEndpoint: (endpoint: Endpoint) => void
   onAddRepository: () => void
+  onAutoAddRepos: () => void
 }
 
 export function Sidebar({
@@ -21,6 +22,7 @@ export function Sidebar({
   selectedEndpoint,
   onSelectEndpoint,
   onAddRepository,
+  onAutoAddRepos,
 }: SidebarProps) {
   const [expandedRepos, setExpandedRepos] = useState<Set<number>>(new Set())
   const [expandedServices, setExpandedServices] = useState<Set<number>>(new Set())
@@ -155,7 +157,16 @@ export function Sidebar({
         )}
       </div>
 
-      <div className="border-t p-4">
+      <div className="border-t p-4 space-y-2">
+        <Button
+          onClick={onAutoAddRepos}
+          className="w-full"
+          size="sm"
+          variant="outline"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Auto Add TW Repos
+        </Button>
         <Button
           onClick={onAddRepository}
           className="w-full"

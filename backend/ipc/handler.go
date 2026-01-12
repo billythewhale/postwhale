@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/triplewhale/postwhale/client"
@@ -69,6 +71,10 @@ func (h *Handler) HandleRequest(request IPCRequest) IPCResponse {
 		response = h.handleExecuteRequest(request.Data)
 	case "getRequestHistory":
 		response = h.handleGetRequestHistory(request.Data)
+	case "scanDirectory":
+		response = h.handleScanDirectory(request.Data)
+	case "checkPath":
+		response = h.handleCheckPath(request.Data)
 	default:
 		response = IPCResponse{
 			Success: false,
@@ -429,5 +435,121 @@ func (h *Handler) handleGetRequestHistory(data json.RawMessage) IPCResponse {
 	return IPCResponse{
 		Success: true,
 		Data:    result,
+	}
+}
+
+// handleScanDirectory lists subdirectories of a path
+func (h *Handler) handleScanDirectory(data json.RawMessage) IPCResponse {
+	var input struct {
+		Path string `json:"path"`
+	}
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{Success: false, Error: fmt.Sprintf("invalid request data: %v", err)}
+	}
+
+	// Check for path traversal BEFORE any processing
+	if strings.Contains(input.Path, "..") {
+		return IPCResponse{Success: false, Error: "invalid path: path traversal not allowed"}
+	}
+
+	// Expand ~ to home directory
+	path := input.Path
+	if path == "" || path == "~" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return IPCResponse{Success: false, Error: fmt.Sprintf("failed to get home directory: %v", err)}
+		}
+		path = home
+	} else if len(path) > 0 && path[0] == '~' {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return IPCResponse{Success: false, Error: fmt.Sprintf("failed to get home directory: %v", err)}
+		}
+		path = filepath.Join(home, path[1:])
+	}
+
+	// Clean the path
+	path = filepath.Clean(path)
+
+	// Check if path exists
+	info, err := os.Stat(path)
+	if err != nil {
+		return IPCResponse{Success: false, Error: fmt.Sprintf("path not found: %s", path)}
+	}
+	if !info.IsDir() {
+		return IPCResponse{Success: false, Error: "path is not a directory"}
+	}
+
+	// List subdirectories
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return IPCResponse{Success: false, Error: fmt.Sprintf("failed to read directory: %v", err)}
+	}
+
+	subdirs := []map[string]interface{}{}
+	for _, entry := range entries {
+		if entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
+			subPath := filepath.Join(path, entry.Name())
+			// Check if it has a services directory (valid TW repo)
+			servicesPath := filepath.Join(subPath, "services")
+			hasServices := false
+			if info, err := os.Stat(servicesPath); err == nil && info.IsDir() {
+				hasServices = true
+			}
+			subdirs = append(subdirs, map[string]interface{}{
+				"name":        entry.Name(),
+				"path":        subPath,
+				"hasServices": hasServices,
+			})
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"basePath": path,
+			"subdirs":  subdirs,
+		},
+	}
+}
+
+// handleCheckPath checks if a path exists
+func (h *Handler) handleCheckPath(data json.RawMessage) IPCResponse {
+	var input struct {
+		Path string `json:"path"`
+	}
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{Success: false, Error: fmt.Sprintf("invalid request data: %v", err)}
+	}
+
+	// Check for path traversal BEFORE any processing
+	if strings.Contains(input.Path, "..") {
+		return IPCResponse{Success: false, Error: "invalid path: path traversal not allowed"}
+	}
+
+	// Expand ~ to home directory
+	path := input.Path
+	if len(path) > 0 && path[0] == '~' {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return IPCResponse{Success: false, Error: fmt.Sprintf("failed to get home directory: %v", err)}
+		}
+		path = filepath.Join(home, path[1:])
+	}
+
+	// Clean the path
+	path = filepath.Clean(path)
+
+	info, err := os.Stat(path)
+	exists := err == nil
+	isDir := exists && info.IsDir()
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"exists":       exists,
+			"isDirectory":  isDir,
+			"resolvedPath": path,
+		},
 	}
 }
