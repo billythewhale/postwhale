@@ -46,7 +46,7 @@ const TabsList = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
+      "inline-flex h-11 items-center justify-center rounded-lg bg-muted p-1.5 text-muted-foreground shadow-sm dark:shadow-glow-sm border border-border",
       className
     )}
     {...props}
@@ -70,10 +70,10 @@ const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
         role="tab"
         aria-selected={isActive}
         className={cn(
-          "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+          "inline-flex items-center justify-center whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
           isActive
-            ? "bg-background text-foreground shadow-sm"
-            : "text-muted-foreground hover:bg-muted/50",
+            ? "bg-background text-foreground shadow-md dark:shadow-glow-md font-semibold border border-border scale-105"
+            : "text-muted-foreground hover:bg-background/80 hover:brightness-110 hover:text-foreground hover:shadow-sm dark:hover:shadow-glow-sm hover:scale-105 active:scale-100 font-medium",
           className
         )}
         onClick={() => onValueChange(triggerValue)}

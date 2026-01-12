@@ -20,7 +20,7 @@ export interface Endpoint {
   method: string;
   path: string;
   operationId: string;
-  spec: EndpointSpec;
+  spec?: EndpointSpec; // Optional - backend may not include this field
 }
 
 export interface EndpointSpec {

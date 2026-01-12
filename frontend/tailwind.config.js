@@ -47,6 +47,11 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      boxShadow: {
+        'glow-sm': '0 0 8px rgba(65, 105, 225, 0.4)',
+        'glow-md': '0 0 12px rgba(65, 105, 225, 0.5), 0 4px 6px rgba(65, 105, 225, 0.2)',
+        'glow-lg': '0 0 20px rgba(65, 105, 225, 0.6), 0 8px 16px rgba(65, 105, 225, 0.3)',
+      },
     },
   },
   plugins: [],

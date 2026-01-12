@@ -56,3 +56,13 @@ body {
   margin: 0;
   padding: 0;
 }
+
+/* Ensure all interactive elements have pointer cursor */
+button:not(:disabled),
+a,
+[role="button"]:not([aria-disabled="true"]),
+[role="tab"],
+select,
+summary {
+  cursor: pointer;
+}

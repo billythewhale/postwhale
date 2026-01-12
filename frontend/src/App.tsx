@@ -254,6 +254,7 @@ function App() {
         onCheckPath={handleCheckPath}
         onScanDirectory={handleScanDirectory}
         onAddRepositories={handleAddRepositories}
+        existingPaths={new Set(repositories.map(r => r.path))}
       />
     </div>
   )

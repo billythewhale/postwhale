@@ -9,15 +9,15 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'default', size = 'default', ...props }, ref) => {
-    const baseStyles = "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+    const baseStyles = "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
 
     const variants = {
-      default: "bg-primary text-primary-foreground hover:bg-primary/90",
-      destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-      outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-      secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-      ghost: "hover:bg-accent hover:text-accent-foreground",
-      link: "text-primary underline-offset-4 hover:underline",
+      default: "bg-primary text-primary-foreground hover:brightness-110 shadow-md dark:shadow-glow-md hover:shadow-xl dark:hover:shadow-glow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow-md dark:active:shadow-glow-md font-semibold",
+      destructive: "bg-destructive text-destructive-foreground hover:brightness-110 shadow-md dark:shadow-glow-md hover:shadow-xl dark:hover:shadow-glow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow-md dark:active:shadow-glow-md font-semibold",
+      outline: "border-2 border-input bg-background hover:bg-accent/80 hover:text-accent-foreground hover:border-accent-foreground hover:shadow-md dark:hover:shadow-glow-md hover:-translate-y-0.5 active:translate-y-0 font-medium",
+      secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/50 hover:brightness-110 hover:shadow-md dark:hover:shadow-glow-md font-medium",
+      ghost: "hover:bg-accent/60 hover:text-accent-foreground hover:shadow-sm dark:hover:shadow-glow-sm",
+      link: "text-primary underline-offset-4 hover:underline hover:brightness-110",
     }
 
     const sizes = {
