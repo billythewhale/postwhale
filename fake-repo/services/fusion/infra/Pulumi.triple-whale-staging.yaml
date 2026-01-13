@@ -1,3 +1,0 @@
-config:
-  gcp:project: triple-whale-staging
-  fusion:gcpLocation: us-central1

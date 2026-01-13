@@ -1,1 +1,0 @@
-{"version":3,"file":"defaultToolArgument.js","sourceRoot":"","sources":["../../../../../src/events/transform/argumentFormatters/formatters/defaultToolArgument.ts"],"names":[],"mappings":";;AAEA,8DAQC;AARD,SAAgB,yBAAyB,CACvC,GAA6B;IAE7B,OAAO;QACL,UAAU,EAAE,GAAG,CAAC,QAAQ;QACxB,SAAS,EAAE,GAAG,CAAC,SAAS;QACxB,eAAe,EAAE,IAAI;KACtB,CAAC;AACJ,CAAC"}
