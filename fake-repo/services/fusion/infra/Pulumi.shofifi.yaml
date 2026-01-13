@@ -1,3 +1,0 @@
-config:
-  gcp:project: shofifi
-  fusion:gcpLocation: us-central1

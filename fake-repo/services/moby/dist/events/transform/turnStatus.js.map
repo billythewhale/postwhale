@@ -1,1 +1,0 @@
-{"version":3,"file":"turnStatus.js","sourceRoot":"","sources":["../../../src/events/transform/turnStatus.ts"],"names":[],"mappings":";;;AAGO,MAAM,gBAAgB,GAAsD,CAAC,KAAK,EAAE,EAAE;IAC3F,OAAO;QACL,UAAU,EAAE,IAAI;QAChB,gBAAgB,EAAE;YAChB,IAAI,EAAE,YAAY;YAClB,MAAM,EAAE,KAAK,CAAC,MAAM;SACrB;KACF,CAAC;AACJ,CAAC,CAAC;AARW,QAAA,gBAAgB,oBAQ3B"}
