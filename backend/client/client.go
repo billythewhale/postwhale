@@ -54,9 +54,9 @@ func buildURL(config RequestConfig) string {
 	case EnvLocal:
 		return fmt.Sprintf("http://localhost/%s%s", config.ServiceID, endpoint)
 	case EnvStaging:
-		return fmt.Sprintf("https://stg.%s.srv.whale3.io%s", config.ServiceID, endpoint)
+		return fmt.Sprintf("http://stg.%s.srv.whale3.io%s", config.ServiceID, endpoint)
 	case EnvProduction:
-		return fmt.Sprintf("https://%s.srv.whale3.io%s", config.ServiceID, endpoint)
+		return fmt.Sprintf("http://%s.srv.whale3.io%s", config.ServiceID, endpoint)
 	default:
 		return ""
 	}
