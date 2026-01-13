@@ -1,10 +1,7 @@
-import { Copy, Check } from "lucide-react"
+import { IconCopy, IconCheck } from "@tabler/icons-react"
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
+import { Paper, Tabs, Button, Badge, Group, Text, Box, Stack, Code, ScrollArea, Alert } from "@mantine/core"
+import { CodeHighlight } from "@mantine/code-highlight"
 import type { Response } from "@/types"
 
 interface ResponseViewerProps {
@@ -16,34 +13,43 @@ export function ResponseViewer({ response }: ResponseViewerProps) {
 
   if (!response) {
     return (
-      <div className="flex-1 flex items-center justify-center m-4">
-        <Card className="w-full shadow-lg">
-          <CardContent className="py-16">
-            <div className="text-center text-muted-foreground">
-              <p className="text-lg font-medium">No response yet</p>
-              <p className="text-sm mt-2">Send a request to see the response</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Box style={{ flex: 1, margin: '1rem', marginTop: 0 }}>
+        <Paper shadow="sm" p="xl">
+          <Stack align="center" gap="xs" py="xl">
+            <Text size="lg" fw={500} c="dimmed">No response yet</Text>
+            <Text size="sm" c="dimmed">Send a request to see the response</Text>
+          </Stack>
+        </Paper>
+      </Box>
     )
   }
 
-  const getStatusColor = (statusCode: number) => {
-    if (statusCode >= 200 && statusCode < 300) return "bg-emerald-500"
-    if (statusCode >= 300 && statusCode < 400) return "bg-blue-500"
-    if (statusCode >= 400 && statusCode < 500) return "bg-yellow-500"
-    if (statusCode >= 500) return "bg-red-500"
-    return "bg-gray-500"
+  const getStatusColor = (statusCode: number): string => {
+    if (statusCode >= 200 && statusCode < 300) return "teal"
+    if (statusCode >= 300 && statusCode < 400) return "blue"
+    if (statusCode >= 400 && statusCode < 500) return "yellow"
+    if (statusCode >= 500) return "red"
+    return "gray"
   }
 
   const copyToClipboard = async () => {
-    await navigator.clipboard.writeText(response.body)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    // CRITICAL FIX: Check clipboard API availability and handle errors
+    // Prevents crashes in insecure contexts (non-HTTPS, file://)
+    if (!navigator.clipboard) {
+      console.error('Clipboard API not available')
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(response.body)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error)
+    }
   }
 
-  const formatJSON = (text: string) => {
+  const formatJSON = (text: string): string => {
     try {
       return JSON.stringify(JSON.parse(text), null, 2)
     } catch {
@@ -51,68 +57,88 @@ export function ResponseViewer({ response }: ResponseViewerProps) {
     }
   }
 
+  const isJSON = (text: string): boolean => {
+    try {
+      JSON.parse(text)
+      return true
+    } catch {
+      return false
+    }
+  }
+
   return (
-    <div className="flex-1 m-4 mt-0">
-      <Card className="shadow-lg">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <span className="text-xl font-semibold">Response</span>
-              <Badge className={cn("text-white text-sm px-4 py-1.5", getStatusColor(response.statusCode))}>
+    <Box style={{ flex: 1, margin: '1rem', marginTop: 0 }}>
+      <Paper shadow="sm" p="lg">
+        <Stack gap="md">
+          <Group justify="space-between" align="center">
+            <Group gap="md">
+              <Text size="xl" fw={600}>Response</Text>
+              <Badge
+                color={getStatusColor(response.statusCode)}
+                size="lg"
+                variant="filled"
+              >
                 {response.statusCode} {response.status}
               </Badge>
-              <span className="text-sm font-medium text-muted-foreground">
+              <Text size="sm" fw={500} c="dimmed">
                 {response.responseTime}ms
-              </span>
-            </div>
+              </Text>
+            </Group>
             <Button
-              variant="ghost"
+              variant="subtle"
               size="sm"
               onClick={copyToClipboard}
+              leftSection={copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
             >
-              {copied ? (
-                <Check className="h-4 w-4" />
-              ) : (
-                <Copy className="h-4 w-4" />
-              )}
+              {copied ? "Copied!" : "Copy"}
             </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+          </Group>
+
           {response.error ? (
-            <div className="p-4 rounded bg-destructive/10 text-destructive">
-              <p className="font-medium">Error</p>
-              <p className="text-sm mt-1">{response.error}</p>
-            </div>
+            <Alert color="red" title="Error">
+              {response.error}
+            </Alert>
           ) : (
             <Tabs defaultValue="body">
-              <TabsList className="w-full justify-start">
-                <TabsTrigger value="body">Body</TabsTrigger>
-                <TabsTrigger value="headers">Headers</TabsTrigger>
-              </TabsList>
+              <Tabs.List>
+                <Tabs.Tab value="body">Body</Tabs.Tab>
+                <Tabs.Tab value="headers">Headers</Tabs.Tab>
+              </Tabs.List>
 
-              <TabsContent value="body" className="mt-6">
-                <pre className="p-4 rounded-lg bg-muted overflow-auto max-h-96 text-sm font-mono border border-border">
-                  {formatJSON(response.body)}
-                </pre>
-              </TabsContent>
+              <Tabs.Panel value="body" pt="md">
+                <ScrollArea.Autosize mah={400}>
+                  {isJSON(response.body) ? (
+                    <CodeHighlight
+                      code={formatJSON(response.body)}
+                      language="json"
+                      withCopyButton
+                    />
+                  ) : (
+                    <Code block style={{ fontSize: '0.875rem' }}>
+                      {response.body}
+                    </Code>
+                  )}
+                </ScrollArea.Autosize>
+              </Tabs.Panel>
 
-              <TabsContent value="headers" className="mt-6">
-                <div className="space-y-3">
+              <Tabs.Panel value="headers" pt="md">
+                <Stack gap="sm">
                   {Object.entries(response.headers).map(([key, values]) => (
-                    <div key={key} className="flex gap-4 text-sm">
-                      <span className="font-mono font-medium w-48">{key}</span>
-                      <span className="font-mono text-muted-foreground">
+                    <Group key={key} gap="md" align="flex-start">
+                      <Text size="sm" fw={500} style={{ fontFamily: 'monospace', width: 192 }}>
+                        {key}
+                      </Text>
+                      <Text size="sm" c="dimmed" style={{ fontFamily: 'monospace', flex: 1 }}>
                         {Array.isArray(values) ? values.join(", ") : values}
-                      </span>
-                    </div>
+                      </Text>
+                    </Group>
                   ))}
-                </div>
-              </TabsContent>
+                </Stack>
+              </Tabs.Panel>
             </Tabs>
           )}
-        </CardContent>
-      </Card>
-    </div>
+        </Stack>
+      </Paper>
+    </Box>
   )
 }

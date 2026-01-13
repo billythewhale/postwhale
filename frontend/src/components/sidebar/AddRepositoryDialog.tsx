@@ -1,15 +1,6 @@
 import { useState } from "react"
-import { Folder } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { IconFolder } from "@tabler/icons-react"
+import { Modal, TextInput, Button, Stack, Group, Text, Alert } from "@mantine/core"
 
 interface AddRepositoryDialogProps {
   open: boolean
@@ -58,64 +49,55 @@ export function AddRepositoryDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader onClose={handleClose}>
-          <DialogTitle>Add Repository</DialogTitle>
-          <DialogDescription>
+    <Modal
+      opened={open}
+      onClose={handleClose}
+      title="Add Repository"
+      size="md"
+    >
+      <form onSubmit={handleSubmit}>
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
             Enter the path to a repository containing Triple Whale services
-          </DialogDescription>
-        </DialogHeader>
+          </Text>
 
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="repo-path" className="text-sm font-medium block mb-2">
-                Repository Path
-              </label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Folder className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="repo-path"
-                    type="text"
-                    value={path}
-                    onChange={(e) => setPath(e.target.value)}
-                    placeholder="/path/to/repository"
-                    className="pl-10"
-                    disabled={isLoading}
-                    autoFocus
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Path to a directory containing a services/ folder with Triple Whale
-                microservices
-              </p>
-            </div>
+          <TextInput
+            label="Repository Path"
+            placeholder="/path/to/repository"
+            value={path}
+            onChange={(e) => setPath(e.currentTarget.value)}
+            leftSection={<IconFolder size={16} />}
+            disabled={isLoading}
+            autoFocus
+            description="Path to a directory containing a services/ folder with Triple Whale microservices"
+            error={error}
+          />
 
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded px-3 py-2 text-sm text-red-600 dark:text-red-400">
-                {error}
-              </div>
-            )}
-          </div>
+          {error && (
+            <Alert color="red" variant="light">
+              {error}
+            </Alert>
+          )}
 
-          <DialogFooter>
+          <Group justify="flex-end" mt="md">
             <Button
               type="button"
-              variant="outline"
+              variant="default"
               onClick={handleClose}
               disabled={isLoading}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || !path.trim()}>
+            <Button
+              type="submit"
+              disabled={isLoading || !path.trim()}
+              loading={isLoading}
+            >
               {isLoading ? "Scanning..." : "Add Repository"}
             </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          </Group>
+        </Stack>
+      </form>
+    </Modal>
   )
 }

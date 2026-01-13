@@ -47,6 +47,7 @@
 - Bulk add dialogs must filter existing items (UNIQUE constraints will fail on duplicates)
 - Port=0 is valid (means "unset") - only LOCAL env uses port; STAGING/PRODUCTION use domain patterns
 - Backend IPC may not include all fields - use optional chaining in frontend (e.g., `spec?.parameters`)
+- Dark mode glows: ONLY on hover (e.g., `dark:hover:shadow-glow-md`), NEVER persistent on active/selected states OR static containers (dropdowns, modals, cards) OR status indicators (badges). Persistent glows look obnoxious. Check ALL ui components: tabs, buttons, sidebar, inputs, select, dialog, card, badge. Required THREE rounds of fixes: (v3) removed from active/selected states, (v4) removed from static containers, (v5) removed from badge status indicators.
 
 ### 10. IPC Protocol Pattern - Line-based JSON
 **Pattern:** Read from stdin line-by-line, write to stdout line-by-line
@@ -193,8 +194,8 @@ app.whenReady().then(() => {
 **Why:** Eliminates "Insecure Content-Security-Policy" warning
 **Note:** Vite HMR requires `unsafe-eval` in development mode - acceptable tradeoff
 
-### 21. Dark Mode Shadow Pattern - Strong Royal Blue Glow Effects
-**Pattern:** Use strong custom glow shadows (0.8-1.0 opacity) with explicit bright hover backgrounds in dark mode
+### 21. Dark Mode Shadow Pattern - Hover-Only Royal Blue Glows
+**Pattern:** Use strong custom glow shadows (0.8-1.0 opacity) ONLY on hover states in dark mode. Active/selected states use regular drop shadows.
 **Example:**
 ```css
 /* index.css - Tailwind v4 REQUIRES @theme directive */
@@ -204,12 +205,16 @@ app.whenReady().then(() => {
   --shadow-glow-lg: 0 0 32px rgb(65 105 225 / 1.0), 0 8px 24px rgb(65 105 225 / 0.8);
 }
 
-// Component usage - Add BOTH glow AND bright background for dark mode
-className="shadow-md dark:shadow-glow-md hover:bg-accent/80 dark:hover:bg-white/15 hover:shadow-xl dark:hover:shadow-glow-lg"
+// Component usage - HOVER-ONLY glows, regular shadows for active states
+// Active/selected state
+className="shadow-md font-semibold" // Regular shadow (no glow)
+
+// Hover state
+className="hover:bg-accent/80 dark:hover:bg-white/15 hover:shadow-xl dark:hover:shadow-glow-lg" // Glow ONLY on hover
 ```
-**Why:** Default black shadows invisible against dark backgrounds. High opacity (0.8-1.0) Royal Blue glow + bright white/15-20 backgrounds ensure VERY visible hover states.
-**When:** Apply to all interactive elements (buttons, tabs, inputs, cards) that use shadows
-**Gotcha:** Original 0.4-0.6 opacity was too subtle - always use 0.8-1.0 for dark mode visibility
+**Why:** Default black shadows invisible against dark backgrounds. BUT glows should only appear on hover for clean, professional look. Persistent glows on active states look "obnoxious".
+**When:** Apply `dark:hover:shadow-glow-*` to all interactive elements (buttons, tabs, inputs) - ONLY on hover, NEVER on active/selected states
+**Gotcha:** Original pattern incorrectly added glows to BOTH active states AND static containers AND status indicators (e.g., `dark:shadow-glow-md` without `hover:` on SelectContent, DialogContent, Card, Badge). This creates persistent glows that distract. Always use `dark:hover:shadow-glow-*` for interactive feedback only. Required THREE rounds of fixes: (v3) removed from active/selected states, (v4) removed from static containers, (v5) removed from badge status indicators.
 **CRITICAL:** Tailwind v4 requires @theme directive in CSS - JavaScript config silently ignored!
 
 ### 22. Tailwind CSS v4 Custom Theme Values Pattern
@@ -257,4 +262,40 @@ module.exports = {
 **Migration:** Move all `theme.extend.*` from JavaScript config to `@theme {}` in CSS
 **Gotcha:** No error or warning when JavaScript config is ignored - debugging requires checking built CSS
 
-Last updated: 2026-01-12 (Tailwind v4 @theme pattern added)
+### 23. Mantine UI Pattern - Complete Rewrite from Tailwind
+**Pattern:** Replace Tailwind CSS + shadcn/ui with Mantine v7 for better component consistency and dark mode support
+**Example:**
+```typescript
+// OLD (Tailwind + shadcn/ui)
+import { Button } from "@/components/ui/button"
+<div className="flex items-center gap-2">
+  <Button variant="outline" className="w-full">...</Button>
+</div>
+
+// NEW (Mantine v7)
+import { Button, Group } from "@mantine/core"
+<Group gap="sm">
+  <Button variant="default" fullWidth>...</Button>
+</Group>
+
+// Theme configuration
+import { createTheme, type MantineColorsTuple } from '@mantine/core';
+
+export const theme = createTheme({
+  primaryColor: 'blue',
+  colors: { blue: primaryColorTuple },
+  fontFamily: '-apple-system, BlinkMacSystemFont, ...',
+  // Custom shadows, radius, component overrides
+});
+
+// Dark mode toggle
+import { useMantineColorScheme } from "@mantine/core"
+const { setColorScheme, colorScheme } = useMantineColorScheme()
+const toggleTheme = () => setColorScheme(colorScheme === "dark" ? "light" : "dark")
+```
+**Why:** Mantine provides comprehensive component library with built-in dark mode, better TypeScript support, and eliminates className conflicts. macOS-quality dark mode with proper elevation (#1a1d2e base, #2a2e44 elevated).
+**When:** Use for all new components. JSON highlighting with @mantine/code-highlight, modals with Mantine Modal (not Dialog), forms with Mantine form components.
+**Gotcha:** Use `type` imports for types like MantineColorsTuple to avoid verbatimModuleSyntax errors. Use useMantineColorScheme() not deprecated useColorScheme(). Modal uses `opened` prop not `open`.
+**Migration:** Delete components/ui/*, lib/utils.ts, theme-provider.tsx. Remove Tailwind deps (tailwindcss, @tailwindcss/postcss, tailwind-merge, class-variance-authority). Add Mantine deps (@mantine/core, @mantine/hooks, @mantine/notifications, @mantine/code-highlight, @tabler/icons-react). Update index.css to import Mantine CSS. Wrap app in MantineProvider with custom theme.
+
+Last updated: 2026-01-13 (Mantine UI migration - complete rewrite from Tailwind, all verification passed)
