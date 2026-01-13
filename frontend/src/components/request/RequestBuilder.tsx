@@ -1,8 +1,8 @@
 import { useState } from "react"
-import { IconSend, IconX, IconStar, IconStarFilled } from "@tabler/icons-react"
+import { IconSend, IconX, IconStar, IconStarFilled, IconPlus } from "@tabler/icons-react"
 import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Textarea, Stack, Group, Box, Divider, useMantineColorScheme, ActionIcon } from "@mantine/core"
 import type { Endpoint, Environment } from "@/types"
-import { useFavorites } from "@/hooks/useFavorites"
+import { useFavorites } from "@/contexts/FavoritesContext"
 
 interface RequestBuilderProps {
   endpoint: Endpoint | null
@@ -254,9 +254,10 @@ export function RequestBuilder({
                   variant="default"
                   size="sm"
                   onClick={addHeader}
+                  leftSection={<IconPlus size={16} />}
                   style={{ alignSelf: 'flex-start' }}
                 >
-                  Add Header
+                  Add
                 </Button>
               </Stack>
             </Tabs.Panel>
