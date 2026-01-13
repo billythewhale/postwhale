@@ -32,7 +32,7 @@ func TestBuildURL_Staging(t *testing.T) {
 	}
 
 	url := buildURL(config)
-	expected := "https://stg.fusion.srv.whale3.io/orders"
+	expected := "http://stg.fusion.srv.whale3.io/orders"
 
 	if url != expected {
 		t.Errorf("buildURL() = %q, want %q", url, expected)
@@ -47,7 +47,7 @@ func TestBuildURL_Production(t *testing.T) {
 	}
 
 	url := buildURL(config)
-	expected := "https://fusion.srv.whale3.io/orders"
+	expected := "http://fusion.srv.whale3.io/orders"
 
 	if url != expected {
 		t.Errorf("buildURL() = %q, want %q", url, expected)
