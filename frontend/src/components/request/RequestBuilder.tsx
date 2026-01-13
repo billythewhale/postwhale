@@ -1,7 +1,8 @@
 import { useState } from "react"
-import { IconSend, IconX } from "@tabler/icons-react"
-import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Textarea, Stack, Group, Box, Divider } from "@mantine/core"
+import { IconSend, IconX, IconStar, IconStarFilled } from "@tabler/icons-react"
+import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Textarea, Stack, Group, Box, Divider, useMantineColorScheme, ActionIcon } from "@mantine/core"
 import type { Endpoint, Environment } from "@/types"
+import { useFavorites } from "@/hooks/useFavorites"
 
 interface RequestBuilderProps {
   endpoint: Endpoint | null
@@ -21,6 +22,10 @@ export function RequestBuilder({
   onSend,
   isLoading,
 }: RequestBuilderProps) {
+  const { colorScheme } = useMantineColorScheme()
+  const isDark = colorScheme === 'dark'
+  const { toggleFavorite, isFavorite } = useFavorites()
+
   const [headers, setHeaders] = useState<Array<{ key: string; value: string }>>([
     { key: "Content-Type", value: "application/json" },
   ])
@@ -114,9 +119,32 @@ export function RequestBuilder({
 
   return (
     <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-      <Paper shadow="sm" p="lg" m="md" mb={0}>
+      <Paper
+        shadow="sm"
+        p="lg"
+        m="md"
+        mb={0}
+        style={{
+          boxShadow: isDark
+            ? '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08)'
+            : undefined
+        }}
+      >
         <Stack gap="md">
           <Group gap="md" align="center">
+            <ActionIcon
+              variant="subtle"
+              size="lg"
+              onClick={() => toggleFavorite('endpoints', endpoint.id)}
+              aria-label="Add to Favorites"
+              title="Add to Favorites"
+            >
+              {isFavorite('endpoints', endpoint.id) ? (
+                <IconStarFilled size={20} style={{ color: isDark ? '#FFD700' : '#FFA500' }} />
+              ) : (
+                <IconStar size={20} style={{ color: isDark ? '#888' : '#0C70F2' }} />
+              )}
+            </ActionIcon>
             <Badge
               color={getMethodColor(endpoint.method)}
               size="lg"
@@ -222,7 +250,12 @@ export function RequestBuilder({
                     </Button>
                   </Group>
                 ))}
-                <Button variant="default" size="sm" onClick={addHeader}>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={addHeader}
+                  style={{ alignSelf: 'flex-start' }}
+                >
                   Add Header
                 </Button>
               </Stack>

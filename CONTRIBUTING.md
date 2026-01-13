@@ -312,9 +312,9 @@ func BuildURL(env Environment, serviceID string, port int, endpoint string) stri
     case EnvLocal:
         return fmt.Sprintf("http://localhost:%d%s", port, endpoint)
     case EnvStaging:
-        return fmt.Sprintf("https://stg.%s.srv.whale3.io%s", serviceID, endpoint)
+        return fmt.Sprintf("http://stg.%s.srv.whale3.io%s", serviceID, endpoint)
     case EnvProduction:
-        return fmt.Sprintf("https://%s.srv.whale3.io%s", serviceID, endpoint)
+        return fmt.Sprintf("http://%s.srv.whale3.io%s", serviceID, endpoint)
     }
 }
 ```

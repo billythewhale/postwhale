@@ -1,6 +1,6 @@
 import { IconCopy, IconCheck } from "@tabler/icons-react"
 import { useState } from "react"
-import { Paper, Tabs, Button, Badge, Group, Text, Box, Stack, Code, ScrollArea, Alert } from "@mantine/core"
+import { Paper, Tabs, Button, Badge, Group, Text, Box, Stack, Code, ScrollArea, Alert, useMantineColorScheme } from "@mantine/core"
 import { CodeHighlight } from "@mantine/code-highlight"
 import type { Response } from "@/types"
 
@@ -9,12 +9,22 @@ interface ResponseViewerProps {
 }
 
 export function ResponseViewer({ response }: ResponseViewerProps) {
+  const { colorScheme } = useMantineColorScheme()
+  const isDark = colorScheme === 'dark'
   const [copied, setCopied] = useState(false)
 
   if (!response) {
     return (
       <Box style={{ flex: 1, margin: '1rem', marginTop: 0 }}>
-        <Paper shadow="sm" p="xl">
+        <Paper
+          shadow="sm"
+          p="xl"
+          style={{
+            boxShadow: isDark
+              ? '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08)'
+              : undefined
+          }}
+        >
           <Stack align="center" gap="xs" py="xl">
             <Text size="lg" fw={500} c="dimmed">No response yet</Text>
             <Text size="sm" c="dimmed">Send a request to see the response</Text>
@@ -68,7 +78,15 @@ export function ResponseViewer({ response }: ResponseViewerProps) {
 
   return (
     <Box style={{ flex: 1, margin: '1rem', marginTop: 0 }}>
-      <Paper shadow="sm" p="lg">
+      <Paper
+        shadow="sm"
+        p="lg"
+        style={{
+          boxShadow: isDark
+            ? '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08)'
+            : undefined
+        }}
+      >
         <Stack gap="md">
           <Group justify="space-between" align="center">
             <Group gap="md">

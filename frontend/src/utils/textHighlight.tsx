@@ -1,4 +1,4 @@
-import { Text, Mark } from "@mantine/core"
+import { Text, Mark, useMantineColorScheme } from "@mantine/core"
 
 interface HighlightMatchProps {
   text: string
@@ -14,6 +14,9 @@ interface HighlightMatchProps {
  * Returns Text component with Mark for highlighted portions
  */
 export function HighlightMatch({ text, query, size, fw, c, style }: HighlightMatchProps) {
+  const { colorScheme } = useMantineColorScheme()
+  const isDark = colorScheme === 'dark'
+
   // No query or empty query - return text as-is
   if (!query || !query.trim()) {
     return (
@@ -44,7 +47,11 @@ export function HighlightMatch({ text, query, size, fw, c, style }: HighlightMat
   return (
     <Text size={size} fw={fw} c={c} style={style}>
       {before}
-      <Mark color="yellow">{match}</Mark>
+      <Mark
+        color={isDark ? "yellow" : "blue"}
+      >
+        {match}
+      </Mark>
       {after}
     </Text>
   )
