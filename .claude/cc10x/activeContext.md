@@ -10,7 +10,385 @@ PostWhale is a Postman clone for testing Triple Whale microservice endpoints. De
 - Database: SQLite
 - Design: **#0C70F2 primary**, macOS-quality dark mode
 
-## Current Status: HOVER-BASED STAR VISIBILITY - READY FOR MANUAL QA ✅
+## Current Status: TODO.md BUGS & QUICK - COMPLETE ✅
+
+### TODO.md - Protocol Fix & Request Title Star Icon (2026-01-13)
+
+**Status:** ✅ COMPLETE - All tests PASS, documentation updated, ready for manual testing
+**Date:** 2026-01-13
+**Workflow:** DEBUG/BUILD → bug-investigator → code-reviewer (95/100) → integration-verifier (PASS) → documentation fix
+**Chain Progress:** 4/4 complete (DEBUG/BUILD chains)
+**Confidence Score:** 95/100
+**Risk Level:** LOW
+**Issues Fixed:** 1 BUG + 1 QUICK feature
+
+#### Bug 1: Protocol Fix (STAGING/PRODUCTION use http, not https) ✅
+**Root Cause:** backend/client/client.go used `https://` for STAGING and PRODUCTION environments
+**Evidence:** Lines 57, 59 in buildURL() function
+**Fix:** Changed protocol from `https://` to `http://` for both environments
+**Files Modified:**
+- `backend/client/client.go` - Lines 57, 59 (protocol change)
+- `backend/client/client_test.go` - Lines 35, 50 (test expectations updated)
+- `README.md` - Lines 123-124, 252-253 (documentation updated)
+- `CONTRIBUTING.md` - Lines 315, 317 (code examples updated)
+
+**Verification:**
+- Backend tests: 48/48 PASS ✓
+- Protocol tests: TestBuildURL_Staging, TestBuildURL_Production PASS ✓
+- Documentation now matches implementation ✓
+
+#### Feature 2: Request Title Star Icon ✅
+**Requirement:** "Add a star icon next to the request title to star it there (blue/grey if unstarred and gold if starred)"
+**Implementation:** Added ActionIcon with star next to endpoint path in RequestBuilder header
+**Files Modified:**
+- `frontend/src/components/request/RequestBuilder.tsx` - Lines 2-3, 5, 27, 145-156
+
+**Features:**
+- Position: Next to endpoint title in RequestBuilder header Group
+- Unstarred state: Blue outline (#0C70F2) light mode, Grey outline (#888) dark mode
+- Starred state: Gold fill (#FFA500 light, #FFD700 dark)
+- Behavior: Toggles endpoint favorite on click
+- Syncs with sidebar favorites (shared useFavorites hook)
+- Accessible: aria-label for screen readers
+- Keyboard accessible: Tab, Enter/Space
+
+**Pattern Applied:** Pattern #24 (useFavorites hook for favorites management)
+
+#### Integration Verification Results (10/10 scenarios PASS)
+
+| Scenario | Result | Evidence |
+|----------|--------|----------|
+| Backend Tests | PASS | exit 0 (48/48 tests) |
+| TypeScript Compilation | PASS | exit 0 (no errors) |
+| Frontend Build | PASS | exit 0 (1,441.02 kB JS, 208.43 kB CSS) |
+| Protocol Fix - Staging | PASS | http://stg.{SERVICE}.srv.whale3.io verified |
+| Protocol Fix - Production | PASS | http://{SERVICE}.srv.whale3.io verified |
+| Star Icon - Integration | PASS | useFavorites hook imported and used |
+| Star Icon - Visual | PASS | IconStar/IconStarFilled with theme colors |
+| Star Icon - Accessibility | PASS | aria-label present |
+| Pattern #24 Applied | PASS | useFavorites hook (favorites system) |
+| Pattern #28 Applied | PASS | w="auto" on Add Header button |
+
+#### Task 1: Protocol Bug Fix ✅
+
+**Issue:** STAGING and PRODUCTION URLs used https:// instead of http://
+**Root Cause:** Incorrect protocol in buildURL() function for EnvStaging and EnvProduction
+**Evidence:** backend/client/client.go lines 57, 59
+**Fix:** Changed protocol from https:// to http:// for both environments
+
+**Files Modified:**
+- `backend/client/client.go` - Lines 57, 59 (protocol change)
+- `backend/client/client_test.go` - Lines 35, 50 (test expectations updated)
+
+**Verification:**
+- Backend tests: 48/48 PASS (exit 0)
+- All client tests PASS including TestBuildURL_Staging and TestBuildURL_Production
+- HTTP client integration: 5/5 ExecuteRequest tests PASS
+- No regressions in other backend modules
+
+#### Task 2: Request Title Star Icon ✅
+
+**Feature:** Add star icon next to request title to favorite endpoints from request view
+**Implementation:**
+- Star appears next to endpoint path in RequestBuilder header
+- Gold star (#FFD700 dark, #FFA500 light) when favorited
+- Blue (#0C70F2 light) / Grey (#888 dark) outline star when not favorited
+- Clicking toggles favorite status for current endpoint
+- Uses existing useFavorites hook for consistency with sidebar
+
+**Files Modified:**
+- `frontend/src/components/request/RequestBuilder.tsx`:
+  - Added imports: IconStar, IconStarFilled, ActionIcon, useFavorites
+  - Line 27: Added useFavorites hook
+  - Lines 145-156: Star icon ActionIcon next to Title
+
+**Verification:**
+- TypeScript: exit 0 (no errors)
+- Frontend Build: exit 0 (1,441.02 kB JS, 208.43 kB CSS)
+- Pattern Applied: Pattern #24 (useFavorites hook)
+- Pattern Applied: Pattern #28 (w="auto" on Add Header button)
+- Accessibility: aria-label for screen readers
+- Theme support: 5 components use useMantineColorScheme()
+- Favorites integration: Syncs with sidebar (10 usages in Sidebar.tsx)
+- Bundle size: +0 KB (no new dependencies)
+
+#### Issues Found
+
+**MAJOR: Documentation Inconsistency (1)**
+- README.md lines 123-124, 252-253 still reference https:// for STAGING/PRODUCTION
+- CONTRIBUTING.md lines 315, 317 still reference https://
+- **MUST FIX** before commit to avoid code-docs mismatch
+
+**Fix Required:**
+```diff
+# README.md
+- **STAGING** - `https://stg.SERVICE.srv.whale3.io/...`
++ **STAGING** - `http://stg.SERVICE.srv.whale3.io/...`
+- **PRODUCTION** - `https://SERVICE.srv.whale3.io/...`
++ **PRODUCTION** - `http://SERVICE.srv.whale3.io/...`
+```
+
+#### Cross-Cutting Verification (5/5 PASS)
+
+- Theme switching: 5 components use useMantineColorScheme() ✓
+- Favorites integration: Sidebar (10 usages) + RequestBuilder sync ✓
+- Accessibility: 3 components with aria-label support ✓
+- Build stability: TypeScript clean, build success, 48/48 tests pass ✓
+- HTTP client integration: 5/5 ExecuteRequest tests pass ✓
+
+#### Regression Analysis (0 Regressions)
+
+Backend:
+- All 48 tests pass (no regressions)
+- IPC handler: 7/7 tests pass
+- Database: 28/28 tests pass
+- Scanner: 5/5 tests pass
+
+Frontend:
+- TypeScript: No new errors
+- Existing favorites system: Intact (sidebar uses same hook)
+- Theme switching: No breakage (5 components verified)
+- Request execution: No impact (protocol change transparent to frontend)
+
+#### Manual Testing Required (~15 minutes)
+
+**Protocol Fix (~5 minutes):**
+- [ ] STAGING environment: Verify request uses http://stg.{service}.srv.whale3.io
+- [ ] PRODUCTION environment: Verify request uses http://{service}.srv.whale3.io
+- [ ] LOCAL environment: Verify still uses http://localhost
+
+**Star Icon (~10 minutes):**
+
+Light Mode:
+- [ ] Unstarred endpoint → Blue outline star visible
+- [ ] Click star → Fills with orange/gold
+- [ ] Star state syncs with sidebar favorites
+- [ ] Theme toggle → Colors update correctly
+
+Dark Mode:
+- [ ] Unstarred endpoint → Grey outline star visible
+- [ ] Click star → Fills with gold
+- [ ] Star state syncs with sidebar favorites
+- [ ] Theme toggle → Colors update correctly
+
+State Persistence:
+- [ ] Star endpoint → Close app → Reopen → Star still filled
+- [ ] Unstar from RequestBuilder → Sidebar updates immediately
+- [ ] Unstar from Sidebar → RequestBuilder updates on re-selection
+
+Keyboard Navigation:
+- [ ] Tab to star icon → Focus visible
+- [ ] Enter/Space → Toggles favorite
+- [ ] aria-label read by screen reader
+
+#### Deployment Readiness
+
+Checklist:
+- [x] All automated tests pass (48/48 backend, TypeScript clean, build success)
+- [x] Zero regressions detected
+- [x] Pattern compliance verified (#24, #28)
+- [x] Accessibility verified (aria-label, keyboard support)
+- [ ] **Documentation updated (REQUIRED before commit)**
+- [ ] **Manual UI testing complete (RECOMMENDED)**
+- [ ] **Security confirmation: Protocol downgrade intentional? (RECOMMENDED)**
+
+**Status:** BLOCKED on documentation fix. Once README/CONTRIBUTING updated, ready for manual testing and commit.
+
+**Full Report:** `.claude/cc10x/integration_verification_protocol_star.md`
+
+---
+
+### Previous: TODO.md Bug Fixes - Add Header Button & Star Icon Positioning (2026-01-13)
+
+**Status:** ✅ INTEGRATION VERIFIED - All automated tests pass, ready for manual UI testing
+**Date:** 2026-01-13
+**Workflow:** DEBUG → bug-investigator (minimal fixes) → code-reviewer (98/100) → integration-verifier (PASS)
+**Chain Progress:** 3/3 complete (DEBUG chain)
+**Confidence Score:** 98/100
+**Risk Level:** LOW
+**Issues Fixed:** 2/2
+
+#### Bug 1: "Add Header" Button Full Width ✅
+**Root Cause:** Button had no width constraint, inherited full width from parent Stack
+**Evidence:** RequestBuilder.tsx line 238 - Button stretched to container width
+**Fix:** Added `w="auto"` prop to Button component for content-fit sizing
+**Files Modified:** `frontend/src/components/request/RequestBuilder.tsx` (line 238)
+**Pattern Applied:** Pattern #28 (Mantine Button Auto Width)
+
+#### Bug 2: Star Icon Replacing Chevron on Hover ✅
+**Root Cause:** Conditional rendering replaced chevron with star, confusing UX pattern
+**Evidence:** Sidebar.tsx repos (lines 273-311) and services (lines 364-402) - star replaced chevron on hover
+**Expected:** Star appears NEXT TO chevron (chevron stays in same position)
+**Fix:** Separated star and chevron into two distinct elements:
+- Star icon: Always rendered (filled when favorited, outline on hover, empty space otherwise)
+- Chevron icon: Always rendered in consistent position for expand/collapse
+**Files Modified:**
+- `frontend/src/components/sidebar/Sidebar.tsx` - Repos section (lines 273-314)
+- `frontend/src/components/sidebar/Sidebar.tsx` - Services section (lines 367-408)
+- `frontend/src/components/sidebar/Sidebar.tsx` - Endpoints section (lines 455-491)
+**Pattern Applied:** Pattern #29 (Tree View Icon Positioning)
+
+#### Integration Verification Results (All PASS)
+
+**Automated Tests (8/8 scenarios):**
+
+| Check | Command | Exit Code | Result |
+|-------|---------|-----------|--------|
+| TypeScript | cd frontend && npx tsc --noEmit | 0 | PASS (no errors) |
+| Frontend Build | cd frontend && npm run build | 0 | PASS (1,440.70 kB JS, 208.43 kB CSS) |
+| Backend Tests | cd backend && go test ./... | 0 | PASS (48/48) |
+| Pattern #28 Applied | grep 'w="auto"' RequestBuilder.tsx | 0 | FOUND (line 238) |
+| Pattern #29 Applied | grep 'IconChevron' Sidebar.tsx | 0 | FOUND (4 occurrences) |
+| Favorites Intact | grep 'toggleFavorite' Sidebar.tsx | 0 | FOUND (7 occurrences) |
+| Accessibility | grep 'aria-label' Sidebar.tsx | 0 | FOUND (9 occurrences) |
+| Theme Support | grep 'useMantineColorScheme' components/ | 0 | FOUND (4 components) |
+
+**Regression Analysis:** 0 regressions detected
+- Request Builder headers: ✅ addHeader/removeHeader intact
+- Sidebar favorites: ✅ toggleFavorite preserved (7 calls)
+- Sidebar navigation: ✅ Chevron logic intact
+- Keyboard navigation: ✅ tabIndex/aria-label preserved (9 uses)
+- Theme switching: ✅ colorScheme hooks present (4 components)
+- Backend integration: ✅ All 48 tests pass
+
+**Bundle Size Impact:**
+- JS: 1,440.70 KB (unchanged, +0 KB)
+- CSS: 208.43 KB (unchanged, +0 KB)
+- Gzip: 458.14 KB (unchanged)
+- **Impact:** Zero bundle size change
+
+**Code Review (98/100 - APPROVED):**
+- Minimal, surgical changes
+- Pattern-compliant (Patterns #28, #29)
+- Zero performance impact
+- All tests passing
+- No regressions detected
+- Excellent separation of concerns
+- Critical issues: 0
+
+**Risk Assessment:**
+- Risk Level: LOW
+- Changes: 2 files, 3 sections, ~50 lines
+- No new dependencies
+- No API changes
+- Isolated, well-tested changes
+
+**Blocking Issues:** NONE
+
+**Manual Testing Required (~5 minutes):**
+Critical tests in running Electron app:
+
+**Bug 1 - Add Header Button:**
+- [ ] Visual: Button is content-fit width (not full container)
+- [ ] Click "Add Header" → New header row appears
+- [ ] Remove header → Row disappears
+- [ ] Toggle theme → Button renders correctly
+
+**Bug 2 - Star Icon Positioning:**
+- [ ] Hover repo → Star appears NEXT TO chevron (chevron doesn't move)
+- [ ] Hover service → Star appears NEXT TO chevron
+- [ ] Hover endpoint → Star appears (no chevron)
+- [ ] Click star → Favorite toggles (filled ↔ outline)
+- [ ] Click chevron → Expands/collapses
+- [ ] Toggle theme → Icons render correctly
+
+**Cross-cutting:**
+- [ ] Theme switching with item selected → No layout breaks
+- [ ] Keyboard Tab navigation → Focus visible, star appears
+- [ ] Favorites view → Starred items show correctly
+- [ ] Search/filter → Icons maintain positions
+
+**Full Report:** `.claude/cc10x/integration_verification_todo_bugs.md`
+
+Last updated: 2026-01-13 (TODO.md bugs - Integration verified, ready for manual UI testing)
+
+---
+
+**Workflow:** BUILD → component-builder → [code-reviewer ∥ silent-failure-hunter] → integration-verifier (PASS)
+**Chain Progress:** 4/4 complete
+**Confidence Score:** 95/100
+
+#### Issue Summary
+User reported: Selected sidebar items had poor text contrast and ugly yellow background in light mode
+
+#### Solution Applied
+- **Light mode selected endpoint:** `blue[0]` background (very light blue) + `blue[9]` text (very dark blue)
+- **Dark mode preserved:** `blue[6]` background + `white` text (unchanged)
+- **Search highlighting:** Conditional `blue` (light mode) / `yellow` (dark mode)
+
+#### Files Modified
+1. `frontend/src/components/sidebar/Sidebar.tsx` - Lines 492-501 (selected endpoint styling)
+2. `frontend/src/utils/textHighlight.tsx` - Lines 1, 14-17, 50-53 (search highlight colors)
+
+#### Verification Results (All PASS)
+
+| Check | Result |
+|-------|--------|
+| TypeScript | exit 0 ✓ |
+| Frontend Build | exit 0 (1,440.14 kB JS, 208.43 kB CSS) ✓ |
+| Backend Tests | 48/48 PASS ✓ |
+| Code Review | 92/100 (APPROVED) ✓ |
+| Silent Failures | 0 critical, 0 high ✓ |
+| Light Mode Contrast | ~14:1 (WCAG AAA) ✓ |
+| Dark Mode | No regressions ✓ |
+| Automated E2E | 5/5 scenarios PASS ✓ |
+
+#### Code Review Findings (92/100 - APPROVED)
+- Light mode contrast: 14.20:1 (WCAG AAA) - Excellent
+- Type safety: No TypeScript errors
+- Mantine UI patterns: Perfect consistency
+- Pre-existing note: Dark mode contrast 2.57:1 (existed before, not introduced by fix)
+
+#### Silent Failure Hunter Results (83/100 - APPROVED)
+- Critical failures: 0 found
+- Error handling: Excellent throughout codebase
+- Null safety: All checks in place
+- Theme switching: Safe implementation
+
+#### Manual Testing Required
+Critical tests in running Electron app (~10 minutes):
+- [ ] Light mode: Select endpoint → Verify high contrast, no yellow background
+- [ ] Dark mode: Select endpoint → Verify blue preserved
+- [ ] Theme toggle: Switch themes with endpoint selected → Colors update immediately
+- [ ] Search in light mode → Verify blue highlighting
+- [ ] Search in dark mode → Verify yellow highlighting
+
+**Full Reports:**
+- Integration Verification: `/tmp/e2e_verification_light_mode_sidebar.md`
+- Code Review: Workflow step output (92/100)
+- Silent Failures: `.claude/cc10x/silent_failures_light_mode_fix.md` (83/100)
+
+**Blocking Issues:** NONE
+**Ready For:** Manual UI testing (10 minutes)
+**Risk Level:** LOW
+
+---
+
+## Previous: LIGHT MODE SIDEBAR STYLING FIXED ✅
+
+### Light Mode Sidebar Selected Item Fix (2026-01-13)
+
+**Status:** ✅ COMPLETE - Selected item styling fixed for light mode
+**Date:** 2026-01-13
+**Issue:** Selected endpoint had poor contrast in light mode (blue background with unreadable text)
+**Solution:**
+- Light mode: Light blue background (blue[0]) + dark blue text (blue[9]) - High contrast, clean look
+- Dark mode: Keep existing blue[6] background + white text (already good)
+
+**Changes:**
+- File: `frontend/src/components/sidebar/Sidebar.tsx` (lines 492-501)
+- Added conditional styling based on `isDark` for both background and text color
+- Light mode uses `theme.colors.blue[0]` (very light blue) + `theme.colors.blue[9]` (very dark blue)
+- Dark mode uses `theme.colors.blue[6]` (medium blue) + `theme.white`
+
+**Verification:**
+- TypeScript: exit 0 ✓
+- Build: exit 0 (1,440.14 kB JS, 208.43 kB CSS) ✓
+- No breaking changes - only styling update
+
+---
+
+## Previous: HOVER-BASED STAR VISIBILITY - READY FOR MANUAL QA ✅
 
 ### Hover-Based Star Icon Visibility (2026-01-13)
 
@@ -48,7 +426,7 @@ Critical tests in running Electron app:
 - [ ] Keyboard: Tab navigate → Star appears on focus
 - [ ] Keyboard click: Focus → Click star → Favorite toggles
 
-Last updated: 2026-01-13 (Hover-based star visibility complete)
+Last updated: 2026-01-13 (Silent failure hunt complete - light mode fix approved)
 
 ---
 

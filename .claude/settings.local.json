@@ -4,7 +4,8 @@
       "Bash(open:*)",
       "Bash(pkill:*)",
       "Bash(lsof:*)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Skill(cc10x:cc10x-router)"
     ]
   }
 }

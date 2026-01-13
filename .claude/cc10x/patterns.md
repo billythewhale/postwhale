@@ -49,6 +49,8 @@
 - Backend IPC may not include all fields - use optional chaining in frontend (e.g., `spec?.parameters`)
 - Dark mode glows: ONLY on hover (e.g., `dark:hover:shadow-glow-md`), NEVER persistent on active/selected states OR static containers (dropdowns, modals, cards) OR status indicators (badges). Persistent glows look obnoxious. Check ALL ui components: tabs, buttons, sidebar, inputs, select, dialog, card, badge. Required THREE rounds of fixes: (v3) removed from active/selected states, (v4) removed from static containers, (v5) removed from badge status indicators.
 - Tree filtering with search: Filter utility must return matching ID sets, NOT just filtered arrays. Components will render ALL children from original arrays if you only filter parent level. Always return Sets of matching IDs for each level (repos, services, endpoints) and use `.has(id)` checks in component filters. Bug: Sidebar rendered all services/endpoints despite filterTree() filtering - required adding matchingServiceIds and matchingEndpointIds to FilteredTree interface.
+- Browser focus outlines: Elements with `tabIndex={0}` get browser's default focus outline (often yellow/orange). Always override with `style={{ outline: 'none' }}` or custom focus styling to avoid ugly default borders. Bug: Sidebar Group elements had yellow/orange border on click because of browser focus ring.
+- Dark mode shadows on Paper components: Default Mantine shadows use black `rgba(0, 0, 0, 0.2)` which is invisible against dark backgrounds. For persistent shadows (not hover states), use conditional styling with `useMantineColorScheme()` to apply stronger shadows in dark mode: `'0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08)'`. DO NOT use royal blue glows for persistent container shadows - those are ONLY for hover states. Bug: RequestBuilder and ResponseViewer Paper components had no visible elevation in dark mode.
 
 ### 10. IPC Protocol Pattern - Line-based JSON
 **Pattern:** Read from stdin line-by-line, write to stdout line-by-line
@@ -417,4 +419,49 @@ export function useViewState() {
 **When:** Replacing multiple persistent buttons, secondary actions in sidebars/toolbars
 **Gotcha:** Use `withinPortal` prop to avoid z-index issues with ScrollArea. Conditional items (e.g., "Clear All") should check state before rendering.
 
-Last updated: 2026-01-13 (Sidebar redesign patterns - favorites, tree filtering, view state persistence)
+### 28. Mantine Button Auto Width Pattern
+**Pattern:** Use `w="auto"` prop to make buttons fit content instead of stretching to container width
+**Example:**
+```typescript
+// WRONG - Button stretches to full container width
+<Stack gap="xs">
+  <Button onClick={handleClick}>Add Header</Button>
+</Stack>
+
+// RIGHT - Button fits content width
+<Stack gap="xs">
+  <Button onClick={handleClick} w="auto">Add Header</Button>
+</Stack>
+```
+**Why:** Default Mantine behavior makes buttons fill container width. `w="auto"` makes them content-fit for cleaner UI.
+**When:** Buttons in Stack/Group containers that shouldn't stretch full width
+**Gotcha:** Stack and vertical Group layouts default to full width children. Use `w="auto"` or wrap in Group with `justify="flex-start"` to constrain width.
+
+### 29. Tree View Icon Positioning Pattern - Persistent Elements Next to Interactive
+**Pattern:** For tree views with expand/collapse and favorites, keep interactive elements (chevrons) in consistent positions, place secondary icons (stars) NEXT TO them, not replacing them
+**Example:**
+```typescript
+// WRONG - Star REPLACES chevron on hover (confusing UX)
+{isFavorite ? (
+  <StarFilled />
+) : isHovered ? (
+  <Star />
+) : (
+  <Chevron />  // Chevron position changes when star appears
+)}
+
+// RIGHT - Star and chevron are separate, both always present
+{isFavorite ? (
+  <StarFilled />
+) : isHovered ? (
+  <Star />
+) : (
+  <EmptyBox width={28} height={28} />  // Reserve space
+)}
+<Chevron />  // Always in same position
+```
+**Why:** Users expect interactive controls (expand/collapse chevrons) to stay in predictable positions. Star replacing chevron on hover breaks this expectation and confuses clicks.
+**When:** Tree views, navigation sidebars with collapsible sections and favorites/bookmarks
+**Gotcha:** Always reserve space for hidden icons (empty Box with same dimensions) to prevent layout shifts. Use `pointerEvents: 'none'` on empty space to pass clicks through.
+
+Last updated: 2026-01-13 (TODO.md bugs - Add Header button width & star icon positioning patterns)
