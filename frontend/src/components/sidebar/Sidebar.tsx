@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { IconPlus, IconChevronRight, IconChevronDown, IconRefresh, IconTrash } from "@tabler/icons-react"
-import { Box, Button, Badge, Stack, Group, Text, ActionIcon, ScrollArea } from "@mantine/core"
+import { Box, Button, Badge, Stack, Group, Text, ActionIcon, ScrollArea, useMantineColorScheme } from "@mantine/core"
 import type { Repository, Service, Endpoint } from "@/types"
 
 interface SidebarProps {
@@ -26,6 +26,8 @@ export function Sidebar({
   onRefreshAll,
   onRemoveRepository,
 }: SidebarProps) {
+  const { colorScheme } = useMantineColorScheme()
+  const isDark = colorScheme === 'dark'
   const [expandedRepos, setExpandedRepos] = useState<Set<number>>(new Set())
   const [expandedServices, setExpandedServices] = useState<Set<number>>(new Set())
 
@@ -64,8 +66,8 @@ export function Sidebar({
     <Box
       style={(theme) => ({
         width: 320,
-        borderRight: `1px solid ${theme.colors.dark[5]}`,
-        backgroundColor: theme.colors.dark[6],
+        borderRight: `1px solid ${isDark ? theme.colors.dark[5] : theme.colors.gray[3]}`,
+        backgroundColor: isDark ? theme.colors.dark[6] : theme.colors.gray[0],
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
@@ -87,6 +89,7 @@ export function Sidebar({
                   <Group gap={4} wrap="nowrap">
                     <Box
                       onClick={() => toggleRepo(repo.id)}
+                      className="sidebar-nav-item"
                       style={(theme) => ({
                         flex: 1,
                         padding: '6px 8px',
@@ -96,9 +99,6 @@ export function Sidebar({
                         display: 'flex',
                         alignItems: 'center',
                         gap: 8,
-                        '&:hover': {
-                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                        },
                       })}
                     >
                       {isExpanded ? (
@@ -140,6 +140,7 @@ export function Sidebar({
                             <Box key={service.id}>
                               <Box
                                 onClick={() => toggleService(service.id)}
+                                className="sidebar-nav-item"
                                 style={(theme) => ({
                                   padding: '6px 8px',
                                   borderRadius: theme.radius.md,
@@ -148,9 +149,6 @@ export function Sidebar({
                                   display: 'flex',
                                   alignItems: 'center',
                                   gap: 8,
-                                  '&:hover': {
-                                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                                  },
                                 })}
                               >
                                 {isServiceExpanded ? (
@@ -176,6 +174,7 @@ export function Sidebar({
                                         <Box
                                           key={endpoint.id}
                                           onClick={() => onSelectEndpoint(endpoint)}
+                                          className="sidebar-nav-item"
                                           style={(theme) => ({
                                             padding: '6px 8px',
                                             borderRadius: theme.radius.md,
@@ -188,11 +187,6 @@ export function Sidebar({
                                               ? theme.colors.blue[6]
                                               : 'transparent',
                                             fontWeight: isSelected ? 500 : 400,
-                                            '&:hover': {
-                                              backgroundColor: isSelected
-                                                ? theme.colors.blue[6]
-                                                : 'rgba(255, 255, 255, 0.1)',
-                                            },
                                           })}
                                         >
                                           <Badge

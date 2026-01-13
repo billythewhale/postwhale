@@ -54,3 +54,17 @@ summary {
 [data-mantine-color-scheme="light"] ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.3);
 }
+
+/* Sidebar navigation item hover effects - Dark mode */
+[data-mantine-color-scheme="dark"] .sidebar-nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+/* Sidebar navigation item hover effects - Light mode */
+[data-mantine-color-scheme="light"] .sidebar-nav-item:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}

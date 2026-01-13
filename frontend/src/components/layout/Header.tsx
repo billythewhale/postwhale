@@ -9,6 +9,7 @@ interface HeaderProps {
 
 export function Header({ environment, onEnvironmentChange }: HeaderProps) {
   const { setColorScheme, colorScheme } = useMantineColorScheme()
+  const isDark = colorScheme === 'dark'
 
   const toggleTheme = () => {
     setColorScheme(colorScheme === "dark" ? "light" : "dark")
@@ -18,8 +19,8 @@ export function Header({ environment, onEnvironmentChange }: HeaderProps) {
     <Box
       component="header"
       style={(theme) => ({
-        borderBottom: `1px solid ${theme.colors.dark[5]}`,
-        backgroundColor: theme.colors.dark[6],
+        borderBottom: `1px solid ${isDark ? theme.colors.dark[5] : theme.colors.gray[3]}`,
+        backgroundColor: isDark ? theme.colors.dark[6] : theme.white,
       })}
     >
       <Group h={56} px="md" justify="space-between">
