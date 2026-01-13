@@ -268,8 +268,9 @@ export function Sidebar({
                     onFocus={() => setHoveredRepoId(repo.id)}
                     onBlur={() => setHoveredRepoId(null)}
                     tabIndex={0}
+                    style={{ outline: 'none' }}
                   >
-                    {/* Star or Chevron Icon */}
+                    {/* Star Icon */}
                     {isRepoFavorite ? (
                       <ActionIcon
                         size="sm"
@@ -291,23 +292,26 @@ export function Sidebar({
                           e.stopPropagation()
                           toggleFavorite('repos', repo.id)
                         }}
-                        title="Add to favorites"
+                        title="Add to Favorites"
                         aria-label="Favorite repository"
                       >
                         <IconStar size={14} style={{ color: 'var(--mantine-color-blue-5)' }} />
                       </ActionIcon>
                     ) : (
-                      <Box
-                        onClick={() => toggleRepo(repo.id)}
-                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                      >
-                        {isExpanded ? (
-                          <IconChevronDown size={16} />
-                        ) : (
-                          <IconChevronRight size={16} />
-                        )}
-                      </Box>
+                      <Box style={{ width: 28, height: 28, pointerEvents: 'none' }} />
                     )}
+
+                    {/* Chevron Icon */}
+                    <Box
+                      onClick={() => toggleRepo(repo.id)}
+                      style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    >
+                      {isExpanded ? (
+                        <IconChevronDown size={16} />
+                      ) : (
+                        <IconChevronRight size={16} />
+                      )}
+                    </Box>
 
                     {/* Repo Name */}
                     <Box
@@ -358,8 +362,9 @@ export function Sidebar({
                                 onFocus={() => setHoveredServiceId(service.id)}
                                 onBlur={() => setHoveredServiceId(null)}
                                 tabIndex={0}
+                                style={{ outline: 'none' }}
                               >
-                                {/* Star or Chevron Icon */}
+                                {/* Star Icon */}
                                 {isServiceFavorite ? (
                                   <ActionIcon
                                     size="sm"
@@ -381,23 +386,26 @@ export function Sidebar({
                                       e.stopPropagation()
                                       toggleFavorite('services', service.id)
                                     }}
-                                    title="Add to favorites"
+                                    title="Add to Favorites"
                                     aria-label="Favorite service"
                                   >
                                     <IconStar size={14} style={{ color: 'var(--mantine-color-blue-5)' }} />
                                   </ActionIcon>
                                 ) : (
-                                  <Box
-                                    onClick={() => toggleService(service.id)}
-                                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                  >
-                                    {isServiceExpanded ? (
-                                      <IconChevronDown size={16} />
-                                    ) : (
-                                      <IconChevronRight size={16} />
-                                    )}
-                                  </Box>
+                                  <Box style={{ width: 28, height: 28, pointerEvents: 'none' }} />
                                 )}
+
+                                {/* Chevron Icon */}
+                                <Box
+                                  onClick={() => toggleService(service.id)}
+                                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                >
+                                  {isServiceExpanded ? (
+                                    <IconChevronDown size={16} />
+                                  ) : (
+                                    <IconChevronRight size={16} />
+                                  )}
+                                </Box>
 
                                 {/* Service Name */}
                                 <Box
@@ -444,6 +452,7 @@ export function Sidebar({
                                           onFocus={() => setHoveredEndpointId(endpoint.id)}
                                           onBlur={() => setHoveredEndpointId(null)}
                                           tabIndex={0}
+                                          style={{ outline: 'none' }}
                                         >
                                           {/* Star Icon or Empty Space */}
                                           {isEndpointFavorite ? (
@@ -467,7 +476,7 @@ export function Sidebar({
                                                 e.stopPropagation()
                                                 toggleFavorite('endpoints', endpoint.id)
                                               }}
-                                              title="Add to favorites"
+                                              title="Add to Favorites"
                                               aria-label="Favorite endpoint"
                                             >
                                               <IconStar size={14} style={{ color: 'var(--mantine-color-blue-5)' }} />
@@ -490,8 +499,15 @@ export function Sidebar({
                                               alignItems: 'center',
                                               gap: 8,
                                               backgroundColor: isSelected
-                                                ? theme.colors.blue[6]
+                                                ? isDark
+                                                  ? theme.colors.blue[6]
+                                                  : theme.colors.blue[0]
                                                 : 'transparent',
+                                              color: isSelected
+                                                ? isDark
+                                                  ? theme.white
+                                                  : theme.colors.blue[9]
+                                                : 'inherit',
                                               fontWeight: isSelected ? 500 : 400,
                                             })}
                                           >

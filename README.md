@@ -120,8 +120,8 @@ Click on any endpoint to open the request builder. Fill in:
 ### 5. Choose Environment
 Select your target environment from the dropdown:
 - **LOCAL** - `http://localhost:PORT/...`
-- **STAGING** - `https://stg.SERVICE.srv.whale3.io/...`
-- **PRODUCTION** - `https://SERVICE.srv.whale3.io/...`
+- **STAGING** - `http://stg.SERVICE.srv.whale3.io/...`
+- **PRODUCTION** - `http://SERVICE.srv.whale3.io/...`
 
 ### 6. Send Request
 Click **"Send Request"** and view the formatted response!
@@ -249,8 +249,8 @@ PostWhale constructs URLs based on your selected environment:
 | Environment | URL Pattern | Example |
 |-------------|-------------|---------|
 | **LOCAL** | `http://localhost:{PORT}/{endpoint}` | `http://localhost:8080/orders` |
-| **STAGING** | `https://stg.{SERVICE_ID}.srv.whale3.io/{endpoint}` | `https://stg.fusion.srv.whale3.io/orders` |
-| **PRODUCTION** | `https://{SERVICE_ID}.srv.whale3.io/{endpoint}` | `https://fusion.srv.whale3.io/orders` |
+| **STAGING** | `http://stg.{SERVICE_ID}.srv.whale3.io/{endpoint}` | `http://stg.fusion.srv.whale3.io/orders` |
+| **PRODUCTION** | `http://{SERVICE_ID}.srv.whale3.io/{endpoint}` | `http://fusion.srv.whale3.io/orders` |
 
 **Important Notes:**
 - **LOCAL** requires the service to be running locally on the specified port
