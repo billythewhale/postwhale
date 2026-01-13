@@ -595,15 +595,6 @@ func (h *Handler) handleRefreshRepository(data json.RawMessage) IPCResponse {
 		}
 	}
 
-	// Delete existing services for this repo (CASCADE will delete endpoints)
-	_, err = h.database.Exec("DELETE FROM services WHERE repo_id = ?", input.ID)
-	if err != nil {
-		return IPCResponse{
-			Success: false,
-			Error:   fmt.Sprintf("failed to clear existing services: %v", err),
-		}
-	}
-
 	// Re-scan the repository
 	scanResult := scanner.ScanRepository(repo.Path)
 	if len(scanResult.Errors) > 0 && len(scanResult.Services) == 0 {
@@ -613,31 +604,90 @@ func (h *Handler) handleRefreshRepository(data json.RawMessage) IPCResponse {
 		}
 	}
 
-	// Add discovered services to database
+	// Get existing services for this repo to track what to remove
+	existingServices, err := db.GetServicesByRepo(h.database, input.ID)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to get existing services: %v", err),
+		}
+	}
+
+	// Track which services still exist after scan
+	scannedServiceIDs := make(map[string]bool)
+	for _, svc := range scanResult.Services {
+		scannedServiceIDs[svc.ServiceID] = true
+	}
+
+	// Remove services that no longer exist in the repository
+	for _, existingSvc := range existingServices {
+		if !scannedServiceIDs[existingSvc.ServiceID] {
+			_, _ = h.database.Exec("DELETE FROM services WHERE id = ?", existingSvc.ID)
+		}
+	}
+
+	// Upsert discovered services to database (preserves IDs via unique constraint)
 	servicesAdded := 0
 	endpointsAdded := 0
 	for _, svc := range scanResult.Services {
-		serviceID, err := db.AddService(h.database, db.Service{
-			RepoID:     input.ID,
-			ServiceID:  svc.ServiceID,
-			Name:       svc.Name,
-			Port:       svc.Port,
-			ConfigJSON: "{}",
-		})
+		// Use INSERT OR REPLACE to preserve IDs when service already exists
+		result, err := h.database.Exec(`
+			INSERT INTO services (repo_id, service_id, name, port, config_json)
+			VALUES (?, ?, ?, ?, ?)
+			ON CONFLICT(repo_id, service_id) DO UPDATE SET
+				name = excluded.name,
+				port = excluded.port,
+				config_json = excluded.config_json
+		`, input.ID, svc.ServiceID, svc.Name, svc.Port, "{}")
 		if err != nil {
 			continue // Skip services that fail to add
 		}
+
+		// Get the service ID (either newly inserted or existing)
+		serviceID, err := result.LastInsertId()
+		if err != nil {
+			// If LastInsertId fails (happens on UPDATE), find the service by unique key
+			rows, err := h.database.Query("SELECT id FROM services WHERE repo_id = ? AND service_id = ?", input.ID, svc.ServiceID)
+			if err != nil {
+				continue
+			}
+			if rows.Next() {
+				rows.Scan(&serviceID)
+			}
+			rows.Close()
+		}
 		servicesAdded++
 
-		// Add endpoints for this service
+		// Get existing endpoints for this service to track what to remove
+		existingEndpoints, err := db.GetEndpointsByService(h.database, serviceID)
+		if err != nil {
+			continue
+		}
+
+		// Track which endpoints still exist after scan
+		scannedEndpoints := make(map[string]bool)
 		for _, endpoint := range svc.Endpoints {
-			_, err := db.AddEndpoint(h.database, db.Endpoint{
-				ServiceID:   serviceID,
-				Method:      endpoint.Method,
-				Path:        endpoint.Path,
-				OperationID: endpoint.OperationID,
-				SpecJSON:    "{}",
-			})
+			key := endpoint.Method + ":" + endpoint.Path
+			scannedEndpoints[key] = true
+		}
+
+		// Remove endpoints that no longer exist for this service
+		for _, existingEp := range existingEndpoints {
+			key := existingEp.Method + ":" + existingEp.Path
+			if !scannedEndpoints[key] {
+				_, _ = h.database.Exec("DELETE FROM endpoints WHERE id = ?", existingEp.ID)
+			}
+		}
+
+		// Upsert endpoints for this service (preserves IDs via unique constraint)
+		for _, endpoint := range svc.Endpoints {
+			_, err := h.database.Exec(`
+				INSERT INTO endpoints (service_id, method, path, operation_id, spec_json)
+				VALUES (?, ?, ?, ?, ?)
+				ON CONFLICT(service_id, method, path) DO UPDATE SET
+					operation_id = excluded.operation_id,
+					spec_json = excluded.spec_json
+			`, serviceID, endpoint.Method, endpoint.Path, endpoint.OperationID, "{}")
 			if err == nil {
 				endpointsAdded++
 			}
