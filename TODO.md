@@ -2,17 +2,11 @@
 
 ## BUGS
 
-- [ ] for STAGING and PRODUCTION, the protocol is http, not https (01/13/2026)
-
 ## QUICK
-
-- [ ] "Add Header" Button should just look like "+ Add" (the + is an icon not the text "+")
-- [ ] Star icon should be to the left of the path in the request panel
-- [ ] Tooltip should say "Add to Favorites" when hovering star icon in request panel or in left sidebar
 
 ## FEATURES
 
-- [ ] User can set Request Query for requests
+- [ ] User can set Query items for requests
   - [ ] Need a tab next to Params / Headers / Body
   - [ ] User inputs query items in table format, like our headers currently
   - [ ] If request schema shows query items, pre-populate the query table with these properties
@@ -48,7 +42,15 @@
 - [x] Blue Star should be NEXT TO the open/close caret on the left sidebar nodes, since normal human UI pattern is to click the caret itself, it shouldn't transform into the star all of a sudden (01/13/2026)
 - [x] for STAGING and PRODUCTION, the protocol is http, not https (01/13/2026)
 - [x] "Add header" button is still full width. YOU MUST make the button not full width, it looks fucking stupid (01/13/2026)
+- [x] When pressing "Refresh All" under "Actions" on the left sidebar, all favorites SHOULD NOT be deleted (current behavior bad) (01/13/2026)
+- [x] When pressing the star on the request panel, the left sidebar should get updated with that request being starred (01/13/2026)
+- [x] When an endpoint is starred, the star in the requests panel should be golden (01/13/2026)
+
 
 ## QUICK
 
 - [x] Add a star icon next to the request title to star it there (blue/grey if unstarred and gold if starred) (01/13/2026)
+- [x] Star icon should be to the left of the path in the request panel (01/13/2026)
+- [x] "Add Header" Button should just look like "+ Add" (the + is an icon not the text "+") (01/13/2026)
+- [x] Tooltip should say "Add to Favorites" when hovering star icon in request panel or in left sidebar (01/13/2026)
+
