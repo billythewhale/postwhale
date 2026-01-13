@@ -1,7 +1,5 @@
-import { Moon, Sun } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useTheme } from "@/components/theme-provider"
+import { IconMoon, IconSun } from "@tabler/icons-react"
+import { Group, ActionIcon, Select, Box, Text, useMantineColorScheme } from "@mantine/core"
 import type { Environment } from "@/types"
 
 interface HeaderProps {
@@ -10,50 +8,70 @@ interface HeaderProps {
 }
 
 export function Header({ environment, onEnvironmentChange }: HeaderProps) {
-  const { theme, setTheme } = useTheme()
+  const { setColorScheme, colorScheme } = useMantineColorScheme()
 
   const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark")
+    setColorScheme(colorScheme === "dark" ? "light" : "dark")
   }
 
   return (
-    <header className="border-b bg-card">
-      <div className="flex h-14 items-center px-4 gap-4">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-lg">P</span>
-          </div>
-          <h1 className="text-lg font-semibold">PostWhale</h1>
-        </div>
+    <Box
+      component="header"
+      style={(theme) => ({
+        borderBottom: `1px solid ${theme.colors.dark[5]}`,
+        backgroundColor: theme.colors.dark[6],
+      })}
+    >
+      <Group h={56} px="md" justify="space-between">
+        <Group gap="sm">
+          <Box
+            style={(theme) => ({
+              width: 32,
+              height: 32,
+              borderRadius: theme.radius.md,
+              backgroundColor: theme.colors.blue[6],
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            })}
+          >
+            <Text c="white" fw={700} size="lg">P</Text>
+          </Box>
+          <Text size="lg" fw={600}>PostWhale</Text>
+        </Group>
 
-        <div className="flex-1" />
+        <Group gap="sm">
+          <Select
+            value={environment}
+            onChange={(v) => {
+              // CRITICAL FIX: Explicit null check - Mantine Select can return null on clear
+              // Fallback to current environment to prevent app state corruption
+              if (v === null) return
+              onEnvironmentChange(v as Environment)
+            }}
+            data={[
+              { value: 'LOCAL', label: 'LOCAL' },
+              { value: 'STAGING', label: 'STAGING' },
+              { value: 'PRODUCTION', label: 'PRODUCTION' },
+            ]}
+            w={140}
+            clearable={false}
+          />
 
-        <div className="flex items-center gap-2">
-          <Select value={environment} onValueChange={(v) => onEnvironmentChange(v as Environment)}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="LOCAL">LOCAL</SelectItem>
-              <SelectItem value="STAGING">STAGING</SelectItem>
-              <SelectItem value="PRODUCTION">PRODUCTION</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button
-            variant="ghost"
-            size="icon"
+          <ActionIcon
+            variant="subtle"
             onClick={toggleTheme}
             aria-label="Toggle theme"
+            size="lg"
           >
-            {theme === "dark" ? (
-              <Sun className="h-5 w-5" />
+            {colorScheme === "dark" ? (
+              <IconSun size={20} />
             ) : (
-              <Moon className="h-5 w-5" />
+              <IconMoon size={20} />
             )}
-          </Button>
-        </div>
-      </div>
-    </header>
+          </ActionIcon>
+        </Group>
+      </Group>
+    </Box>
   )
 }

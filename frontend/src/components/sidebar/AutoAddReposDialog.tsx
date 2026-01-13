@@ -1,16 +1,6 @@
 import { useState, useEffect } from "react"
-import { Folder, FolderGit2 } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
+import { IconFolder, IconFolderCode } from "@tabler/icons-react"
+import { Modal, TextInput, Button, Stack, Group, Text, Checkbox, ScrollArea, Alert, Paper, Badge } from "@mantine/core"
 import type { SubdirInfo } from "@/types"
 
 interface AutoAddReposDialogProps {
@@ -50,6 +40,7 @@ export function AutoAddReposDialog({
       setSelectedPaths(new Set())
       setError(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   const checkDefaultPath = async () => {
@@ -177,115 +168,117 @@ export function AutoAddReposDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader onClose={handleClose}>
-          <DialogTitle>Auto Add Triple Whale Repositories</DialogTitle>
-          <DialogDescription>
-            {phase === "check"
-              ? "Enter the base directory containing Triple Whale repositories"
-              : "Select repositories to add"}
-          </DialogDescription>
-        </DialogHeader>
+    <Modal
+      opened={open}
+      onClose={handleClose}
+      title="Auto Add Triple Whale Repositories"
+      size="lg"
+    >
+      <Stack gap="md">
+        <Text size="sm" c="dimmed">
+          {phase === "check"
+            ? "Enter the base directory containing Triple Whale repositories"
+            : "Select repositories to add"}
+        </Text>
 
         {phase === "check" ? (
           <form onSubmit={handleCustomPathSubmit}>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="base-path" className="text-sm font-medium block mb-2">
-                  Base Directory Path
-                </label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Folder className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="base-path"
-                      type="text"
-                      value={customPath}
-                      onChange={(e) => setCustomPath(e.target.value)}
-                      placeholder="~/triplewhale"
-                      className="pl-10"
-                      disabled={isLoading}
-                      autoFocus
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Path to a directory containing multiple repository subdirectories
-                </p>
-              </div>
+            <Stack gap="md">
+              <TextInput
+                label="Base Directory Path"
+                placeholder="~/triplewhale"
+                value={customPath}
+                onChange={(e) => setCustomPath(e.currentTarget.value)}
+                leftSection={<IconFolder size={16} />}
+                disabled={isLoading}
+                autoFocus
+                description="Path to a directory containing multiple repository subdirectories"
+              />
 
               {error && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded px-3 py-2 text-sm text-red-600 dark:text-red-400">
+                <Alert color="red" variant="light">
                   {error}
-                </div>
+                </Alert>
               )}
-            </div>
 
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleClose}
-                disabled={isLoading}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isLoading || !customPath.trim()}>
-                {isLoading ? "Scanning..." : "Scan Directory"}
-              </Button>
-            </DialogFooter>
+              <Group justify="flex-end" mt="md">
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={handleClose}
+                  disabled={isLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isLoading || !customPath.trim()}
+                  loading={isLoading}
+                >
+                  {isLoading ? "Scanning..." : "Scan Directory"}
+                </Button>
+              </Group>
+            </Stack>
           </form>
         ) : (
-          <div className="space-y-4">
-            <div className="max-h-96 overflow-y-auto border rounded-lg">
-              {subdirs.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  No subdirectories found
-                </div>
-              ) : (
-                <div className="divide-y">
-                  {subdirs.map((subdir) => (
-                    <div
+          <Stack gap="md">
+            <ScrollArea.Autosize mah={400}>
+              <Stack gap={4}>
+                {subdirs.length === 0 ? (
+                  <Paper p="xl" withBorder>
+                    <Text size="sm" c="dimmed" ta="center">
+                      No subdirectories found
+                    </Text>
+                  </Paper>
+                ) : (
+                  subdirs.map((subdir) => (
+                    <Paper
                       key={subdir.path}
-                      className="flex items-center gap-3 p-3 hover:bg-accent cursor-pointer"
+                      p="sm"
+                      withBorder
+                      style={{ cursor: 'pointer' }}
                       onClick={() => toggleSelection(subdir.path)}
                     >
-                      <Checkbox
-                        checked={selectedPaths.has(subdir.path)}
-                        onCheckedChange={() => toggleSelection(subdir.path)}
-                        disabled={isLoading}
-                      />
-                      <FolderGit2 className={`h-4 w-4 ${subdir.hasServices ? 'text-emerald-500' : 'text-muted-foreground'}`} />
-                      <div className="flex-1">
-                        <div className="text-sm font-medium">{subdir.name}</div>
-                        <div className="text-xs text-muted-foreground">{subdir.path}</div>
-                      </div>
-                      {subdir.hasServices && (
-                        <span className="text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded">
-                          Has services
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                      <Group gap="sm" wrap="nowrap">
+                        <Checkbox
+                          checked={selectedPaths.has(subdir.path)}
+                          onChange={() => toggleSelection(subdir.path)}
+                          disabled={isLoading}
+                        />
+                        <IconFolderCode
+                          size={16}
+                          color={subdir.hasServices ? 'var(--mantine-color-teal-6)' : 'var(--mantine-color-dimmed)'}
+                        />
+                        <Stack gap={0} style={{ flex: 1 }}>
+                          <Text size="sm" fw={500}>{subdir.name}</Text>
+                          <Text size="xs" c="dimmed">{subdir.path}</Text>
+                        </Stack>
+                        {subdir.hasServices && (
+                          <Badge color="teal" variant="light" size="sm">
+                            Has services
+                          </Badge>
+                        )}
+                      </Group>
+                    </Paper>
+                  ))
+                )}
+              </Stack>
+            </ScrollArea.Autosize>
 
-            <div className="text-sm text-muted-foreground">
+            <Text size="sm" c="dimmed">
               {selectedPaths.size} repository{selectedPaths.size !== 1 ? "ies" : "y"} selected
-            </div>
+            </Text>
 
             {error && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded px-3 py-2 text-sm text-red-600 dark:text-red-400">
+              <Alert color="red" variant="light">
                 {error}
-              </div>
+              </Alert>
             )}
 
-            <DialogFooter>
+            <Group justify="flex-end" mt="md">
               <Button
                 type="button"
-                variant="outline"
+                variant="default"
                 onClick={handleClose}
                 disabled={isLoading}
               >
@@ -294,13 +287,16 @@ export function AutoAddReposDialog({
               <Button
                 onClick={handleAddRepositories}
                 disabled={isLoading || selectedPaths.size === 0}
+                loading={isLoading}
               >
-                {isLoading ? "Adding..." : `Add ${selectedPaths.size} ${selectedPaths.size === 1 ? "Repository" : "Repositories"}`}
+                {isLoading
+                  ? "Adding..."
+                  : `Add ${selectedPaths.size} ${selectedPaths.size === 1 ? "Repository" : "Repositories"}`}
               </Button>
-            </DialogFooter>
-          </div>
+            </Group>
+          </Stack>
         )}
-      </DialogContent>
-    </Dialog>
+      </Stack>
+    </Modal>
   )
 }

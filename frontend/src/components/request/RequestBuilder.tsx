@@ -1,12 +1,6 @@
 import { useState } from "react"
-import { Send } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
+import { IconSend, IconX } from "@tabler/icons-react"
+import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Textarea, Stack, Group, Box, Divider } from "@mantine/core"
 import type { Endpoint, Environment } from "@/types"
 
 interface RequestBuilderProps {
@@ -36,24 +30,24 @@ export function RequestBuilder({
 
   if (!endpoint) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center text-muted-foreground">
-          <p className="text-lg">Select an endpoint to get started</p>
-          <p className="text-sm mt-2">Choose a service and endpoint from the sidebar</p>
-        </div>
-      </div>
+      <Box style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Stack align="center" gap="xs">
+          <Text size="lg" c="dimmed">Select an endpoint to get started</Text>
+          <Text size="sm" c="dimmed">Choose a service and endpoint from the sidebar</Text>
+        </Stack>
+      </Box>
     )
   }
 
-  const getMethodColor = (method: string) => {
+  const getMethodColor = (method: string): string => {
     const colors: Record<string, string> = {
-      GET: "bg-emerald-500",
-      POST: "bg-blue-500",
-      PUT: "bg-orange-500",
-      PATCH: "bg-yellow-500",
-      DELETE: "bg-red-500",
+      GET: "teal",
+      POST: "blue",
+      PUT: "orange",
+      PATCH: "yellow",
+      DELETE: "red",
     }
-    return colors[method] || "bg-gray-500"
+    return colors[method] || "gray"
   }
 
   const addHeader = () => {
@@ -80,9 +74,17 @@ export function RequestBuilder({
 
     let finalPath = endpoint.path
 
-    // Replace path parameters
+    // CRITICAL FIX: Validate and encode path parameters to prevent path injection
+    // Prevents path traversal (../../admin) and query injection attacks
     Object.entries(pathParams).forEach(([key, value]) => {
-      finalPath = finalPath.replace(`{${key}}`, value)
+      // Basic validation: reject values containing path separators or dangerous patterns
+      if (value.includes('../') || value.includes('..\\')) {
+        console.error(`Invalid path parameter value: ${value}`)
+        return
+      }
+      // Encode the value to ensure it's URL-safe
+      const encodedValue = encodeURIComponent(value)
+      finalPath = finalPath.replace(`{${key}}`, encodedValue)
     })
 
     // Add query parameters
@@ -111,122 +113,152 @@ export function RequestBuilder({
     endpoint.spec?.parameters?.filter((p) => p.in === "query").map((p) => p.name) || []
 
   return (
-    <div className="flex-1 flex flex-col">
-      <Card className="m-4 mb-0 shadow-lg">
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-4">
+    <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <Paper shadow="sm" p="lg" m="md" mb={0}>
+        <Stack gap="md">
+          <Group gap="md" align="center">
             <Badge
-              className={cn("text-white text-sm px-4 py-1.5", getMethodColor(endpoint.method))}
+              color={getMethodColor(endpoint.method)}
+              size="lg"
+              variant="filled"
             >
               {endpoint.method}
             </Badge>
-            <span className="font-mono text-xl font-semibold">{endpoint.path}</span>
-          </CardTitle>
+            <Title order={3} style={{ fontFamily: 'monospace' }}>
+              {endpoint.path}
+            </Title>
+          </Group>
+
           {endpoint.spec?.summary && (
-            <p className="text-sm text-muted-foreground mt-3 leading-relaxed">{endpoint.spec.summary}</p>
+            <Text size="sm" c="dimmed">
+              {endpoint.spec.summary}
+            </Text>
           )}
-        </CardHeader>
-        <CardContent className="space-y-6">
+
           <Tabs defaultValue="params">
-            <TabsList className="w-full justify-start">
-              <TabsTrigger value="params">Params</TabsTrigger>
-              <TabsTrigger value="headers">Headers</TabsTrigger>
-              <TabsTrigger value="body">Body</TabsTrigger>
-            </TabsList>
+            <Tabs.List>
+              <Tabs.Tab value="params">Params</Tabs.Tab>
+              <Tabs.Tab value="headers">Headers</Tabs.Tab>
+              <Tabs.Tab value="body">Body</Tabs.Tab>
+            </Tabs.List>
 
-            <TabsContent value="params" className="space-y-6 mt-6">
-              {pathParamNames.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-3 text-foreground">Path Parameters</h4>
-                  <div className="space-y-2">
-                    {pathParamNames.map((param) => (
-                      <div key={param} className="flex items-center gap-2">
-                        <span className="text-sm font-mono w-32">{param}</span>
-                        <Input
-                          placeholder={`Enter ${param}`}
-                          value={pathParams[param] || ""}
-                          onChange={(e) =>
-                            setPathParams({ ...pathParams, [param]: e.target.value })
-                          }
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+            <Tabs.Panel value="params" pt="md">
+              <Stack gap="md">
+                {pathParamNames.length > 0 && (
+                  <Box>
+                    <Text size="sm" fw={600} mb="xs">Path Parameters</Text>
+                    <Stack gap="xs">
+                      {pathParamNames.map((param) => (
+                        <Group key={param} gap="sm" align="center">
+                          <Text size="sm" style={{ fontFamily: 'monospace', width: 128 }}>
+                            {param}
+                          </Text>
+                          <TextInput
+                            placeholder={`Enter ${param}`}
+                            value={pathParams[param] || ""}
+                            onChange={(e) =>
+                              setPathParams({ ...pathParams, [param]: e.currentTarget.value })
+                            }
+                            style={{ flex: 1 }}
+                          />
+                        </Group>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
 
-              {queryParamNames.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-3 text-foreground">Query Parameters</h4>
-                  <div className="space-y-2">
-                    {queryParamNames.map((param) => (
-                      <div key={param} className="flex items-center gap-2">
-                        <span className="text-sm font-mono w-32">{param}</span>
-                        <Input
-                          placeholder={`Enter ${param}`}
-                          value={queryParams[param] || ""}
-                          onChange={(e) =>
-                            setQueryParams({ ...queryParams, [param]: e.target.value })
-                          }
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                {queryParamNames.length > 0 && (
+                  <Box>
+                    <Text size="sm" fw={600} mb="xs">Query Parameters</Text>
+                    <Stack gap="xs">
+                      {queryParamNames.map((param) => (
+                        <Group key={param} gap="sm" align="center">
+                          <Text size="sm" style={{ fontFamily: 'monospace', width: 128 }}>
+                            {param}
+                          </Text>
+                          <TextInput
+                            placeholder={`Enter ${param}`}
+                            value={queryParams[param] || ""}
+                            onChange={(e) =>
+                              setQueryParams({ ...queryParams, [param]: e.currentTarget.value })
+                            }
+                            style={{ flex: 1 }}
+                          />
+                        </Group>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
 
-              {pathParamNames.length === 0 && queryParamNames.length === 0 && (
-                <p className="text-sm text-muted-foreground">No parameters required</p>
-              )}
-            </TabsContent>
+                {pathParamNames.length === 0 && queryParamNames.length === 0 && (
+                  <Text size="sm" c="dimmed">No parameters required</Text>
+                )}
+              </Stack>
+            </Tabs.Panel>
 
-            <TabsContent value="headers" className="space-y-3 mt-6">
-              {headers.map((header, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <Input
-                    placeholder="Header key"
-                    value={header.key}
-                    onChange={(e) => updateHeader(index, "key", e.target.value)}
-                    className="flex-1"
-                  />
-                  <Input
-                    placeholder="Header value"
-                    value={header.value}
-                    onChange={(e) => updateHeader(index, "value", e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeHeader(index)}
-                  >
-                    Remove
-                  </Button>
-                </div>
-              ))}
-              <Button variant="outline" size="sm" onClick={addHeader}>
-                Add Header
-              </Button>
-            </TabsContent>
+            <Tabs.Panel value="headers" pt="md">
+              <Stack gap="xs">
+                {headers.map((header, index) => (
+                  <Group key={index} gap="xs" wrap="nowrap">
+                    <TextInput
+                      placeholder="Header key"
+                      value={header.key}
+                      onChange={(e) => updateHeader(index, "key", e.currentTarget.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <TextInput
+                      placeholder="Header value"
+                      value={header.value}
+                      onChange={(e) => updateHeader(index, "value", e.currentTarget.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <Button
+                      variant="subtle"
+                      color="red"
+                      size="sm"
+                      onClick={() => removeHeader(index)}
+                    >
+                      <IconX size={16} />
+                    </Button>
+                  </Group>
+                ))}
+                <Button variant="default" size="sm" onClick={addHeader}>
+                  Add Header
+                </Button>
+              </Stack>
+            </Tabs.Panel>
 
-            <TabsContent value="body" className="mt-6">
+            <Tabs.Panel value="body" pt="md">
               <Textarea
                 placeholder="Request body (JSON)"
                 value={body}
-                onChange={(e) => setBody(e.target.value)}
-                className="font-mono h-64"
+                onChange={(e) => setBody(e.currentTarget.value)}
+                minRows={12}
+                maxRows={20}
+                styles={{
+                  input: {
+                    fontFamily: 'monospace',
+                  },
+                }}
               />
-            </TabsContent>
+            </Tabs.Panel>
           </Tabs>
 
-          <div className="mt-8 pt-6 border-t flex justify-end">
-            <Button onClick={handleSend} disabled={isLoading} size="lg">
-              <Send className="h-4 w-4 mr-2" />
+          <Divider />
+
+          <Group justify="flex-end">
+            <Button
+              onClick={handleSend}
+              disabled={isLoading}
+              size="md"
+              leftSection={<IconSend size={16} />}
+              loading={isLoading}
+            >
               {isLoading ? "Sending..." : "Send Request"}
             </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          </Group>
+        </Stack>
+      </Paper>
+    </Box>
   )
 }

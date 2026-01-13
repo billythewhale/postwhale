@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Box, Loader, Stack, Text, Alert } from '@mantine/core'
 import { Header } from '@/components/layout/Header'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { RequestBuilder } from '@/components/request/RequestBuilder'
@@ -197,23 +198,34 @@ function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col">
+    <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Header environment={environment} onEnvironmentChange={setEnvironment} />
 
       {error && (
-        <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-2 text-sm text-red-600 dark:text-red-400">
+        <Alert
+          color="red"
+          variant="light"
+          withCloseButton
+          onClose={() => setError(null)}
+          style={{
+            borderRadius: 0,
+            borderLeft: 'none',
+            borderRight: 'none',
+            borderTop: 'none',
+          }}
+        >
           {error}
-        </div>
+        </Alert>
       )}
 
-      <div className="flex-1 flex overflow-hidden">
+      <Box style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {isLoadingData ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-              <p className="text-muted-foreground">Loading repositories...</p>
-            </div>
-          </div>
+          <Box style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Stack align="center" gap="md">
+              <Loader size="lg" />
+              <Text c="dimmed">Loading repositories...</Text>
+            </Stack>
+          </Box>
         ) : (
           <>
             <Sidebar
@@ -228,7 +240,7 @@ function App() {
               onRemoveRepository={handleRemoveRepository}
             />
 
-            <div className="flex-1 flex flex-col overflow-auto">
+            <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
               <RequestBuilder
                 endpoint={selectedEndpoint}
                 environment={environment}
@@ -237,10 +249,10 @@ function App() {
               />
 
               <ResponseViewer response={response} />
-            </div>
+            </Box>
           </>
         )}
-      </div>
+      </Box>
 
       <AddRepositoryDialog
         open={showAddDialog}
@@ -256,7 +268,7 @@ function App() {
         onAddRepositories={handleAddRepositories}
         existingPaths={new Set(repositories.map(r => r.path))}
       />
-    </div>
+    </Box>
   )
 }
 
