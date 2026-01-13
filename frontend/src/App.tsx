@@ -6,6 +6,7 @@ import { RequestBuilder } from '@/components/request/RequestBuilder'
 import { ResponseViewer } from '@/components/response/ResponseViewer'
 import { AddRepositoryDialog } from '@/components/sidebar/AddRepositoryDialog'
 import { AutoAddReposDialog } from '@/components/sidebar/AutoAddReposDialog'
+import { FavoritesProvider } from '@/contexts/FavoritesContext'
 import { useIPC } from '@/hooks/useIPC'
 import type { Environment, Repository, Service, Endpoint, Response, CheckPathResult, ScanDirectoryResult } from '@/types'
 
@@ -198,77 +199,79 @@ function App() {
   }
 
   return (
-    <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Header environment={environment} onEnvironmentChange={setEnvironment} />
+    <FavoritesProvider>
+      <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <Header environment={environment} onEnvironmentChange={setEnvironment} />
 
-      {error && (
-        <Alert
-          color="red"
-          variant="light"
-          withCloseButton
-          onClose={() => setError(null)}
-          style={{
-            borderRadius: 0,
-            borderLeft: 'none',
-            borderRight: 'none',
-            borderTop: 'none',
-          }}
-        >
-          {error}
-        </Alert>
-      )}
+        {error && (
+          <Alert
+            color="red"
+            variant="light"
+            withCloseButton
+            onClose={() => setError(null)}
+            style={{
+              borderRadius: 0,
+              borderLeft: 'none',
+              borderRight: 'none',
+              borderTop: 'none',
+            }}
+          >
+            {error}
+          </Alert>
+        )}
 
-      <Box style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {isLoadingData ? (
-          <Box style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Stack align="center" gap="md">
-              <Loader size="lg" />
-              <Text c="dimmed">Loading repositories...</Text>
-            </Stack>
-          </Box>
-        ) : (
-          <>
-            <Sidebar
-              repositories={repositories}
-              services={services}
-              endpoints={endpoints}
-              selectedEndpoint={selectedEndpoint}
-              onSelectEndpoint={setSelectedEndpoint}
-              onAddRepository={() => setShowAddDialog(true)}
-              onAutoAddRepos={() => setShowAutoAddDialog(true)}
-              onRefreshAll={handleRefreshAll}
-              onRemoveRepository={handleRemoveRepository}
-            />
-
-            <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
-              <RequestBuilder
-                endpoint={selectedEndpoint}
-                environment={environment}
-                onSend={handleSend}
-                isLoading={isLoading}
+        <Box style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+          {isLoadingData ? (
+            <Box style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Stack align="center" gap="md">
+                <Loader size="lg" />
+                <Text c="dimmed">Loading repositories...</Text>
+              </Stack>
+            </Box>
+          ) : (
+            <>
+              <Sidebar
+                repositories={repositories}
+                services={services}
+                endpoints={endpoints}
+                selectedEndpoint={selectedEndpoint}
+                onSelectEndpoint={setSelectedEndpoint}
+                onAddRepository={() => setShowAddDialog(true)}
+                onAutoAddRepos={() => setShowAutoAddDialog(true)}
+                onRefreshAll={handleRefreshAll}
+                onRemoveRepository={handleRemoveRepository}
               />
 
-              <ResponseViewer response={response} />
-            </Box>
-          </>
-        )}
+              <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+                <RequestBuilder
+                  endpoint={selectedEndpoint}
+                  environment={environment}
+                  onSend={handleSend}
+                  isLoading={isLoading}
+                />
+
+                <ResponseViewer response={response} />
+              </Box>
+            </>
+          )}
+        </Box>
+
+        <AddRepositoryDialog
+          open={showAddDialog}
+          onOpenChange={setShowAddDialog}
+          onAddRepository={handleAddRepository}
+        />
+
+        <AutoAddReposDialog
+          open={showAutoAddDialog}
+          onOpenChange={setShowAutoAddDialog}
+          onCheckPath={handleCheckPath}
+          onScanDirectory={handleScanDirectory}
+          onAddRepositories={handleAddRepositories}
+          existingPaths={new Set(repositories.map(r => r.path))}
+        />
       </Box>
-
-      <AddRepositoryDialog
-        open={showAddDialog}
-        onOpenChange={setShowAddDialog}
-        onAddRepository={handleAddRepository}
-      />
-
-      <AutoAddReposDialog
-        open={showAutoAddDialog}
-        onOpenChange={setShowAutoAddDialog}
-        onCheckPath={handleCheckPath}
-        onScanDirectory={handleScanDirectory}
-        onAddRepositories={handleAddRepositories}
-        existingPaths={new Set(repositories.map(r => r.path))}
-      />
-    </Box>
+    </FavoritesProvider>
   )
 }
 
