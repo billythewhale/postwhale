@@ -29,7 +29,7 @@ import {
   Paper,
 } from "@mantine/core"
 import type { Repository, Service, Endpoint } from "@/types"
-import { useFavorites } from "@/hooks/useFavorites"
+import { useFavorites } from "@/contexts/FavoritesContext"
 import { useViewState } from "@/hooks/useViewState"
 import { filterTree } from "@/utils/treeFilter"
 import { HighlightMatch } from "@/utils/textHighlight"
