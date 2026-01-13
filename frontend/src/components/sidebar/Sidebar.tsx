@@ -1,7 +1,38 @@
-import { useState } from "react"
-import { IconPlus, IconChevronRight, IconChevronDown, IconRefresh, IconTrash } from "@tabler/icons-react"
-import { Box, Button, Badge, Stack, Group, Text, ActionIcon, ScrollArea, useMantineColorScheme } from "@mantine/core"
+import { useState, useMemo } from "react"
+import {
+  IconPlus,
+  IconChevronRight,
+  IconChevronDown,
+  IconRefresh,
+  IconTrash,
+  IconStar,
+  IconStarFilled,
+  IconSearch,
+  IconX,
+  IconDotsVertical,
+  IconFolderPlus,
+} from "@tabler/icons-react"
+import {
+  Box,
+  Button,
+  Badge,
+  Stack,
+  Group,
+  Text,
+  ActionIcon,
+  ScrollArea,
+  useMantineColorScheme,
+  SegmentedControl,
+  TextInput,
+  Checkbox,
+  Menu,
+  Paper,
+} from "@mantine/core"
 import type { Repository, Service, Endpoint } from "@/types"
+import { useFavorites } from "@/hooks/useFavorites"
+import { useViewState } from "@/hooks/useViewState"
+import { filterTree } from "@/utils/treeFilter"
+import { HighlightMatch } from "@/utils/textHighlight"
 
 interface SidebarProps {
   repositories: Repository[]
@@ -15,6 +46,8 @@ interface SidebarProps {
   onRemoveRepository: (id: number) => void
 }
 
+const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const
+
 export function Sidebar({
   repositories,
   services,
@@ -24,31 +57,90 @@ export function Sidebar({
   onAddRepository,
   onAutoAddRepos,
   onRefreshAll,
-  onRemoveRepository,
+  onRemoveRepository: _onRemoveRepository,
 }: SidebarProps) {
   const { colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
-  const [expandedRepos, setExpandedRepos] = useState<Set<number>>(new Set())
-  const [expandedServices, setExpandedServices] = useState<Set<number>>(new Set())
+
+  // Favorites and view state
+  const { favorites, toggleFavorite, isFavorite, clearAllFavorites, hasFavorites } = useFavorites()
+  const { currentView, setCurrentView, searchQuery, setSearchQuery, filterState, toggleMethod } = useViewState()
+
+  // Manual expand/collapse state (overrides auto-expand when user clicks)
+  const [manualExpandedRepos, setManualExpandedRepos] = useState<Set<number>>(new Set())
+  const [manualExpandedServices, setManualExpandedServices] = useState<Set<number>>(new Set())
+  const [userHasInteracted, setUserHasInteracted] = useState(false)
+
+  // Hover state tracking for star visibility
+  const [hoveredRepoId, setHoveredRepoId] = useState<number | null>(null)
+  const [hoveredServiceId, setHoveredServiceId] = useState<number | null>(null)
+  const [hoveredEndpointId, setHoveredEndpointId] = useState<number | null>(null)
+
+  // Helper function to clear all hover states (CRITICAL-1, CRITICAL-2 fix)
+  const clearAllHoverStates = () => {
+    setHoveredRepoId(null)
+    setHoveredServiceId(null)
+    setHoveredEndpointId(null)
+  }
+
+  // Filter tree based on current view, search, and filters
+  const filteredTree = useMemo(() => {
+    return filterTree(repositories, services, endpoints, currentView, searchQuery, filterState, favorites)
+  }, [repositories, services, endpoints, currentView, searchQuery, filterState, favorites])
+
+  // Determine actual expanded state (manual overrides auto-expand)
+  const actualExpandedRepos = userHasInteracted ? manualExpandedRepos : filteredTree.expandedRepos
+  const actualExpandedServices = userHasInteracted ? manualExpandedServices : filteredTree.expandedServices
 
   const toggleRepo = (repoId: number) => {
-    const newExpanded = new Set(expandedRepos)
+    setUserHasInteracted(true)
+    const newExpanded = new Set(manualExpandedRepos)
     if (newExpanded.has(repoId)) {
       newExpanded.delete(repoId)
     } else {
       newExpanded.add(repoId)
     }
-    setExpandedRepos(newExpanded)
+    setManualExpandedRepos(newExpanded)
   }
 
   const toggleService = (serviceId: number) => {
-    const newExpanded = new Set(expandedServices)
+    setUserHasInteracted(true)
+    const newExpanded = new Set(manualExpandedServices)
     if (newExpanded.has(serviceId)) {
       newExpanded.delete(serviceId)
     } else {
       newExpanded.add(serviceId)
     }
-    setExpandedServices(newExpanded)
+    setManualExpandedServices(newExpanded)
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    // Reset user interaction when searching so auto-expand works
+    if (value.trim()) {
+      setUserHasInteracted(false)
+    }
+    // CRITICAL-1 fix: Clear hover states when search changes
+    clearAllHoverStates()
+  }
+
+  const handleClearSearch = () => {
+    setSearchQuery('')
+    setUserHasInteracted(false)
+    // CRITICAL-1 fix: Clear hover states when search is cleared
+    clearAllHoverStates()
+  }
+
+  const handleViewChange = (value: string) => {
+    setCurrentView(value as 'all' | 'favorites' | 'filters')
+    // CRITICAL-2 fix: Clear hover states when view changes
+    clearAllHoverStates()
+  }
+
+  const handleSelectEndpoint = (endpoint: Endpoint) => {
+    // Clear search and select endpoint
+    handleClearSearch()
+    onSelectEndpoint(endpoint)
   }
 
   const getMethodColor = (method: string): string => {
@@ -62,6 +154,29 @@ export function Sidebar({
     return colors[method] || "gray"
   }
 
+  // Empty state messages
+  const getEmptyStateMessage = (): string => {
+    if (currentView === 'favorites' && !hasFavorites()) {
+      return 'No favorites yet. Star items to see them here.'
+    }
+    if (currentView === 'filters' && filterState.methods.length === 0) {
+      return 'Select HTTP methods to filter endpoints'
+    }
+    if (searchQuery.trim() && filteredTree.repositories.length === 0) {
+      return 'No results found'
+    }
+    if (repositories.length === 0) {
+      return 'No repositories added yet'
+    }
+    return 'No items to display'
+  }
+
+  const showEmptyState =
+    repositories.length === 0 ||
+    filteredTree.repositories.length === 0 ||
+    (currentView === 'favorites' && !hasFavorites()) ||
+    (currentView === 'filters' && filterState.methods.length === 0)
+
   return (
     <Box
       style={(theme) => ({
@@ -73,20 +188,128 @@ export function Sidebar({
         height: '100%',
       })}
     >
-      <ScrollArea flex={1} p="md">
-        {repositories.length === 0 ? (
+      {/* View Selector */}
+      <Box p="md" pb={0}>
+        <SegmentedControl
+          value={currentView}
+          onChange={handleViewChange}
+          data={[
+            { label: 'All', value: 'all' },
+            { label: 'Favorites', value: 'favorites' },
+            { label: 'Filters', value: 'filters' },
+          ]}
+          fullWidth
+        />
+      </Box>
+
+      {/* Filter Section (only in filters view) */}
+      {currentView === 'filters' && (
+        <Box p="md" pt="sm">
+          <Paper p="sm" withBorder>
+            <Text size="xs" fw={500} mb="xs" c="dimmed">
+              HTTP Methods
+            </Text>
+            <Stack gap={6}>
+              {HTTP_METHODS.map((method) => (
+                <Checkbox
+                  key={method}
+                  label={method}
+                  checked={filterState.methods.includes(method)}
+                  onChange={() => toggleMethod(method)}
+                  size="xs"
+                />
+              ))}
+            </Stack>
+          </Paper>
+        </Box>
+      )}
+
+      {/* Search Input */}
+      <Box p="md" pt={currentView === 'filters' ? 0 : 'sm'}>
+        <TextInput
+          placeholder="Search repos, services, endpoints..."
+          value={searchQuery}
+          onChange={(e) => handleSearchChange(e.currentTarget.value)}
+          leftSection={<IconSearch size={16} />}
+          rightSection={
+            searchQuery && (
+              <ActionIcon size="sm" variant="subtle" onClick={handleClearSearch}>
+                <IconX size={14} />
+              </ActionIcon>
+            )
+          }
+          size="sm"
+        />
+      </Box>
+
+      {/* Tree */}
+      <ScrollArea flex={1} px="md" pb="md">
+        {showEmptyState ? (
           <Text size="sm" c="dimmed" ta="center" py="xl">
-            No repositories added yet
+            {getEmptyStateMessage()}
           </Text>
         ) : (
           <Stack gap={4}>
-            {repositories.map((repo) => {
-              const repoServices = services.filter((s) => s.repoId === repo.id)
-              const isExpanded = expandedRepos.has(repo.id)
+            {filteredTree.repositories.map((repo) => {
+              const repoServices = services.filter(
+                (s) => s.repoId === repo.id && filteredTree.matchingServiceIds.has(s.id)
+              )
+              const isExpanded = actualExpandedRepos.has(repo.id)
+              const isRepoFavorite = isFavorite('repos', repo.id)
+              const isRepoHovered = hoveredRepoId === repo.id
 
               return (
                 <Box key={repo.id}>
-                  <Group gap={4} wrap="nowrap">
+                  <Group
+                    gap={4}
+                    wrap="nowrap"
+                    onMouseEnter={() => setHoveredRepoId(repo.id)}
+                    onMouseLeave={() => setHoveredRepoId(null)}
+                    onFocus={() => setHoveredRepoId(repo.id)}
+                    onBlur={() => setHoveredRepoId(null)}
+                    tabIndex={0}
+                  >
+                    {/* Star or Chevron Icon */}
+                    {isRepoFavorite ? (
+                      <ActionIcon
+                        size="sm"
+                        variant="subtle"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleFavorite('repos', repo.id)
+                        }}
+                        title="Remove from favorites"
+                        aria-label="Unfavorite repository"
+                      >
+                        <IconStarFilled size={14} style={{ color: 'var(--mantine-color-yellow-5)' }} />
+                      </ActionIcon>
+                    ) : isRepoHovered ? (
+                      <ActionIcon
+                        size="sm"
+                        variant="subtle"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleFavorite('repos', repo.id)
+                        }}
+                        title="Add to favorites"
+                        aria-label="Favorite repository"
+                      >
+                        <IconStar size={14} style={{ color: 'var(--mantine-color-blue-5)' }} />
+                      </ActionIcon>
+                    ) : (
+                      <Box
+                        onClick={() => toggleRepo(repo.id)}
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      >
+                        {isExpanded ? (
+                          <IconChevronDown size={16} />
+                        ) : (
+                          <IconChevronRight size={16} />
+                        )}
+                      </Box>
+                    )}
+
+                    {/* Repo Name */}
                     <Box
                       onClick={() => toggleRepo(repo.id)}
                       className="sidebar-nav-item"
@@ -101,113 +324,197 @@ export function Sidebar({
                         gap: 8,
                       })}
                     >
-                      {isExpanded ? (
-                        <IconChevronDown size={16} />
-                      ) : (
-                        <IconChevronRight size={16} />
-                      )}
-                      <Text size="sm" fw={500} style={{ flex: 1 }}>
-                        {repo.name}
-                      </Text>
+                      <HighlightMatch
+                        text={repo.name}
+                        query={searchQuery}
+                        size="sm"
+                        fw={500}
+                        style={{ flex: 1 }}
+                      />
                       <Text size="xs" c="dimmed">
                         {repoServices.length}
                       </Text>
                     </Box>
-                    <ActionIcon
-                      variant="subtle"
-                      color="red"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onRemoveRepository(repo.id)
-                      }}
-                      title="Remove repository"
-                      aria-label={`Remove ${repo.name}`}
-                    >
-                      <IconTrash size={16} />
-                    </ActionIcon>
                   </Group>
 
                   {isExpanded && (
-                    <Box ml={16} mt={4}>
+                    <Box ml={24} mt={4}>
                       <Stack gap={4}>
                         {repoServices.map((service) => {
                           const serviceEndpoints = endpoints.filter(
-                            (e) => e.serviceId === service.id
+                            (e) => e.serviceId === service.id && filteredTree.matchingEndpointIds.has(e.id)
                           )
-                          const isServiceExpanded = expandedServices.has(service.id)
+                          const isServiceExpanded = actualExpandedServices.has(service.id)
+                          const isServiceFavorite = isFavorite('services', service.id)
+                          const isServiceHovered = hoveredServiceId === service.id
 
                           return (
                             <Box key={service.id}>
-                              <Box
-                                onClick={() => toggleService(service.id)}
-                                className="sidebar-nav-item"
-                                style={(theme) => ({
-                                  padding: '6px 8px',
-                                  borderRadius: theme.radius.md,
-                                  cursor: 'pointer',
-                                  transition: 'all 150ms ease',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 8,
-                                })}
+                              <Group
+                                gap={4}
+                                wrap="nowrap"
+                                onMouseEnter={() => setHoveredServiceId(service.id)}
+                                onMouseLeave={() => setHoveredServiceId(null)}
+                                onFocus={() => setHoveredServiceId(service.id)}
+                                onBlur={() => setHoveredServiceId(null)}
+                                tabIndex={0}
                               >
-                                {isServiceExpanded ? (
-                                  <IconChevronDown size={16} />
+                                {/* Star or Chevron Icon */}
+                                {isServiceFavorite ? (
+                                  <ActionIcon
+                                    size="sm"
+                                    variant="subtle"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      toggleFavorite('services', service.id)
+                                    }}
+                                    title="Remove from favorites"
+                                    aria-label="Unfavorite service"
+                                  >
+                                    <IconStarFilled size={14} style={{ color: 'var(--mantine-color-yellow-5)' }} />
+                                  </ActionIcon>
+                                ) : isServiceHovered ? (
+                                  <ActionIcon
+                                    size="sm"
+                                    variant="subtle"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      toggleFavorite('services', service.id)
+                                    }}
+                                    title="Add to favorites"
+                                    aria-label="Favorite service"
+                                  >
+                                    <IconStar size={14} style={{ color: 'var(--mantine-color-blue-5)' }} />
+                                  </ActionIcon>
                                 ) : (
-                                  <IconChevronRight size={16} />
+                                  <Box
+                                    onClick={() => toggleService(service.id)}
+                                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                  >
+                                    {isServiceExpanded ? (
+                                      <IconChevronDown size={16} />
+                                    ) : (
+                                      <IconChevronRight size={16} />
+                                    )}
+                                  </Box>
                                 )}
-                                <Text size="sm" style={{ flex: 1 }}>
-                                  {service.name}
-                                </Text>
-                                <Text size="xs" c="dimmed">
-                                  {serviceEndpoints.length}
-                                </Text>
-                              </Box>
+
+                                {/* Service Name */}
+                                <Box
+                                  onClick={() => toggleService(service.id)}
+                                  className="sidebar-nav-item"
+                                  style={(theme) => ({
+                                    flex: 1,
+                                    padding: '6px 8px',
+                                    borderRadius: theme.radius.md,
+                                    cursor: 'pointer',
+                                    transition: 'all 150ms ease',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                  })}
+                                >
+                                  <HighlightMatch
+                                    text={service.name}
+                                    query={searchQuery}
+                                    size="sm"
+                                    style={{ flex: 1 }}
+                                  />
+                                  <Text size="xs" c="dimmed">
+                                    {serviceEndpoints.length}
+                                  </Text>
+                                </Box>
+                              </Group>
 
                               {isServiceExpanded && (
-                                <Box ml={16} mt={2}>
+                                <Box ml={24} mt={2}>
                                   <Stack gap={2}>
                                     {serviceEndpoints.map((endpoint) => {
                                       const isSelected = selectedEndpoint?.id === endpoint.id
+                                      const isEndpointFavorite = isFavorite('endpoints', endpoint.id)
+                                      const isEndpointHovered = hoveredEndpointId === endpoint.id
 
                                       return (
-                                        <Box
+                                        <Group
                                           key={endpoint.id}
-                                          onClick={() => onSelectEndpoint(endpoint)}
-                                          className="sidebar-nav-item"
-                                          style={(theme) => ({
-                                            padding: '6px 8px',
-                                            borderRadius: theme.radius.md,
-                                            cursor: 'pointer',
-                                            transition: 'all 150ms ease',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 8,
-                                            backgroundColor: isSelected
-                                              ? theme.colors.blue[6]
-                                              : 'transparent',
-                                            fontWeight: isSelected ? 500 : 400,
-                                          })}
+                                          gap={4}
+                                          wrap="nowrap"
+                                          onMouseEnter={() => setHoveredEndpointId(endpoint.id)}
+                                          onMouseLeave={() => setHoveredEndpointId(null)}
+                                          onFocus={() => setHoveredEndpointId(endpoint.id)}
+                                          onBlur={() => setHoveredEndpointId(null)}
+                                          tabIndex={0}
                                         >
-                                          <Badge
-                                            color={getMethodColor(endpoint.method)}
-                                            size="xs"
-                                            variant="filled"
-                                          >
-                                            {endpoint.method}
-                                          </Badge>
-                                          <Text
-                                            size="sm"
-                                            style={{
+                                          {/* Star Icon or Empty Space */}
+                                          {isEndpointFavorite ? (
+                                            <ActionIcon
+                                              size="sm"
+                                              variant="subtle"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                toggleFavorite('endpoints', endpoint.id)
+                                              }}
+                                              title="Remove from favorites"
+                                              aria-label="Unfavorite endpoint"
+                                            >
+                                              <IconStarFilled size={14} style={{ color: 'var(--mantine-color-yellow-5)' }} />
+                                            </ActionIcon>
+                                          ) : isEndpointHovered ? (
+                                            <ActionIcon
+                                              size="sm"
+                                              variant="subtle"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                toggleFavorite('endpoints', endpoint.id)
+                                              }}
+                                              title="Add to favorites"
+                                              aria-label="Favorite endpoint"
+                                            >
+                                              <IconStar size={14} style={{ color: 'var(--mantine-color-blue-5)' }} />
+                                            </ActionIcon>
+                                          ) : (
+                                            <Box style={{ width: 28, height: 28, pointerEvents: 'none' }} />
+                                          )}
+
+                                          {/* Endpoint */}
+                                          <Box
+                                            onClick={() => handleSelectEndpoint(endpoint)}
+                                            className="sidebar-nav-item"
+                                            style={(theme) => ({
                                               flex: 1,
-                                              overflow: 'hidden',
-                                              textOverflow: 'ellipsis',
-                                              whiteSpace: 'nowrap',
-                                            }}
+                                              padding: '6px 8px',
+                                              borderRadius: theme.radius.md,
+                                              cursor: 'pointer',
+                                              transition: 'all 150ms ease',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: 8,
+                                              backgroundColor: isSelected
+                                                ? theme.colors.blue[6]
+                                                : 'transparent',
+                                              fontWeight: isSelected ? 500 : 400,
+                                            })}
                                           >
-                                            {endpoint.path}
-                                          </Text>
-                                        </Box>
+                                            <Badge
+                                              color={getMethodColor(endpoint.method)}
+                                              size="xs"
+                                              variant="filled"
+                                            >
+                                              {endpoint.method}
+                                            </Badge>
+                                            <HighlightMatch
+                                              text={endpoint.path}
+                                              query={searchQuery}
+                                              size="sm"
+                                              style={{
+                                                flex: 1,
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                              }}
+                                            />
+                                          </Box>
+                                        </Group>
                                       )
                                     })}
                                   </Stack>
@@ -226,43 +533,59 @@ export function Sidebar({
         )}
       </ScrollArea>
 
+      {/* Action Menu */}
       <Box
         p="md"
         style={(theme) => ({
-          borderTop: `1px solid ${theme.colors.dark[5]}`,
+          borderTop: `1px solid ${isDark ? theme.colors.dark[5] : theme.colors.gray[3]}`,
         })}
       >
-        <Stack gap="xs">
-          {repositories.length > 0 && (
+        <Menu position="top-end" withinPortal>
+          <Menu.Target>
             <Button
-              onClick={onRefreshAll}
               variant="default"
               size="sm"
-              leftSection={<IconRefresh size={16} />}
               fullWidth
+              rightSection={<IconDotsVertical size={16} />}
             >
-              Refresh All
+              Actions
             </Button>
-          )}
-          <Button
-            onClick={onAutoAddRepos}
-            variant="default"
-            size="sm"
-            leftSection={<IconPlus size={16} />}
-            fullWidth
-          >
-            Auto Add TW Repos
-          </Button>
-          <Button
-            onClick={onAddRepository}
-            variant="filled"
-            size="sm"
-            leftSection={<IconPlus size={16} />}
-            fullWidth
-          >
-            Add Repository
-          </Button>
-        </Stack>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item
+              leftSection={<IconPlus size={16} />}
+              onClick={onAddRepository}
+            >
+              Add Repository
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<IconFolderPlus size={16} />}
+              onClick={onAutoAddRepos}
+            >
+              Auto Add TW Repos
+            </Menu.Item>
+            {repositories.length > 0 && (
+              <Menu.Item
+                leftSection={<IconRefresh size={16} />}
+                onClick={onRefreshAll}
+              >
+                Refresh All
+              </Menu.Item>
+            )}
+            {hasFavorites() && (
+              <>
+                <Menu.Divider />
+                <Menu.Item
+                  leftSection={<IconTrash size={16} />}
+                  color="red"
+                  onClick={clearAllFavorites}
+                >
+                  Remove All Favorites
+                </Menu.Item>
+              </>
+            )}
+          </Menu.Dropdown>
+        </Menu>
       </Box>
     </Box>
   )

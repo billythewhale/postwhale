@@ -48,6 +48,7 @@
 - Port=0 is valid (means "unset") - only LOCAL env uses port; STAGING/PRODUCTION use domain patterns
 - Backend IPC may not include all fields - use optional chaining in frontend (e.g., `spec?.parameters`)
 - Dark mode glows: ONLY on hover (e.g., `dark:hover:shadow-glow-md`), NEVER persistent on active/selected states OR static containers (dropdowns, modals, cards) OR status indicators (badges). Persistent glows look obnoxious. Check ALL ui components: tabs, buttons, sidebar, inputs, select, dialog, card, badge. Required THREE rounds of fixes: (v3) removed from active/selected states, (v4) removed from static containers, (v5) removed from badge status indicators.
+- Tree filtering with search: Filter utility must return matching ID sets, NOT just filtered arrays. Components will render ALL children from original arrays if you only filter parent level. Always return Sets of matching IDs for each level (repos, services, endpoints) and use `.has(id)` checks in component filters. Bug: Sidebar rendered all services/endpoints despite filterTree() filtering - required adding matchingServiceIds and matchingEndpointIds to FilteredTree interface.
 
 ### 10. IPC Protocol Pattern - Line-based JSON
 **Pattern:** Read from stdin line-by-line, write to stdout line-by-line
@@ -298,4 +299,122 @@ const toggleTheme = () => setColorScheme(colorScheme === "dark" ? "light" : "dar
 **Gotcha:** Use `type` imports for types like MantineColorsTuple to avoid verbatimModuleSyntax errors. Use useMantineColorScheme() not deprecated useColorScheme(). Modal uses `opened` prop not `open`.
 **Migration:** Delete components/ui/*, lib/utils.ts, theme-provider.tsx. Remove Tailwind deps (tailwindcss, @tailwindcss/postcss, tailwind-merge, class-variance-authority). Add Mantine deps (@mantine/core, @mantine/hooks, @mantine/notifications, @mantine/code-highlight, @tabler/icons-react). Update index.css to import Mantine CSS. Wrap app in MantineProvider with custom theme.
 
-Last updated: 2026-01-13 (Mantine UI migration - complete rewrite from Tailwind, all verification passed)
+### 24. Favorites/Star System Pattern - localStorage with React Hooks
+**Pattern:** Custom hook for managing favorites with Set-based state and localStorage persistence
+**Example:**
+```typescript
+// Hook pattern
+export function useFavorites() {
+  const [favorites, setFavorites] = useState<Favorites>(() => ({
+    repos: loadFavoritesFromStorage('repos'),
+    services: loadFavoritesFromStorage('services'),
+    endpoints: loadFavoritesFromStorage('endpoints'),
+  }))
+
+  const toggleFavorite = useCallback((type: FavoriteType, id: number) => {
+    setFavorites((prev) => {
+      const set = new Set(prev[type])
+      set.has(id) ? set.delete(id) : set.add(id)
+      const newFavorites = { ...prev, [type]: set }
+      saveFavoritesToStorage(type, set)
+      return newFavorites
+    })
+  }, [])
+
+  return { favorites, toggleFavorite, isFavorite, clearAllFavorites, hasFavorites }
+}
+
+// Component usage
+const { favorites, toggleFavorite, isFavorite } = useFavorites()
+<ActionIcon onClick={() => toggleFavorite('repos', repo.id)}>
+  {isFavorite('repos', repo.id) ? <IconStarFilled /> : <IconStar />}
+</ActionIcon>
+```
+**Why:** Sets provide O(1) lookup for favorite checks, localStorage ensures persistence across sessions
+**When:** Building favorite/bookmark systems, managing user preferences with IDs
+**Gotcha:** Always initialize state from localStorage in useState initializer (not useEffect) to avoid flicker. Handle JSON parse errors gracefully (invalid/non-array data).
+
+### 25. Tree Filtering with Auto-Expand Pattern
+**Pattern:** Separate filtering logic from component, auto-expand matching branches
+**Example:**
+```typescript
+// Utility function
+export function filterTree(
+  repositories: Repository[],
+  services: Service[],
+  endpoints: Endpoint[],
+  viewMode: ViewMode,
+  searchQuery: string,
+  filterState: FilterState,
+  favorites: Favorites
+): FilteredTree {
+  // 1. Apply view filter (all/favorites/filters)
+  // 2. Apply search filter on top
+  // 3. Determine auto-expand sets based on matches
+  return {
+    repositories: filteredRepos,
+    expandedRepos: new Set([...matchingRepoIds]),
+    expandedServices: new Set([...matchingServiceIds]),
+  }
+}
+
+// Component usage with manual override
+const filteredTree = useMemo(() => filterTree(...), [deps])
+const actualExpanded = userHasInteracted ? manualExpanded : filteredTree.expandedRepos
+```
+**Why:** Separates concerns (logic vs UI), enables smart auto-expand for search results, allows manual override
+**When:** Building tree views with search/filter, hierarchical navigation
+**Gotcha:** Auto-expand should reset when user searches (set userHasInteracted=false), but preserve manual state otherwise. Use useMemo to avoid recalculating on every render.
+
+### 26. localStorage View State Pattern - Persist UI State
+**Pattern:** Custom hook to persist view mode and filter state across sessions
+**Example:**
+```typescript
+export function useViewState() {
+  const [currentView, setCurrentView] = useState<ViewMode>(loadViewFromStorage)
+  const [filterState, setFilterState] = useState<FilterState>(loadFiltersFromStorage)
+
+  useEffect(() => {
+    localStorage.setItem('postwhale_view', currentView)
+  }, [currentView])
+
+  useEffect(() => {
+    localStorage.setItem('postwhale_filters', JSON.stringify(filterState))
+  }, [filterState])
+
+  return { currentView, setCurrentView, filterState, toggleMethod, clearFilters }
+}
+```
+**Why:** User preferences persist across app restarts, improves UX by remembering last state
+**When:** Sidebar view modes, filter selections, any UI state that should persist
+**Gotcha:** Use separate useEffect for each localStorage save to avoid over-writing. Initialize state from localStorage in useState initializer function (not default value).
+
+### 27. Mantine Menu Pattern - Action Dropdown
+**Pattern:** Single action button with Menu dropdown for cleaner UI
+**Example:**
+```typescript
+<Menu position="top-end" withinPortal>
+  <Menu.Target>
+    <Button variant="default" rightSection={<IconDotsVertical />}>
+      Actions
+    </Button>
+  </Menu.Target>
+  <Menu.Dropdown>
+    <Menu.Item leftSection={<IconPlus />} onClick={onAdd}>Add Item</Menu.Item>
+    <Menu.Item leftSection={<IconRefresh />} onClick={onRefresh}>Refresh</Menu.Item>
+    {hasItems && (
+      <>
+        <Menu.Divider />
+        <Menu.Item leftSection={<IconTrash />} color="red" onClick={onClear}>
+          Clear All
+        </Menu.Item>
+      </>
+    )}
+  </Menu.Dropdown>
+</Menu>
+```
+**Why:** Reduces clutter (single button vs multiple buttons), groups related actions, conditional items
+**When:** Replacing multiple persistent buttons, secondary actions in sidebars/toolbars
+**Gotcha:** Use `withinPortal` prop to avoid z-index issues with ScrollArea. Conditional items (e.g., "Clear All") should check state before rendering.
+
+Last updated: 2026-01-13 (Sidebar redesign patterns - favorites, tree filtering, view state persistence)
