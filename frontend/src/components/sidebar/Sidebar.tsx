@@ -105,25 +105,45 @@ export function Sidebar({
   const actualExpandedServices = userHasInteracted ? manualExpandedServices : filteredTree.expandedServices
 
   const toggleRepo = (repoId: number) => {
+    // Initialize repos state from auto-expand if first interaction
+    setManualExpandedRepos((prevRepos) => {
+      const base = userHasInteracted ? prevRepos : filteredTree.expandedRepos
+      const newExpanded = new Set(base)
+      if (newExpanded.has(repoId)) {
+        newExpanded.delete(repoId)
+      } else {
+        newExpanded.add(repoId)
+      }
+      return newExpanded
+    })
+
+    // Initialize services state if first interaction
+    setManualExpandedServices((prevServices) => {
+      return userHasInteracted ? prevServices : new Set(filteredTree.expandedServices)
+    })
+
     setUserHasInteracted(true)
-    const newExpanded = new Set(manualExpandedRepos)
-    if (newExpanded.has(repoId)) {
-      newExpanded.delete(repoId)
-    } else {
-      newExpanded.add(repoId)
-    }
-    setManualExpandedRepos(newExpanded)
   }
 
   const toggleService = (serviceId: number) => {
+    // Initialize repos state if first interaction
+    setManualExpandedRepos((prevRepos) => {
+      return userHasInteracted ? prevRepos : new Set(filteredTree.expandedRepos)
+    })
+
+    // Initialize and toggle services state
+    setManualExpandedServices((prevServices) => {
+      const base = userHasInteracted ? prevServices : filteredTree.expandedServices
+      const newExpanded = new Set(base)
+      if (newExpanded.has(serviceId)) {
+        newExpanded.delete(serviceId)
+      } else {
+        newExpanded.add(serviceId)
+      }
+      return newExpanded
+    })
+
     setUserHasInteracted(true)
-    const newExpanded = new Set(manualExpandedServices)
-    if (newExpanded.has(serviceId)) {
-      newExpanded.delete(serviceId)
-    } else {
-      newExpanded.add(serviceId)
-    }
-    setManualExpandedServices(newExpanded)
   }
 
   const handleSearchChange = (value: string) => {
