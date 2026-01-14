@@ -51,6 +51,7 @@
 - Tree filtering with search: Filter utility must return matching ID sets, NOT just filtered arrays. Components will render ALL children from original arrays if you only filter parent level. Always return Sets of matching IDs for each level (repos, services, endpoints) and use `.has(id)` checks in component filters. Bug: Sidebar rendered all services/endpoints despite filterTree() filtering - required adding matchingServiceIds and matchingEndpointIds to FilteredTree interface.
 - Browser focus outlines: Elements with `tabIndex={0}` get browser's default focus outline (often yellow/orange). Always override with `style={{ outline: 'none' }}` or custom focus styling to avoid ugly default borders. Bug: Sidebar Group elements had yellow/orange border on click because of browser focus ring.
 - Dark mode shadows on Paper components: Default Mantine shadows use black `rgba(0, 0, 0, 0.2)` which is invisible against dark backgrounds. For persistent shadows (not hover states), use conditional styling with `useMantineColorScheme()` to apply stronger shadows in dark mode: `'0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08)'`. DO NOT use royal blue glows for persistent container shadows - those are ONLY for hover states. Bug: RequestBuilder and ResponseViewer Paper components had no visible elevation in dark mode.
+- Tree state manual override with auto-expand: When switching from auto-expand to manual expand/collapse state on first user interaction, MUST initialize manual state from current auto-expand state BEFORE modifying. Otherwise, empty manual state causes all collapsed. Use functional setState to check `userHasInteracted` and initialize from `filteredTree.expandedRepos/Services` on first toggle. Bug: Clicking to collapse service on favorites tab collapsed entire repo because manual state started empty while auto-expand state was populated. Fix: Initialize both manual states in functional setState callbacks before toggling.
 
 ### 10. IPC Protocol Pattern - Line-based JSON
 **Pattern:** Read from stdin line-by-line, write to stdout line-by-line
@@ -527,4 +528,49 @@ useEffect(() => {
 **Gotcha:** Client-side only - backend request completes naturally. For true backend cancellation, need IPC changes to pass cancellation token.
 **Scope:** Client-side cancellation shows "Cancelled" immediately, but backend request continues until timeout (30s). For most cases, this is acceptable UX.
 
-Last updated: 2026-01-14 (Request cancellation pattern added)
+### 31. Tree State Manual Override with Auto-Expand Initialization Pattern
+**Pattern:** When switching from auto-expand to manual expand/collapse state, initialize manual state from current auto-expand state before modifying
+**Example:**
+```typescript
+// State management
+const [manualExpandedRepos, setManualExpandedRepos] = useState<Set<number>>(new Set())
+const [manualExpandedServices, setManualExpandedServices] = useState<Set<number>>(new Set())
+const [userHasInteracted, setUserHasInteracted] = useState(false)
+
+// Auto-expand from filters (favorites, search, etc.)
+const filteredTree = useMemo(() => {
+  return filterTree(repositories, services, endpoints, currentView, searchQuery, filterState, favorites)
+}, [dependencies])
+
+// Determine actual expanded state (manual overrides auto-expand)
+const actualExpandedRepos = userHasInteracted ? manualExpandedRepos : filteredTree.expandedRepos
+const actualExpandedServices = userHasInteracted ? manualExpandedServices : filteredTree.expandedServices
+
+// Toggle function with initialization
+const toggleService = (serviceId: number) => {
+  // Initialize repos state if first interaction
+  setManualExpandedRepos((prevRepos) => {
+    return userHasInteracted ? prevRepos : new Set(filteredTree.expandedRepos)
+  })
+
+  // Initialize and toggle services state
+  setManualExpandedServices((prevServices) => {
+    const base = userHasInteracted ? prevServices : filteredTree.expandedServices
+    const newExpanded = new Set(base)
+    if (newExpanded.has(serviceId)) {
+      newExpanded.delete(serviceId)
+    } else {
+      newExpanded.add(serviceId)
+    }
+    return newExpanded
+  })
+
+  setUserHasInteracted(true)
+}
+```
+**Why:** When switching from auto-expand state (populated by favorites/search) to manual state (empty on init), must initialize manual state from current auto-expand state to preserve user's view. Otherwise, empty manual state causes all items to collapse.
+**When:** Tree views with both auto-expand (from favorites/search/filters) and manual expand/collapse controls
+**Gotcha:** Use functional setState to check `userHasInteracted` and conditionally initialize. Initialize BOTH hierarchical states (repos and services) even when toggling just one level, to preserve full tree state.
+**Bug prevented:** Clicking to collapse service on favorites tab collapsed entire repo because manual state started empty while auto-expand state was populated.
+
+Last updated: 2026-01-14 (Tree state pattern added)
