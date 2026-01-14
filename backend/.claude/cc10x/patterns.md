@@ -72,12 +72,71 @@ const { toggleFavorite, isFavorite } = useFavorites()
 - Context: State must be shared across multiple components
 - Hook: State is local to component tree or doesn't need synchronization
 
+### Pattern #29: Query Parameters with Toggle
+**Pattern**: Array state with CRUD operations and toggle functionality
+
+```typescript
+// State structure supports add/remove/toggle
+const [queryParams, setQueryParams] = useState<Array<{ key: string; value: string; enabled: boolean }>>([])
+
+// Initialize from OpenAPI spec when endpoint changes
+useEffect(() => {
+  if (endpoint?.spec?.parameters) {
+    const specQueryParams = endpoint.spec.parameters
+      .filter((p) => p.in === "query")
+      .map((p) => ({ key: p.name, value: "", enabled: true }))
+    setQueryParams(specQueryParams)
+  } else {
+    setQueryParams([])
+  }
+}, [endpoint])
+
+// CRUD operations
+const addQueryParam = () => {
+  setQueryParams([...queryParams, { key: "", value: "", enabled: true }])
+}
+
+const updateQueryParam = (index: number, field: "key" | "value" | "enabled", value: string | boolean) => {
+  const newQueryParams = [...queryParams]
+  if (field === "enabled") {
+    newQueryParams[index][field] = value as boolean
+  } else {
+    newQueryParams[index][field] = value as string
+  }
+  setQueryParams(newQueryParams)
+}
+
+const removeQueryParam = (index: number) => {
+  setQueryParams(queryParams.filter((_, i) => i !== index))
+}
+
+// Filter enabled params only when building URL
+const queryString = queryParams
+  .filter((q) => q.enabled && q.key && q.value)
+  .map((q) => `${encodeURIComponent(q.key)}=${encodeURIComponent(q.value)}`)
+  .join("&")
+```
+
+**Key Benefits:**
+- Default enabled: true (new params active by default)
+- Toggle without removing (preserve param for re-enable)
+- Matches Headers pattern (consistent UX)
+- Spec pre-population (reduces manual entry)
+
 ## Mantine UI Patterns
 
 ### Pattern #28: Mantine Component Usage
 - **Button with Icon**: Use `leftSection` or `rightSection` props
   ```tsx
   <Button leftSection={<IconPlus size={16} />}>Add</Button>
+  ```
+- **Switch Component**: Use `checked` and `onChange` props
+  ```tsx
+  <Switch
+    checked={item.enabled}
+    onChange={(e) => updateItem(index, "enabled", e.currentTarget.checked)}
+    aria-label="Enable item"
+  />
   ```
 - **Notifications**: Use `notifications.show()` from `@mantine/notifications`
   ```typescript

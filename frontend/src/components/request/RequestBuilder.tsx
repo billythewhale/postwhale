@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { IconSend, IconX, IconStar, IconStarFilled, IconPlus } from "@tabler/icons-react"
-import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Textarea, Stack, Group, Box, Divider, useMantineColorScheme, ActionIcon } from "@mantine/core"
+import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Textarea, Stack, Group, Box, Divider, useMantineColorScheme, ActionIcon, Switch } from "@mantine/core"
 import type { Endpoint, Environment } from "@/types"
 import { useFavorites } from "@/contexts/FavoritesContext"
 
@@ -31,7 +31,24 @@ export function RequestBuilder({
   ])
   const [body, setBody] = useState("")
   const [pathParams, setPathParams] = useState<Record<string, string>>({})
-  const [queryParams, setQueryParams] = useState<Record<string, string>>({})
+  const [queryParams, setQueryParams] = useState<Array<{ key: string; value: string; enabled: boolean }>>([])
+
+  // Initialize query params from spec when endpoint changes
+  useEffect(() => {
+    if (endpoint?.spec?.parameters) {
+      const specQueryParams = endpoint.spec.parameters
+        .filter((p) => p.in === "query")
+        .map((p) => ({ key: p.name, value: "", enabled: true }))
+
+      // Merge: Keep existing user params, add missing spec params
+      setQueryParams((prev) => {
+        const existingKeys = new Set(prev.map(q => q.key))
+        const newSpecParams = specQueryParams.filter(sp => !existingKeys.has(sp.key))
+        return [...prev, ...newSpecParams]
+      })
+    }
+    // Don't clear params when endpoint has no spec - preserve user's manual entries
+  }, [endpoint])
 
   if (!endpoint) {
     return (
@@ -69,6 +86,24 @@ export function RequestBuilder({
     setHeaders(headers.filter((_, i) => i !== index))
   }
 
+  const addQueryParam = () => {
+    setQueryParams([...queryParams, { key: "", value: "", enabled: true }])
+  }
+
+  const updateQueryParam = (index: number, field: "key" | "value" | "enabled", value: string | boolean) => {
+    const newQueryParams = [...queryParams]
+    if (field === "enabled") {
+      newQueryParams[index][field] = value as boolean
+    } else {
+      newQueryParams[index][field] = value as string
+    }
+    setQueryParams(newQueryParams)
+  }
+
+  const removeQueryParam = (index: number) => {
+    setQueryParams(queryParams.filter((_, i) => i !== index))
+  }
+
   const handleSend = () => {
     const headersObj: Record<string, string> = {}
     headers.forEach((h) => {
@@ -92,14 +127,15 @@ export function RequestBuilder({
       finalPath = finalPath.replace(`{${key}}`, encodedValue)
     })
 
-    // Add query parameters
-    const queryString = Object.entries(queryParams)
-      .filter(([, value]) => value)
-      .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+    // Add query parameters (only enabled ones with non-empty key and value)
+    const queryString = queryParams
+      .filter((q) => q.enabled && q.key && q.value)
+      .map((q) => `${encodeURIComponent(q.key)}=${encodeURIComponent(q.value)}`)
       .join("&")
 
     if (queryString) {
-      finalPath += `?${queryString}`
+      const separator = finalPath.includes('?') ? '&' : '?'
+      finalPath += `${separator}${queryString}`
     }
 
     onSend({
@@ -112,10 +148,6 @@ export function RequestBuilder({
 
   // Extract path parameters
   const pathParamNames = endpoint.path.match(/\{([^}]+)\}/g)?.map((p) => p.slice(1, -1)) || []
-
-  // Extract query parameters from spec (spec may be undefined if not sent from backend)
-  const queryParamNames =
-    endpoint.spec?.parameters?.filter((p) => p.in === "query").map((p) => p.name) || []
 
   return (
     <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -167,59 +199,32 @@ export function RequestBuilder({
             <Tabs.List>
               <Tabs.Tab value="params">Params</Tabs.Tab>
               <Tabs.Tab value="headers">Headers</Tabs.Tab>
+              <Tabs.Tab value="query">Query</Tabs.Tab>
               <Tabs.Tab value="body">Body</Tabs.Tab>
             </Tabs.List>
 
             <Tabs.Panel value="params" pt="md">
               <Stack gap="md">
-                {pathParamNames.length > 0 && (
-                  <Box>
-                    <Text size="sm" fw={600} mb="xs">Path Parameters</Text>
-                    <Stack gap="xs">
-                      {pathParamNames.map((param) => (
-                        <Group key={param} gap="sm" align="center">
-                          <Text size="sm" style={{ fontFamily: 'monospace', width: 128 }}>
-                            {param}
-                          </Text>
-                          <TextInput
-                            placeholder={`Enter ${param}`}
-                            value={pathParams[param] || ""}
-                            onChange={(e) =>
-                              setPathParams({ ...pathParams, [param]: e.currentTarget.value })
-                            }
-                            style={{ flex: 1 }}
-                          />
-                        </Group>
-                      ))}
-                    </Stack>
-                  </Box>
-                )}
-
-                {queryParamNames.length > 0 && (
-                  <Box>
-                    <Text size="sm" fw={600} mb="xs">Query Parameters</Text>
-                    <Stack gap="xs">
-                      {queryParamNames.map((param) => (
-                        <Group key={param} gap="sm" align="center">
-                          <Text size="sm" style={{ fontFamily: 'monospace', width: 128 }}>
-                            {param}
-                          </Text>
-                          <TextInput
-                            placeholder={`Enter ${param}`}
-                            value={queryParams[param] || ""}
-                            onChange={(e) =>
-                              setQueryParams({ ...queryParams, [param]: e.currentTarget.value })
-                            }
-                            style={{ flex: 1 }}
-                          />
-                        </Group>
-                      ))}
-                    </Stack>
-                  </Box>
-                )}
-
-                {pathParamNames.length === 0 && queryParamNames.length === 0 && (
-                  <Text size="sm" c="dimmed">No parameters required</Text>
+                {pathParamNames.length > 0 ? (
+                  <Stack gap="xs">
+                    {pathParamNames.map((param) => (
+                      <Group key={param} gap="sm" align="center">
+                        <Text size="sm" style={{ fontFamily: 'monospace', width: 128 }}>
+                          {param}
+                        </Text>
+                        <TextInput
+                          placeholder={`Enter ${param}`}
+                          value={pathParams[param] || ""}
+                          onChange={(e) =>
+                            setPathParams({ ...pathParams, [param]: e.currentTarget.value })
+                          }
+                          style={{ flex: 1 }}
+                        />
+                      </Group>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Text size="sm" c="dimmed">No path parameters required</Text>
                 )}
               </Stack>
             </Tabs.Panel>
@@ -258,6 +263,49 @@ export function RequestBuilder({
                   style={{ alignSelf: 'flex-start' }}
                 >
                   Add
+                </Button>
+              </Stack>
+            </Tabs.Panel>
+
+            <Tabs.Panel value="query" pt="md">
+              <Stack gap="xs">
+                {queryParams.map((query, index) => (
+                  <Group key={index} gap="xs" wrap="nowrap" align="center">
+                    <TextInput
+                      placeholder="Query param key"
+                      value={query.key}
+                      onChange={(e) => updateQueryParam(index, "key", e.currentTarget.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <TextInput
+                      placeholder="Query param value"
+                      value={query.value}
+                      onChange={(e) => updateQueryParam(index, "value", e.currentTarget.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <Switch
+                      checked={query.enabled}
+                      onChange={(e) => updateQueryParam(index, "enabled", e.currentTarget.checked)}
+                      aria-label="Enable query parameter"
+                    />
+                    <Button
+                      variant="subtle"
+                      color="red"
+                      size="sm"
+                      onClick={() => removeQueryParam(index)}
+                    >
+                      <IconX size={16} />
+                    </Button>
+                  </Group>
+                ))}
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={addQueryParam}
+                  leftSection={<IconPlus size={16} />}
+                  style={{ alignSelf: 'flex-start' }}
+                >
+                  Add Query Param
                 </Button>
               </Stack>
             </Tabs.Panel>
