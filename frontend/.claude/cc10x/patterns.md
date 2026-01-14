@@ -114,6 +114,313 @@ const [hoveredRepoId, setHoveredRepoId] = useState<number | null>(null)
 
 ---
 
+### Pattern #29: Toggle Switches for Array Items (Headers/Query Params)
+**Context:** User needs to enable/disable items in a list without deleting them
+
+**Problem:** Deleting and re-adding items is tedious. Users want quick on/off toggling while preserving values.
+
+**Solution:**
+```typescript
+// State structure includes enabled boolean
+const [headers, setHeaders] = useState<Array<{ key: string; value: string; enabled: boolean }>>([
+  { key: "Content-Type", value: "application/json", enabled: true },
+])
+
+// Update function handles enabled field
+const updateHeader = (index: number, field: "key" | "value" | "enabled", value: string | boolean) => {
+  const newHeaders = [...headers]
+  if (field === "enabled") {
+    newHeaders[index][field] = value as boolean
+  } else {
+    newHeaders[index][field] = value as string
+  }
+  setHeaders(newHeaders)
+}
+
+// UI includes Switch component
+<Group key={index} gap="xs" wrap="nowrap" align="center">
+  <TextInput placeholder="Key" value={item.key} onChange={...} style={{ flex: 1 }} />
+  <TextInput placeholder="Value" value={item.value} onChange={...} style={{ flex: 1 }} />
+  <Switch
+    checked={item.enabled}
+    onChange={(e) => updateItem(index, "enabled", e.currentTarget.checked)}
+    aria-label="Enable item"
+  />
+  <Button variant="subtle" color="red" onClick={() => removeItem(index)}>
+    <IconX size={16} />
+  </Button>
+</Group>
+
+// Filter enabled items before sending
+const enabledHeaders = headers.filter((h) => h.enabled && h.key && h.value)
+```
+
+**Why:** Allows quick testing with different combinations of headers/params without losing configuration. Common workflow: disable auth header to test unauthorized behavior, re-enable to test authorized.
+
+**Used in:**
+- Query params (RequestBuilder.tsx lines 36, 92-103, 134, 272-313)
+- Headers (RequestBuilder.tsx lines 31-32, 81-89, 116-118, 238-268)
+
+**Common Gotcha:** Don't forget to default `enabled: true` when adding new items, otherwise newly added items won't be sent.
+
+---
+
+### Pattern #26: Global Headers with localStorage Persistence
+**Context:** User needs to set headers that apply to ALL requests globally while still allowing request-specific overrides
+
+**Problem:** Users repeatedly set the same headers (Authorization, API keys, etc.) for every request. Tedious and error-prone.
+
+**Solution:**
+```typescript
+// 1. Create GlobalHeadersContext with localStorage persistence
+// contexts/GlobalHeadersContext.tsx
+export interface GlobalHeader {
+  key: string
+  value: string
+  enabled: boolean
+}
+
+export function GlobalHeadersProvider({ children }: { children: ReactNode }) {
+  const [globalHeaders, setGlobalHeaders] = useState<GlobalHeader[]>(() =>
+    loadGlobalHeadersFromStorage()
+  )
+
+  const addGlobalHeader = useCallback(() => {
+    const newHeader: GlobalHeader = { key: '', value: '', enabled: true }
+    const updatedHeaders = [...globalHeaders, newHeader]
+    setGlobalHeaders(updatedHeaders)
+    saveGlobalHeadersToStorage(updatedHeaders)
+  }, [globalHeaders])
+
+  const getEnabledGlobalHeaders = useCallback((): GlobalHeader[] => {
+    return globalHeaders.filter((h) => h.enabled && h.key && h.value)
+  }, [globalHeaders])
+
+  // ... updateGlobalHeader, removeGlobalHeader
+}
+
+// 2. Create GlobalHeadersModal component
+// components/layout/GlobalHeadersModal.tsx
+export function GlobalHeadersModal({ opened, onClose }: GlobalHeadersModalProps) {
+  const { globalHeaders, addGlobalHeader, updateGlobalHeader, removeGlobalHeader } = useGlobalHeaders()
+
+  return (
+    <Modal opened={opened} onClose={onClose} title="Global Headers" size="lg">
+      <Stack gap="xs">
+        {globalHeaders.map((header, index) => (
+          <Group key={index} gap="xs" wrap="nowrap" align="center">
+            <TextInput value={header.key} onChange={...} style={{ flex: 1 }} />
+            <TextInput value={header.value} onChange={...} style={{ flex: 1 }} />
+            <Switch checked={header.enabled} onChange={...} />
+            <Button onClick={() => removeGlobalHeader(index)}>
+              <IconX size={16} />
+            </Button>
+          </Group>
+        ))}
+        <Button onClick={addGlobalHeader} leftSection={<IconPlus size={16} />}>
+          Add Header
+        </Button>
+      </Stack>
+    </Modal>
+  )
+}
+
+// 3. Add settings button to Header component
+// components/layout/Header.tsx
+export function Header({ environment, onEnvironmentChange }: HeaderProps) {
+  const [globalHeadersModalOpened, setGlobalHeadersModalOpened] = useState(false)
+
+  return (
+    <Box component="header">
+      <Group>
+        {/* ... other header items ... */}
+        <ActionIcon onClick={() => setGlobalHeadersModalOpened(true)}>
+          <IconSettings size={20} />
+        </ActionIcon>
+      </Group>
+      <GlobalHeadersModal
+        opened={globalHeadersModalOpened}
+        onClose={() => setGlobalHeadersModalOpened(false)}
+      />
+    </Box>
+  )
+}
+
+// 4. Merge global headers in request handler
+// components/request/RequestBuilder.tsx
+const handleSend = () => {
+  const headersObj: Record<string, string> = {}
+  const globalHeaders = getEnabledGlobalHeaders()
+
+  // Apply global headers first
+  globalHeaders.forEach((h) => {
+    headersObj[h.key] = h.value
+  })
+
+  // Request-specific headers override global headers (same key)
+  headers.forEach((h) => {
+    if (h.enabled && h.key && h.value) {
+      headersObj[h.key] = h.value
+    }
+  })
+
+  onSend({ method, path, headers: headersObj, body })
+}
+
+// 5. Wrap App with GlobalHeadersProvider
+// App.tsx
+return (
+  <GlobalHeadersProvider>
+    <FavoritesProvider>
+      {/* app content */}
+    </FavoritesProvider>
+  </GlobalHeadersProvider>
+)
+```
+
+**Why:** Reduces repetitive work. Users set common headers once globally (Authorization, API keys, custom headers), then override when needed for specific requests.
+
+**Merge Logic:** Global headers applied first, then request-specific headers. If same key exists in both, request-specific wins (override).
+
+**Used in:**
+- GlobalHeadersContext (contexts/GlobalHeadersContext.tsx)
+- GlobalHeadersModal (components/layout/GlobalHeadersModal.tsx)
+- Header component (components/layout/Header.tsx)
+- RequestBuilder.handleSend (components/request/RequestBuilder.tsx lines 115-129)
+
+**Common Gotcha:** Must call `getEnabledGlobalHeaders()` in handleSend, not access context state directly, to ensure filtering happens (enabled && key && value).
+
+**Storage Key:** `postwhale_global_headers` in localStorage
+
+---
+
+### Pattern #27: Shop Selector with Auto-Injected Header
+**Context:** User needs to select a shop ID that applies to all requests globally
+
+**Problem:** Users need to send "x-tw-shop-id" header with every request, but value changes per testing scenario. Manually adding header each time is tedious.
+
+**Solution:**
+```typescript
+// 1. Create ShopContext with localStorage persistence
+// contexts/ShopContext.tsx
+interface ShopContextType {
+  selectedShop: string | null
+  shopHistory: string[]
+  selectShop: (shop: string | null) => void
+  addShopToHistory: (shop: string) => void
+  getShopHeader: () => Record<string, string>
+}
+
+export function ShopProvider({ children }: { children: ReactNode }) {
+  const [selectedShop, setSelectedShop] = useState<string | null>(() =>
+    loadSelectedShopFromStorage()
+  )
+  const [shopHistory, setShopHistory] = useState<string[]>(() =>
+    loadShopHistoryFromStorage()
+  )
+
+  const getShopHeader = useCallback((): Record<string, string> => {
+    // Return empty if no shop or "None" selected
+    if (!selectedShop || selectedShop === 'None') {
+      return {}
+    }
+    return { 'x-tw-shop-id': selectedShop }
+  }, [selectedShop])
+
+  // ... selectShop, addShopToHistory
+}
+
+// 2. Add shop selector to Header component
+// components/layout/Header.tsx
+export function Header({ environment, onEnvironmentChange }: HeaderProps) {
+  const { selectedShop, shopHistory, selectShop, addShopToHistory } = useShop()
+
+  return (
+    <Group gap="sm">
+      <Select value={environment} onChange={...} />
+
+      <Select
+        value={selectedShop}
+        onChange={(v) => selectShop(v)}
+        data={[
+          { value: 'None', label: 'None (no shop)' },
+          ...shopHistory.map((shop) => ({ value: shop, label: shop })),
+        ]}
+        placeholder="Select Shop"
+        searchable
+        clearable
+        nothingFoundMessage="Type shop ID and press Enter"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            const searchValue = e.currentTarget.value
+            if (searchValue && !shopHistory.includes(searchValue)) {
+              addShopToHistory(searchValue)
+              selectShop(searchValue)
+            }
+          }
+        }}
+        w={180}
+      />
+    </Group>
+  )
+}
+
+// 3. Inject shop header in request handler
+// components/request/RequestBuilder.tsx
+const handleSend = () => {
+  // 1. Shop header (if selected and not "None")
+  const headersObj: Record<string, string> = {}
+  const shopHeader = getShopHeader()
+  Object.assign(headersObj, shopHeader)
+
+  // 2. Global headers
+  const globalHeaders = getEnabledGlobalHeaders()
+  globalHeaders.forEach((h) => {
+    headersObj[h.key] = h.value
+  })
+
+  // 3. Request-specific headers (override all)
+  headers.forEach((h) => {
+    if (h.enabled && h.key && h.value) {
+      headersObj[h.key] = h.value
+    }
+  })
+
+  onSend({ method, path, headers: headersObj, body })
+}
+
+// 4. Wrap App with ShopProvider
+// App.tsx
+return (
+  <GlobalHeadersProvider>
+    <ShopProvider>
+      <FavoritesProvider>
+        {/* app content */}
+      </FavoritesProvider>
+    </ShopProvider>
+  </GlobalHeadersProvider>
+)
+```
+
+**Why:** Simplifies testing different shop scenarios. User selects shop once, all requests automatically include "x-tw-shop-id" header. "None" option allows testing without shop header.
+
+**Header Merge Order:** Shop header → Global headers → Request-specific headers (later overrides earlier)
+
+**Used in:**
+- ShopContext (contexts/ShopContext.tsx)
+- Header component (components/layout/Header.tsx lines 67-91)
+- RequestBuilder.handleSend (components/request/RequestBuilder.tsx lines 118-134)
+
+**Common Gotcha:** Must check for "None" value in getShopHeader, otherwise "None" would be sent as shop ID value.
+
+**Storage Keys:**
+- `postwhale_selected_shop` - Currently selected shop (string or null)
+- `postwhale_shop_history` - Array of previously used shop IDs
+
+**Mantine v7 Note:** Unlike v6, Mantine v7 Select doesn't have `creatable` prop. Use `onKeyDown` with Enter key to detect when user creates new value.
+
+---
+
 ## Tech Stack
 
 **Frontend:**

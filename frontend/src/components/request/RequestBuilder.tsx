@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react"
-import { IconSend, IconX, IconStar, IconStarFilled, IconPlus } from "@tabler/icons-react"
+import { IconSend, IconX, IconStar, IconStarFilled, IconPlus, IconDeviceFloppy } from "@tabler/icons-react"
 import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Textarea, Stack, Group, Box, Divider, useMantineColorScheme, ActionIcon, Switch } from "@mantine/core"
-import type { Endpoint, Environment } from "@/types"
+import type { Endpoint, Environment, SavedRequest } from "@/types"
 import { useFavorites } from "@/contexts/FavoritesContext"
+import { useGlobalHeaders } from "@/contexts/GlobalHeadersContext"
+import { useShop } from "@/contexts/ShopContext"
+import { SaveRequestModal } from "./SaveRequestModal"
 
 interface RequestBuilderProps {
   endpoint: Endpoint | null
+  selectedSavedRequest: SavedRequest | null
   environment: Environment
   onSend: (config: {
     method: string
@@ -13,25 +17,71 @@ interface RequestBuilderProps {
     headers: Record<string, string>
     body: string
   }) => void
+  onCancel: () => void
+  onSaveRequest: (savedRequest: Omit<SavedRequest, 'id' | 'createdAt'>) => void
   isLoading: boolean
 }
 
 export function RequestBuilder({
   endpoint,
+  selectedSavedRequest,
   environment: _environment,
   onSend,
+  onCancel,
+  onSaveRequest,
   isLoading,
 }: RequestBuilderProps) {
   const { colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
   const { toggleFavorite, isFavorite } = useFavorites()
+  const { getEnabledGlobalHeaders } = useGlobalHeaders()
+  const { getShopHeader } = useShop()
 
-  const [headers, setHeaders] = useState<Array<{ key: string; value: string }>>([
-    { key: "Content-Type", value: "application/json" },
+  const [headers, setHeaders] = useState<Array<{ key: string; value: string; enabled: boolean }>>([
+    { key: "Content-Type", value: "application/json", enabled: true },
   ])
   const [body, setBody] = useState("")
   const [pathParams, setPathParams] = useState<Record<string, string>>({})
   const [queryParams, setQueryParams] = useState<Array<{ key: string; value: string; enabled: boolean }>>([])
+  const [saveModalOpened, setSaveModalOpened] = useState(false)
+
+  // Load saved request data when selected
+  useEffect(() => {
+    if (selectedSavedRequest) {
+      // Parse JSON fields with try-catch for malformed data
+      try {
+        if (selectedSavedRequest.pathParamsJson) {
+          const parsed = JSON.parse(selectedSavedRequest.pathParamsJson)
+          setPathParams(parsed)
+        }
+      } catch (err) {
+        console.error('Failed to parse path params:', err)
+      }
+
+      try {
+        if (selectedSavedRequest.queryParamsJson) {
+          const parsed = JSON.parse(selectedSavedRequest.queryParamsJson)
+          setQueryParams(parsed)
+        }
+      } catch (err) {
+        console.error('Failed to parse query params:', err)
+      }
+
+      try {
+        if (selectedSavedRequest.headersJson) {
+          const parsed = JSON.parse(selectedSavedRequest.headersJson)
+          setHeaders(parsed)
+        }
+      } catch (err) {
+        console.error('Failed to parse headers:', err)
+      }
+
+      // Body is plain text, no parsing needed
+      if (selectedSavedRequest.body) {
+        setBody(selectedSavedRequest.body)
+      }
+    }
+  }, [selectedSavedRequest])
 
   // Initialize query params from spec when endpoint changes
   useEffect(() => {
@@ -73,12 +123,16 @@ export function RequestBuilder({
   }
 
   const addHeader = () => {
-    setHeaders([...headers, { key: "", value: "" }])
+    setHeaders([...headers, { key: "", value: "", enabled: true }])
   }
 
-  const updateHeader = (index: number, field: "key" | "value", value: string) => {
+  const updateHeader = (index: number, field: "key" | "value" | "enabled", value: string | boolean) => {
     const newHeaders = [...headers]
-    newHeaders[index][field] = value
+    if (field === "enabled") {
+      newHeaders[index][field] = value as boolean
+    } else {
+      newHeaders[index][field] = value as string
+    }
     setHeaders(newHeaders)
   }
 
@@ -104,10 +158,37 @@ export function RequestBuilder({
     setQueryParams(queryParams.filter((_, i) => i !== index))
   }
 
+  const handleSaveRequest = (name: string) => {
+    if (!endpoint) return
+
+    // Serialize current form state to JSON
+    const savedRequest = {
+      endpointId: endpoint.id,
+      name,
+      pathParamsJson: JSON.stringify(pathParams),
+      queryParamsJson: JSON.stringify(queryParams),
+      headersJson: JSON.stringify(headers),
+      body,
+    }
+
+    onSaveRequest(savedRequest)
+  }
+
   const handleSend = () => {
+    // Start with shop header (if selected)
     const headersObj: Record<string, string> = {}
+    const shopHeader = getShopHeader()
+    Object.assign(headersObj, shopHeader)
+
+    // Apply global headers next
+    const globalHeaders = getEnabledGlobalHeaders()
+    globalHeaders.forEach((h) => {
+      headersObj[h.key] = h.value
+    })
+
+    // Request-specific headers override global headers and shop header (same key)
     headers.forEach((h) => {
-      if (h.key && h.value) {
+      if (h.enabled && h.key && h.value) {
         headersObj[h.key] = h.value
       }
     })
@@ -232,7 +313,7 @@ export function RequestBuilder({
             <Tabs.Panel value="headers" pt="md">
               <Stack gap="xs">
                 {headers.map((header, index) => (
-                  <Group key={index} gap="xs" wrap="nowrap">
+                  <Group key={index} gap="xs" wrap="nowrap" align="center">
                     <TextInput
                       placeholder="Header key"
                       value={header.key}
@@ -244,6 +325,11 @@ export function RequestBuilder({
                       value={header.value}
                       onChange={(e) => updateHeader(index, "value", e.currentTarget.value)}
                       style={{ flex: 1 }}
+                    />
+                    <Switch
+                      checked={header.enabled}
+                      onChange={(e) => updateHeader(index, "enabled", e.currentTarget.checked)}
+                      aria-label="Enable header"
                     />
                     <Button
                       variant="subtle"
@@ -328,19 +414,59 @@ export function RequestBuilder({
 
           <Divider />
 
-          <Group justify="flex-end">
+          <Group justify="space-between">
+            {/* Left side: Save Request button */}
             <Button
-              onClick={handleSend}
-              disabled={isLoading}
+              variant="default"
               size="md"
-              leftSection={<IconSend size={16} />}
-              loading={isLoading}
+              leftSection={<IconDeviceFloppy size={16} />}
+              onClick={() => setSaveModalOpened(true)}
+              disabled={isLoading}
             >
-              {isLoading ? "Sending..." : "Send Request"}
+              Save Request
             </Button>
+
+            {/* Right side: Send/Cancel buttons */}
+            <Group gap="sm">
+              {isLoading ? (
+                <>
+                  <Button
+                    size="md"
+                    leftSection={<IconSend size={16} />}
+                    loading
+                    disabled
+                  >
+                    Sending...
+                  </Button>
+                  <Button
+                    onClick={onCancel}
+                    size="md"
+                    variant="outline"
+                    color="red"
+                  >
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  onClick={handleSend}
+                  size="md"
+                  leftSection={<IconSend size={16} />}
+                >
+                  Send Request
+                </Button>
+              )}
+            </Group>
           </Group>
         </Stack>
       </Paper>
+
+      {/* Save Request Modal */}
+      <SaveRequestModal
+        opened={saveModalOpened}
+        onClose={() => setSaveModalOpened(false)}
+        onSave={handleSaveRequest}
+      />
     </Box>
   )
 }

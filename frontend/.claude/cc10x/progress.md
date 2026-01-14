@@ -1,9 +1,50 @@
 # PostWhale - Progress Tracking
 
 ## Current Workflow
-BUILD (Hover-Based Star Visibility - Complete)
+BUILD (Saved Requests Frontend - Complete)
 
 ## Completed
+- [x] Saved Requests Frontend UI - IMPLEMENTED (2026-01-14)
+  - Evidence: SaveRequestModal.tsx created (89 lines)
+  - Evidence: RequestBuilder.tsx updated (Save Request button, load saved data, modal integration)
+  - Evidence: Sidebar.tsx updated (nested saved requests rendering, context menu)
+  - Evidence: TypeScript exit 0 (no type errors)
+  - Evidence: Build exit 0 (1,454.60 kB JS, 208.43 kB CSS)
+  - Evidence: JSON parsing with try-catch for safety
+  - Evidence: Modal validation (name required, not empty)
+  - Evidence: Context menu for rename/delete actions
+  - Evidence: Visual feedback for selected saved request
+- [x] Shop Selector - IMPLEMENTED (2026-01-14)
+  - Evidence: ShopContext.tsx created (115 lines)
+  - Evidence: Header.tsx updated (shop selector added, lines 67-91)
+  - Evidence: App.tsx wrapped with ShopProvider (line 241)
+  - Evidence: RequestBuilder.tsx handleSend injects shop header (lines 118-121)
+  - Evidence: TypeScript exit 0 (no type errors)
+  - Evidence: Build exit 0 (1,450.21 kB JS, 208.43 kB CSS)
+  - Evidence: Pattern #27 documented in patterns.md
+  - Evidence: localStorage keys 'postwhale_selected_shop' and 'postwhale_shop_history'
+  - Evidence: "None" option implemented for testing without shop header
+  - Evidence: Shop history auto-populated when user types new shop ID and presses Enter
+  - Evidence: Header merge order: Shop → Global → Request-specific
+- [x] Global Headers - IMPLEMENTED (2026-01-14)
+  - Evidence: GlobalHeadersContext.tsx created (96 lines)
+  - Evidence: GlobalHeadersModal.tsx created (71 lines)
+  - Evidence: Header.tsx updated (settings button + modal)
+  - Evidence: App.tsx wrapped with GlobalHeadersProvider
+  - Evidence: RequestBuilder.tsx handleSend merges global + request headers (lines 115-129)
+  - Evidence: TypeScript exit 0 (no type errors)
+  - Evidence: Build exit 0 (1,448.47 kB JS, 208.43 kB CSS)
+  - Evidence: Pattern #26 documented in patterns.md
+  - Evidence: localStorage key 'postwhale_global_headers'
+  - Evidence: Merge logic: global first, request-specific overrides
+- [x] Header Toggle Switches - IMPLEMENTED (2026-01-14)
+  - Evidence: RequestBuilder.tsx lines 31-32 state structure updated
+  - Evidence: RequestBuilder.tsx lines 81-89 updateHeader handles enabled field
+  - Evidence: RequestBuilder.tsx lines 116-118 handleSend filters enabled headers
+  - Evidence: RequestBuilder.tsx lines 238-268 UI includes Switch component
+  - Evidence: TypeScript exit 0 (no type errors)
+  - Evidence: Build exit 0 (1,445.23 kB JS, 208.43 kB CSS)
+  - Evidence: Pattern #29 documented in patterns.md
 - [x] Hover-Based Star Visibility - IMPLEMENTED (2026-01-13)
   - Evidence: Sidebar.tsx lines 75-77 hover state tracking
   - Evidence: Sidebar.tsx lines 246-290 repo conditional rendering

@@ -10,7 +10,268 @@ PostWhale is a Postman clone for testing Triple Whale microservice endpoints. De
 - Database: SQLite
 - Design: Royal Blue (#4169E1) primary, light/dark mode
 
-## Current Status: Silent Failure Hunt - COMPLETE (2026-01-13)
+## Current Status: Saved Requests - COMPLETE ✅ (2026-01-14)
+
+### Backend Implementation - COMPLETE ✅
+
+**Database Layer:**
+- Added `SavedRequest` struct to db.go (lines 50-60)
+- Added `saved_requests` table to schema (lines 130-140)
+- Implemented CRUD functions:
+  - `AddSavedRequest` (lines 367-386)
+  - `GetSavedRequestsByEndpoint` (lines 388-418)
+  - `UpdateSavedRequest` (lines 420-435)
+  - `DeleteSavedRequest` (lines 437-445)
+- All database tests PASS (exit 0)
+
+**IPC Layer:**
+- Added IPC actions to handler.go:
+  - `saveSavedRequest` (lines 80, 718-765)
+  - `getSavedRequests` (lines 82, 767-807)
+  - `updateSavedRequest` (lines 84, 809-858)
+  - `deleteSavedRequest` (lines 86, 860-887)
+- All IPC tests PASS (exit 0)
+
+**Test Results:**
+| Test | Status | Exit Code |
+|------|--------|-----------|
+| TestAddSavedRequest | PASS | 0 |
+| TestGetSavedRequestsByEndpoint | PASS | 0 |
+| TestUpdateSavedRequest | PASS | 0 |
+| TestDeleteSavedRequest | PASS | 0 |
+| TestHandleRequest_SaveSavedRequest | PASS | 0 |
+| TestHandleRequest_GetSavedRequests | PASS | 0 |
+| TestHandleRequest_UpdateSavedRequest | PASS | 0 |
+| TestHandleRequest_DeleteSavedRequest | PASS | 0 |
+
+**Frontend Implementation - COMPLETE ✅:**
+1. ✅ Added SavedRequest type to types/index.ts (lines 108-117)
+2. ✅ Added savedRequests state to App.tsx (line 20)
+3. ✅ Loading saved requests in loadData function (lines 65-73, 81)
+4. ✅ Added handlers: handleSelectSavedRequest, handleSaveRequest, handleUpdateSavedRequest, handleDeleteSavedRequest (lines 188-232)
+5. ✅ Updated Sidebar props (lines 338-348)
+6. ✅ Updated RequestBuilder props (lines 353-359)
+7. ✅ Updated SidebarProps interface (lines 37-52)
+8. ✅ Updated RequestBuilderProps interface (lines 9-22)
+9. ✅ Created SaveRequestModal component (SaveRequestModal.tsx - 89 lines)
+10. ✅ Added "Save Request" button to RequestBuilder (line 419-427)
+11. ✅ Added save modal handler to RequestBuilder (lines 161-175)
+12. ✅ Added saved request loading logic to RequestBuilder (lines 48-84)
+13. ✅ Rendered saved requests nested under endpoints in Sidebar (lines 556-644)
+14. ✅ Added context menu for rename/delete on saved requests (lines 617-638)
+15. ✅ TypeScript compiles (exit 0)
+16. ✅ Build successful (exit 0)
+
+**Implementation Details:**
+- SaveRequestModal: Mantine Modal with TextInput validation (name required, not empty)
+- RequestBuilder: Parses JSON fields with try-catch for malformed data
+- Sidebar: Saved requests nested with IconDeviceFloppy icon, Menu for context actions
+- Context menu: Rename (TODO - console.log placeholder) and Delete actions
+- Visual feedback: Selected saved request highlighted with blue background
+- JSON serialization: pathParams, queryParams, headers stored as JSON strings
+
+**Verification Evidence:**
+| Check | Command | Exit Code | Result |
+|-------|---------|-----------|--------|
+| TypeScript | `npx tsc --noEmit` | 0 | PASS - No type errors |
+| Frontend Build | `npm run build` | 0 | PASS - 1,454.60 kB JS, 208.43 kB CSS |
+
+**Files Created:**
+- `/Users/billy/postwhale/frontend/src/components/request/SaveRequestModal.tsx` (89 lines)
+
+**Files Modified:**
+- `/Users/billy/postwhale/frontend/src/components/request/RequestBuilder.tsx`
+  - Lines 1-8: Added imports (IconDeviceFloppy, SaveRequestModal)
+  - Lines 46: Added saveModalOpened state
+  - Lines 48-84: Added useEffect to load saved request data
+  - Lines 161-175: Added handleSaveRequest function
+  - Lines 417-460: Updated button layout with "Save Request" button
+  - Lines 464-469: Added SaveRequestModal component
+- `/Users/billy/postwhale/frontend/src/components/sidebar/Sidebar.tsx`
+  - Lines 14-15: Added IconDeviceFloppy, IconPencil imports
+  - Lines 158-162: Added handleSelectSavedRequest function
+  - Lines 458-647: Updated endpoint rendering to include nested saved requests
+  - Lines 462-464: Filter saved requests by endpoint ID
+  - Lines 556-644: Render saved requests with context menu
+
+---
+
+## Previous Status: Shop Selector - COMPLETE (2026-01-14)
+
+### Shop Selector Feature - IMPLEMENTED ✅
+
+**User Issue:** Users need to select a shop ID that applies to all requests via "x-tw-shop-id" header
+
+**Solution Implemented (Pattern #27 - Shop Selector with localStorage):**
+1. Created ShopContext with localStorage persistence (following GlobalHeadersContext pattern)
+2. Added shop selector to Header component (Mantine Select with searchable, clearable)
+3. Updated RequestBuilder.handleSend to inject "x-tw-shop-id" header when shop selected
+4. Wrapped App with ShopProvider
+
+**Files Created:**
+- `/Users/billy/postwhale/frontend/src/contexts/ShopContext.tsx` (115 lines)
+  - State: `selectedShop: string | null`, `shopHistory: string[]`
+  - Storage keys: `postwhale_selected_shop`, `postwhale_shop_history`
+  - Functions: selectShop, addShopToHistory, getShopHeader
+  - "None" option returns empty header object (no x-tw-shop-id sent)
+
+**Files Modified:**
+- `/Users/billy/postwhale/frontend/src/components/layout/Header.tsx`
+  - Line 6: Added useShop import
+  - Line 17: Added useShop hook destructuring
+  - Lines 67-91: Added Shop Select component (searchable, clearable, w=180)
+  - Shop select next to environment selector
+  - "None (no shop)" as default option
+  - Type shop ID and press Enter to add to history
+- `/Users/billy/postwhale/frontend/src/App.tsx`
+  - Line 11: Added ShopProvider import
+  - Line 241: Wrapped app with ShopProvider (between GlobalHeadersProvider and FavoritesProvider)
+  - Line 316: Closed ShopProvider
+- `/Users/billy/postwhale/frontend/src/components/request/RequestBuilder.tsx`
+  - Line 7: Added useShop import
+  - Line 33: Added getShopHeader hook
+  - Lines 118-121: handleSend applies shop header first (if selected)
+
+**Implementation Details:**
+- Shop header applied first (if selected and not "None")
+- Global headers applied second
+- Request-specific headers override all (same key)
+- User can type new shop ID in Select and press Enter to add to history
+- Shop history persisted in localStorage as array of strings
+- Selected shop persisted across sessions
+
+**Header Merge Order:**
+```typescript
+// 1. Shop header (if selected and not "None")
+const shopHeader = getShopHeader() // { "x-tw-shop-id": "shop123" } or {}
+Object.assign(headersObj, shopHeader)
+
+// 2. Global headers
+globalHeaders.forEach((h) => {
+  headersObj[h.key] = h.value
+})
+
+// 3. Request-specific headers (override all)
+headers.forEach((h) => {
+  if (h.enabled && h.key && h.value) {
+    headersObj[h.key] = h.value
+  }
+})
+```
+
+**Verification Evidence:**
+| Check | Command | Exit Code | Result |
+|-------|---------|-----------|--------|
+| TypeScript | `npx tsc --noEmit` | 0 | PASS - No type errors |
+| Frontend Build | `npm run build` | 0 | PASS - 1,450.21 kB JS, 208.43 kB CSS |
+
+---
+
+## Previous Status: Global Headers - COMPLETE (2026-01-14)
+
+### Global Headers Feature - IMPLEMENTED ✅
+
+**User Issue:** Users need to set headers globally that apply to all requests, with ability to override per request
+
+**Solution Implemented (Pattern #26 - Global Headers with localStorage):**
+1. Created GlobalHeadersContext with localStorage persistence
+2. Created GlobalHeadersModal component (Mantine Modal)
+3. Added settings icon button to Header component
+4. Updated RequestBuilder.handleSend to merge global + request headers
+5. Wrapped App with GlobalHeadersProvider
+
+**Files Created:**
+- `/Users/billy/postwhale/frontend/src/contexts/GlobalHeadersContext.tsx` (96 lines)
+  - State: `Array<{key: string; value: string; enabled: boolean}>`
+  - Storage key: `postwhale_global_headers`
+  - Functions: addGlobalHeader, updateGlobalHeader, removeGlobalHeader, getEnabledGlobalHeaders
+- `/Users/billy/postwhale/frontend/src/components/layout/GlobalHeadersModal.tsx` (71 lines)
+  - Mantine Modal with same UI pattern as request headers (Pattern #29)
+  - TextInput (key) + TextInput (value) + Switch + Delete button per header
+
+**Files Modified:**
+- `/Users/billy/postwhale/frontend/src/components/layout/Header.tsx`
+  - Line 1: Added IconSettings import
+  - Lines 3, 5: Added useState, GlobalHeadersModal imports
+  - Line 15: Added globalHeadersModalOpened state
+  - Lines 65-73: Added settings ActionIcon
+  - Lines 90-93: Added GlobalHeadersModal component
+- `/Users/billy/postwhale/frontend/src/App.tsx`
+  - Line 10: Added GlobalHeadersProvider import
+  - Line 239: Wrapped app with GlobalHeadersProvider (outer provider)
+  - Line 314: Closed GlobalHeadersProvider
+- `/Users/billy/postwhale/frontend/src/components/request/RequestBuilder.tsx`
+  - Line 6: Added useGlobalHeaders import
+  - Line 31: Added getEnabledGlobalHeaders hook
+  - Lines 115-129: Updated handleSend to merge global + request headers
+
+**Implementation Details:**
+- Global headers applied first, then request-specific headers
+- Request-specific headers with same key OVERRIDE global headers
+- Only enabled headers with non-empty key/value are sent
+- UI matches existing request headers pattern (Pattern #29)
+- localStorage persistence across sessions
+
+**Merge Logic:**
+```typescript
+const headersObj: Record<string, string> = {}
+const globalHeaders = getEnabledGlobalHeaders()
+
+// Apply global headers first
+globalHeaders.forEach((h) => {
+  headersObj[h.key] = h.value
+})
+
+// Request-specific headers override global headers (same key)
+headers.forEach((h) => {
+  if (h.enabled && h.key && h.value) {
+    headersObj[h.key] = h.value
+  }
+})
+```
+
+**Verification Evidence:**
+| Check | Command | Exit Code | Result |
+|-------|---------|-----------|--------|
+| TypeScript | `npx tsc --noEmit` | 0 | PASS - No type errors |
+| Frontend Build | `npm run build` | 0 | PASS - 1,448.47 kB JS, 208.43 kB CSS |
+
+---
+
+## Previous Status: Header Toggle Switches - COMPLETE (2026-01-14)
+
+### Header Toggle Feature - IMPLEMENTED ✅
+
+**User Issue:** Users need to toggle headers on/off without deleting them
+
+**Solution Implemented (Following Pattern #29 - Query Params):**
+1. Updated headers state structure from `Array<{key: string; value: string}>` to `Array<{key: string; value: string; enabled: boolean}>`
+2. Added Switch component to headers UI (same pattern as query params)
+3. Filter only enabled headers in handleSend (same logic as query params)
+
+**Files Modified:**
+- `/Users/billy/postwhale/frontend/src/components/request/RequestBuilder.tsx`
+  - Line 31-32: Updated headers state type to include `enabled: boolean`
+  - Line 78: addHeader function includes `enabled: true` default
+  - Lines 81-89: updateHeader function handles "enabled" field
+  - Lines 116-118: handleSend filters by `h.enabled && h.key && h.value`
+  - Lines 238-268: Headers UI includes Switch component with align="center"
+
+**Implementation Details:**
+- Default new headers to enabled: true
+- Switch component matches query params pattern (aria-label, checked, onChange)
+- Disabled headers excluded from request (same as query params)
+- Layout matches query params: TextInput (key) + TextInput (value) + Switch + Button (delete)
+
+**Verification Evidence:**
+| Check | Command | Exit Code | Result |
+|-------|---------|-----------|--------|
+| TypeScript | `npx tsc --noEmit` | 0 | PASS - No type errors |
+| Frontend Build | `npm run build` | 0 | PASS - 1,445.23 kB JS, 208.43 kB CSS |
+
+---
+
+## Previous Status: Silent Failure Hunt - COMPLETE (2026-01-13)
 
 ### Hover-Based Star Visibility - Silent Failure Analysis ✅
 
@@ -338,6 +599,12 @@ To verify these silent failures need manual testing in running Electron app:
 | Spacer Click Behavior | pointerEvents: 'none' to pass clicks through | Eliminate dead click zone (MEDIUM-8) |
 | Race Condition Safety | Use functional setState in hover handlers | Prevent out-of-order execution (HIGH-4) |
 | Star Color on Hover | Blue (var(--mantine-color-blue-5)) | Matches primary theme color |
+| Saved Requests Nesting | Nest under endpoints (similar to services under repos) | Follows established tree pattern, logical hierarchy |
+| Saved Request Icon | IconDeviceFloppy | Visually distinct from star/chevron, represents "saved" concept |
+| Context Menu Trigger | Right-click on saved request item | Standard pattern for item actions (rename, delete) |
+| JSON Parsing Safety | try-catch blocks for all JSON.parse calls | Prevents crashes from malformed saved data |
+| Modal Validation | Inline error message for empty name | Immediate feedback, prevents invalid saves |
+| Save Button Placement | Left side of button group, opposite of Send | Separate concerns - save config vs execute request |
 
 ---
 

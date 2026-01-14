@@ -1,6 +1,9 @@
-import { IconMoon, IconSun } from "@tabler/icons-react"
+import { IconMoon, IconSun, IconSettings } from "@tabler/icons-react"
 import { Group, ActionIcon, Select, Box, Text, useMantineColorScheme } from "@mantine/core"
+import { useState } from "react"
 import type { Environment } from "@/types"
+import { GlobalHeadersModal } from "./GlobalHeadersModal"
+import { useShop } from "@/contexts/ShopContext"
 
 interface HeaderProps {
   environment: Environment
@@ -10,6 +13,8 @@ interface HeaderProps {
 export function Header({ environment, onEnvironmentChange }: HeaderProps) {
   const { setColorScheme, colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
+  const [globalHeadersModalOpened, setGlobalHeadersModalOpened] = useState(false)
+  const { selectedShop, shopHistory, selectShop, addShopToHistory } = useShop()
 
   const toggleTheme = () => {
     setColorScheme(colorScheme === "dark" ? "light" : "dark")
@@ -59,6 +64,42 @@ export function Header({ environment, onEnvironmentChange }: HeaderProps) {
             clearable={false}
           />
 
+          <Select
+            value={selectedShop}
+            onChange={(v) => {
+              selectShop(v)
+            }}
+            data={[
+              { value: 'None', label: 'None (no shop)' },
+              ...shopHistory.map((shop) => ({ value: shop, label: shop })),
+            ]}
+            placeholder="Select Shop"
+            searchable
+            w={180}
+            clearable
+            nothingFoundMessage="Type shop ID and press Enter"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                const target = e.currentTarget as HTMLInputElement
+                const searchValue = target.value
+                if (searchValue && !shopHistory.includes(searchValue) && searchValue !== 'None') {
+                  addShopToHistory(searchValue)
+                  selectShop(searchValue)
+                }
+              }
+            }}
+          />
+
+          <ActionIcon
+            variant="subtle"
+            onClick={() => setGlobalHeadersModalOpened(true)}
+            aria-label="Global Headers"
+            size="lg"
+            title="Global Headers"
+          >
+            <IconSettings size={20} />
+          </ActionIcon>
+
           <ActionIcon
             variant="subtle"
             onClick={toggleTheme}
@@ -73,6 +114,11 @@ export function Header({ environment, onEnvironmentChange }: HeaderProps) {
           </ActionIcon>
         </Group>
       </Group>
+
+      <GlobalHeadersModal
+        opened={globalHeadersModalOpened}
+        onClose={() => setGlobalHeadersModalOpened(false)}
+      />
     </Box>
   )
 }
