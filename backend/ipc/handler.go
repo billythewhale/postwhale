@@ -77,6 +77,14 @@ func (h *Handler) HandleRequest(request IPCRequest) IPCResponse {
 		response = h.handleCheckPath(request.Data)
 	case "refreshRepository":
 		response = h.handleRefreshRepository(request.Data)
+	case "saveSavedRequest":
+		response = h.handleSaveSavedRequest(request.Data)
+	case "getSavedRequests":
+		response = h.handleGetSavedRequests(request.Data)
+	case "updateSavedRequest":
+		response = h.handleUpdateSavedRequest(request.Data)
+	case "deleteSavedRequest":
+		response = h.handleDeleteSavedRequest(request.Data)
 	default:
 		response = IPCResponse{
 			Success: false,
@@ -703,6 +711,177 @@ func (h *Handler) handleRefreshRepository(data json.RawMessage) IPCResponse {
 			"servicesAdded":  servicesAdded,
 			"endpointsAdded": endpointsAdded,
 			"warnings":       scanResult.Errors,
+		},
+	}
+}
+
+// handleSaveSavedRequest saves a new saved request configuration
+func (h *Handler) handleSaveSavedRequest(data json.RawMessage) IPCResponse {
+	var input struct {
+		EndpointID      int64  `json:"endpointId"`
+		Name            string `json:"name"`
+		PathParamsJSON  string `json:"pathParamsJson"`
+		QueryParamsJSON string `json:"queryParamsJson"`
+		HeadersJSON     string `json:"headersJson"`
+		Body            string `json:"body"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	savedRequest := db.SavedRequest{
+		EndpointID:      input.EndpointID,
+		Name:            input.Name,
+		PathParamsJSON:  input.PathParamsJSON,
+		QueryParamsJSON: input.QueryParamsJSON,
+		HeadersJSON:     input.HeadersJSON,
+		Body:            input.Body,
+	}
+
+	id, err := db.AddSavedRequest(h.database, savedRequest)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to save request: %v", err),
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"id":              id,
+			"endpointId":      input.EndpointID,
+			"name":            input.Name,
+			"pathParamsJson":  input.PathParamsJSON,
+			"queryParamsJson": input.QueryParamsJSON,
+			"headersJson":     input.HeadersJSON,
+			"body":            input.Body,
+		},
+	}
+}
+
+// handleGetSavedRequests retrieves saved requests for an endpoint
+func (h *Handler) handleGetSavedRequests(data json.RawMessage) IPCResponse {
+	var input struct {
+		EndpointID int64 `json:"endpointId"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	savedRequests, err := db.GetSavedRequestsByEndpoint(h.database, input.EndpointID)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to get saved requests: %v", err),
+		}
+	}
+
+	// Convert to interface{} slice
+	result := make([]interface{}, len(savedRequests))
+	for i, req := range savedRequests {
+		result[i] = map[string]interface{}{
+			"id":              req.ID,
+			"endpointId":      req.EndpointID,
+			"name":            req.Name,
+			"pathParamsJson":  req.PathParamsJSON,
+			"queryParamsJson": req.QueryParamsJSON,
+			"headersJson":     req.HeadersJSON,
+			"body":            req.Body,
+			"createdAt":       req.CreatedAt,
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data:    result,
+	}
+}
+
+// handleUpdateSavedRequest updates an existing saved request
+func (h *Handler) handleUpdateSavedRequest(data json.RawMessage) IPCResponse {
+	var input struct {
+		ID              int64  `json:"id"`
+		EndpointID      int64  `json:"endpointId"`
+		Name            string `json:"name"`
+		PathParamsJSON  string `json:"pathParamsJson"`
+		QueryParamsJSON string `json:"queryParamsJson"`
+		HeadersJSON     string `json:"headersJson"`
+		Body            string `json:"body"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	savedRequest := db.SavedRequest{
+		ID:              input.ID,
+		EndpointID:      input.EndpointID,
+		Name:            input.Name,
+		PathParamsJSON:  input.PathParamsJSON,
+		QueryParamsJSON: input.QueryParamsJSON,
+		HeadersJSON:     input.HeadersJSON,
+		Body:            input.Body,
+	}
+
+	err := db.UpdateSavedRequest(h.database, savedRequest)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to update saved request: %v", err),
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"id":              input.ID,
+			"endpointId":      input.EndpointID,
+			"name":            input.Name,
+			"pathParamsJson":  input.PathParamsJSON,
+			"queryParamsJson": input.QueryParamsJSON,
+			"headersJson":     input.HeadersJSON,
+			"body":            input.Body,
+		},
+	}
+}
+
+// handleDeleteSavedRequest deletes a saved request
+func (h *Handler) handleDeleteSavedRequest(data json.RawMessage) IPCResponse {
+	var input struct {
+		ID int64 `json:"id"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	err := db.DeleteSavedRequest(h.database, input.ID)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to delete saved request: %v", err),
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"deleted": true,
 		},
 	}
 }

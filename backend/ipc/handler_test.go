@@ -275,3 +275,182 @@ func TestHandleRequest_ExecuteRequest(t *testing.T) {
 		t.Error("Expected responseTime in response")
 	}
 }
+
+// RED: Test saving a saved request
+func TestHandleRequest_SaveSavedRequest(t *testing.T) {
+	handler := NewHandler(":memory:")
+	defer handler.Close()
+
+	// Setup test data - create repo, service, endpoint
+	repoPath := "/fake/path"
+	repoData := map[string]string{"path": repoPath}
+	repoJSON, _ := json.Marshal(repoData)
+
+	// Create repository (will fail scan but that's OK for test)
+	repoReq := IPCRequest{Action: "addRepository", Data: json.RawMessage(repoJSON)}
+	_ = handler.HandleRequest(repoReq)
+
+	// Create endpoint manually for test
+	_, _ = handler.database.Exec("INSERT INTO repositories (name, path) VALUES (?, ?)", "test-repo", repoPath)
+	_, _ = handler.database.Exec("INSERT INTO services (repo_id, service_id, name, port, config_json) VALUES (?, ?, ?, ?, ?)", 1, "test-service", "Test Service", 3000, "{}")
+	result, _ := handler.database.Exec("INSERT INTO endpoints (service_id, method, path, operation_id, spec_json) VALUES (?, ?, ?, ?, ?)", 1, "GET", "/api/test", "getTest", "{}")
+	endpointID, _ := result.LastInsertId()
+
+	// Save a saved request
+	savedReqData := map[string]interface{}{
+		"endpointId":      endpointID,
+		"name":            "Test Request",
+		"pathParamsJson":  `{"id": "123"}`,
+		"queryParamsJson": `[{"key": "limit", "value": "10", "enabled": true}]`,
+		"headersJson":     `[{"key": "Authorization", "value": "Bearer token", "enabled": true}]`,
+		"body":            `{"test": "data"}`,
+	}
+	savedReqJSON, _ := json.Marshal(savedReqData)
+
+	request := IPCRequest{
+		Action: "saveSavedRequest",
+		Data:   json.RawMessage(savedReqJSON),
+	}
+
+	response := handler.HandleRequest(request)
+
+	if !response.Success {
+		t.Fatalf("Expected success, got error: %s", response.Error)
+	}
+
+	dataMap, ok := response.Data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected data to be map, got %T", response.Data)
+	}
+
+	if dataMap["id"] == nil {
+		t.Error("Expected id in response")
+	}
+}
+
+// RED: Test getting saved requests for an endpoint
+func TestHandleRequest_GetSavedRequests(t *testing.T) {
+	handler := NewHandler(":memory:")
+	defer handler.Close()
+
+	// Setup test data
+	repoPath := "/fake/path"
+	_, _ = handler.database.Exec("INSERT INTO repositories (name, path) VALUES (?, ?)", "test-repo", repoPath)
+	_, _ = handler.database.Exec("INSERT INTO services (repo_id, service_id, name, port, config_json) VALUES (?, ?, ?, ?, ?)", 1, "test-service", "Test Service", 3000, "{}")
+	result, _ := handler.database.Exec("INSERT INTO endpoints (service_id, method, path, operation_id, spec_json) VALUES (?, ?, ?, ?, ?)", 1, "GET", "/api/test", "getTest", "{}")
+	endpointID, _ := result.LastInsertId()
+
+	// Add saved requests
+	_, _ = handler.database.Exec("INSERT INTO saved_requests (endpoint_id, name, path_params_json, query_params_json, headers_json, body) VALUES (?, ?, ?, ?, ?, ?)", endpointID, "Request 1", "{}", "[]", "[]", "")
+	_, _ = handler.database.Exec("INSERT INTO saved_requests (endpoint_id, name, path_params_json, query_params_json, headers_json, body) VALUES (?, ?, ?, ?, ?, ?)", endpointID, "Request 2", "{}", "[]", "[]", "")
+
+	// Get saved requests
+	requestData := map[string]interface{}{
+		"endpointId": endpointID,
+	}
+	requestJSON, _ := json.Marshal(requestData)
+
+	request := IPCRequest{
+		Action: "getSavedRequests",
+		Data:   json.RawMessage(requestJSON),
+	}
+
+	response := handler.HandleRequest(request)
+
+	if !response.Success {
+		t.Fatalf("Expected success, got error: %s", response.Error)
+	}
+
+	dataSlice, ok := response.Data.([]interface{})
+	if !ok {
+		t.Fatalf("Expected data to be slice, got %T", response.Data)
+	}
+
+	if len(dataSlice) != 2 {
+		t.Errorf("Expected 2 saved requests, got %d", len(dataSlice))
+	}
+}
+
+// RED: Test updating a saved request
+func TestHandleRequest_UpdateSavedRequest(t *testing.T) {
+	handler := NewHandler(":memory:")
+	defer handler.Close()
+
+	// Setup test data
+	_, _ = handler.database.Exec("INSERT INTO repositories (name, path) VALUES (?, ?)", "test-repo", "/fake")
+	_, _ = handler.database.Exec("INSERT INTO services (repo_id, service_id, name, port, config_json) VALUES (?, ?, ?, ?, ?)", 1, "test-service", "Test Service", 3000, "{}")
+	result, _ := handler.database.Exec("INSERT INTO endpoints (service_id, method, path, operation_id, spec_json) VALUES (?, ?, ?, ?, ?)", 1, "GET", "/api/test", "getTest", "{}")
+	endpointID, _ := result.LastInsertId()
+
+	result, _ = handler.database.Exec("INSERT INTO saved_requests (endpoint_id, name, path_params_json, query_params_json, headers_json, body) VALUES (?, ?, ?, ?, ?, ?)", endpointID, "Original", "{}", "[]", "[]", "")
+	savedReqID, _ := result.LastInsertId()
+
+	// Update saved request
+	updateData := map[string]interface{}{
+		"id":              savedReqID,
+		"endpointId":      endpointID,
+		"name":            "Updated Name",
+		"pathParamsJson":  `{"id": "456"}`,
+		"queryParamsJson": "[]",
+		"headersJson":     "[]",
+		"body":            `{"updated": "data"}`,
+	}
+	updateJSON, _ := json.Marshal(updateData)
+
+	request := IPCRequest{
+		Action: "updateSavedRequest",
+		Data:   json.RawMessage(updateJSON),
+	}
+
+	response := handler.HandleRequest(request)
+
+	if !response.Success {
+		t.Fatalf("Expected success, got error: %s", response.Error)
+	}
+
+	// Verify update
+	var name string
+	handler.database.QueryRow("SELECT name FROM saved_requests WHERE id = ?", savedReqID).Scan(&name)
+	if name != "Updated Name" {
+		t.Errorf("Expected name 'Updated Name', got '%s'", name)
+	}
+}
+
+// RED: Test deleting a saved request
+func TestHandleRequest_DeleteSavedRequest(t *testing.T) {
+	handler := NewHandler(":memory:")
+	defer handler.Close()
+
+	// Setup test data
+	_, _ = handler.database.Exec("INSERT INTO repositories (name, path) VALUES (?, ?)", "test-repo", "/fake")
+	_, _ = handler.database.Exec("INSERT INTO services (repo_id, service_id, name, port, config_json) VALUES (?, ?, ?, ?, ?)", 1, "test-service", "Test Service", 3000, "{}")
+	result, _ := handler.database.Exec("INSERT INTO endpoints (service_id, method, path, operation_id, spec_json) VALUES (?, ?, ?, ?, ?)", 1, "GET", "/api/test", "getTest", "{}")
+	endpointID, _ := result.LastInsertId()
+
+	result, _ = handler.database.Exec("INSERT INTO saved_requests (endpoint_id, name, path_params_json, query_params_json, headers_json, body) VALUES (?, ?, ?, ?, ?, ?)", endpointID, "To Delete", "{}", "[]", "[]", "")
+	savedReqID, _ := result.LastInsertId()
+
+	// Delete saved request
+	deleteData := map[string]interface{}{
+		"id": savedReqID,
+	}
+	deleteJSON, _ := json.Marshal(deleteData)
+
+	request := IPCRequest{
+		Action: "deleteSavedRequest",
+		Data:   json.RawMessage(deleteJSON),
+	}
+
+	response := handler.HandleRequest(request)
+
+	if !response.Success {
+		t.Fatalf("Expected success, got error: %s", response.Error)
+	}
+
+	// Verify deletion
+	var count int
+	handler.database.QueryRow("SELECT COUNT(*) FROM saved_requests WHERE id = ?", savedReqID).Scan(&count)
+	if count != 0 {
+		t.Errorf("Expected saved request to be deleted, but found %d", count)
+	}
+}

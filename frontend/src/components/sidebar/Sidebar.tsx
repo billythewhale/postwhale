@@ -11,6 +11,8 @@ import {
   IconX,
   IconDotsVertical,
   IconFolderPlus,
+  IconDeviceFloppy,
+  IconPencil,
 } from "@tabler/icons-react"
 import {
   Box,
@@ -28,7 +30,7 @@ import {
   Menu,
   Paper,
 } from "@mantine/core"
-import type { Repository, Service, Endpoint } from "@/types"
+import type { Repository, Service, Endpoint, SavedRequest } from "@/types"
 import { useFavorites } from "@/contexts/FavoritesContext"
 import { useViewState } from "@/hooks/useViewState"
 import { filterTree } from "@/utils/treeFilter"
@@ -38,12 +40,17 @@ interface SidebarProps {
   repositories: Repository[]
   services: Service[]
   endpoints: Endpoint[]
+  savedRequests: SavedRequest[]
   selectedEndpoint: Endpoint | null
+  selectedSavedRequest: SavedRequest | null
   onSelectEndpoint: (endpoint: Endpoint) => void
+  onSelectSavedRequest: (savedRequest: SavedRequest) => void
   onAddRepository: () => void
   onAutoAddRepos: () => void
   onRefreshAll: () => void
   onRemoveRepository: (id: number) => void
+  onDeleteSavedRequest: (id: number) => void
+  onUpdateSavedRequest: (savedRequest: SavedRequest) => void
 }
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const
@@ -52,12 +59,17 @@ export function Sidebar({
   repositories,
   services,
   endpoints,
+  savedRequests,
   selectedEndpoint,
+  selectedSavedRequest,
   onSelectEndpoint,
+  onSelectSavedRequest,
   onAddRepository,
   onAutoAddRepos,
   onRefreshAll,
   onRemoveRepository: _onRemoveRepository,
+  onDeleteSavedRequest,
+  onUpdateSavedRequest: _onUpdateSavedRequest,
 }: SidebarProps) {
   const { colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
@@ -141,6 +153,12 @@ export function Sidebar({
     // Clear search and select endpoint
     handleClearSearch()
     onSelectEndpoint(endpoint)
+  }
+
+  const handleSelectSavedRequest = (savedRequest: SavedRequest) => {
+    // Clear search and select saved request
+    handleClearSearch()
+    onSelectSavedRequest(savedRequest)
   }
 
   const getMethodColor = (method: string): string => {
@@ -441,96 +459,195 @@ export function Sidebar({
                                       const isSelected = selectedEndpoint?.id === endpoint.id
                                       const isEndpointFavorite = isFavorite('endpoints', endpoint.id)
                                       const isEndpointHovered = hoveredEndpointId === endpoint.id
+                                      const endpointSavedRequests = savedRequests.filter(
+                                        (sr) => sr.endpointId === endpoint.id
+                                      )
 
                                       return (
-                                        <Group
-                                          key={endpoint.id}
-                                          gap={4}
-                                          wrap="nowrap"
-                                          onMouseEnter={() => setHoveredEndpointId(endpoint.id)}
-                                          onMouseLeave={() => setHoveredEndpointId(null)}
-                                          onFocus={() => setHoveredEndpointId(endpoint.id)}
-                                          onBlur={() => setHoveredEndpointId(null)}
-                                          tabIndex={0}
-                                          style={{ outline: 'none' }}
-                                        >
-                                          {/* Star Icon or Empty Space */}
-                                          {isEndpointFavorite ? (
-                                            <ActionIcon
-                                              size="sm"
-                                              variant="subtle"
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                toggleFavorite('endpoints', endpoint.id)
-                                              }}
-                                              title="Remove from favorites"
-                                              aria-label="Unfavorite endpoint"
-                                            >
-                                              <IconStarFilled size={14} style={{ color: 'var(--mantine-color-yellow-5)' }} />
-                                            </ActionIcon>
-                                          ) : isEndpointHovered ? (
-                                            <ActionIcon
-                                              size="sm"
-                                              variant="subtle"
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                toggleFavorite('endpoints', endpoint.id)
-                                              }}
-                                              title="Add to Favorites"
-                                              aria-label="Favorite endpoint"
-                                            >
-                                              <IconStar size={14} style={{ color: 'var(--mantine-color-blue-5)' }} />
-                                            </ActionIcon>
-                                          ) : (
-                                            <Box style={{ width: 28, height: 28, pointerEvents: 'none' }} />
-                                          )}
-
-                                          {/* Endpoint */}
-                                          <Box
-                                            onClick={() => handleSelectEndpoint(endpoint)}
-                                            className="sidebar-nav-item"
-                                            style={(theme) => ({
-                                              flex: 1,
-                                              padding: '6px 8px',
-                                              borderRadius: theme.radius.md,
-                                              cursor: 'pointer',
-                                              transition: 'all 150ms ease',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              gap: 8,
-                                              backgroundColor: isSelected
-                                                ? isDark
-                                                  ? theme.colors.blue[6]
-                                                  : theme.colors.blue[0]
-                                                : 'transparent',
-                                              color: isSelected
-                                                ? isDark
-                                                  ? theme.white
-                                                  : theme.colors.blue[9]
-                                                : 'inherit',
-                                              fontWeight: isSelected ? 500 : 400,
-                                            })}
+                                        <Box key={endpoint.id}>
+                                          <Group
+                                            gap={4}
+                                            wrap="nowrap"
+                                            onMouseEnter={() => setHoveredEndpointId(endpoint.id)}
+                                            onMouseLeave={() => setHoveredEndpointId(null)}
+                                            onFocus={() => setHoveredEndpointId(endpoint.id)}
+                                            onBlur={() => setHoveredEndpointId(null)}
+                                            tabIndex={0}
+                                            style={{ outline: 'none' }}
                                           >
-                                            <Badge
-                                              color={getMethodColor(endpoint.method)}
-                                              size="xs"
-                                              variant="filled"
-                                            >
-                                              {endpoint.method}
-                                            </Badge>
-                                            <HighlightMatch
-                                              text={endpoint.path}
-                                              query={searchQuery}
-                                              size="sm"
-                                              style={{
+                                            {/* Star Icon or Empty Space */}
+                                            {isEndpointFavorite ? (
+                                              <ActionIcon
+                                                size="sm"
+                                                variant="subtle"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  toggleFavorite('endpoints', endpoint.id)
+                                                }}
+                                                title="Remove from favorites"
+                                                aria-label="Unfavorite endpoint"
+                                              >
+                                                <IconStarFilled size={14} style={{ color: 'var(--mantine-color-yellow-5)' }} />
+                                              </ActionIcon>
+                                            ) : isEndpointHovered ? (
+                                              <ActionIcon
+                                                size="sm"
+                                                variant="subtle"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  toggleFavorite('endpoints', endpoint.id)
+                                                }}
+                                                title="Add to Favorites"
+                                                aria-label="Favorite endpoint"
+                                              >
+                                                <IconStar size={14} style={{ color: 'var(--mantine-color-blue-5)' }} />
+                                              </ActionIcon>
+                                            ) : (
+                                              <Box style={{ width: 28, height: 28, pointerEvents: 'none' }} />
+                                            )}
+
+                                            {/* Endpoint */}
+                                            <Box
+                                              onClick={() => handleSelectEndpoint(endpoint)}
+                                              className="sidebar-nav-item"
+                                              style={(theme) => ({
                                                 flex: 1,
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap',
-                                              }}
-                                            />
-                                          </Box>
-                                        </Group>
+                                                padding: '6px 8px',
+                                                borderRadius: theme.radius.md,
+                                                cursor: 'pointer',
+                                                transition: 'all 150ms ease',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 8,
+                                                backgroundColor: isSelected
+                                                  ? isDark
+                                                    ? theme.colors.blue[6]
+                                                    : theme.colors.blue[0]
+                                                  : 'transparent',
+                                                color: isSelected
+                                                  ? isDark
+                                                    ? theme.white
+                                                    : theme.colors.blue[9]
+                                                  : 'inherit',
+                                                fontWeight: isSelected ? 500 : 400,
+                                              })}
+                                            >
+                                              <Badge
+                                                color={getMethodColor(endpoint.method)}
+                                                size="xs"
+                                                variant="filled"
+                                              >
+                                                {endpoint.method}
+                                              </Badge>
+                                              <HighlightMatch
+                                                text={endpoint.path}
+                                                query={searchQuery}
+                                                size="sm"
+                                                style={{
+                                                  flex: 1,
+                                                  overflow: 'hidden',
+                                                  textOverflow: 'ellipsis',
+                                                  whiteSpace: 'nowrap',
+                                                }}
+                                              />
+                                            </Box>
+                                          </Group>
+
+                                          {/* Saved Requests nested under endpoint */}
+                                          {endpointSavedRequests.length > 0 && (
+                                            <Box ml={32} mt={2}>
+                                              <Stack gap={2}>
+                                                {endpointSavedRequests.map((savedRequest) => {
+                                                  const isSavedRequestSelected = selectedSavedRequest?.id === savedRequest.id
+
+                                                  return (
+                                                    <Menu
+                                                      key={savedRequest.id}
+                                                      position="right-start"
+                                                      withinPortal
+                                                      shadow="md"
+                                                    >
+                                                      <Menu.Target>
+                                                        <Box
+                                                          onClick={() => handleSelectSavedRequest(savedRequest)}
+                                                          onContextMenu={(e) => {
+                                                            e.preventDefault()
+                                                          }}
+                                                          className="sidebar-nav-item"
+                                                          style={(theme) => ({
+                                                            padding: '4px 8px',
+                                                            borderRadius: theme.radius.sm,
+                                                            cursor: 'pointer',
+                                                            transition: 'all 150ms ease',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: 6,
+                                                            backgroundColor: isSavedRequestSelected
+                                                              ? isDark
+                                                                ? theme.colors.blue[6]
+                                                                : theme.colors.blue[0]
+                                                              : 'transparent',
+                                                            color: isSavedRequestSelected
+                                                              ? isDark
+                                                                ? theme.white
+                                                                : theme.colors.blue[9]
+                                                              : 'inherit',
+                                                          })}
+                                                        >
+                                                          <IconDeviceFloppy
+                                                            size={14}
+                                                            style={{
+                                                              color: isDark
+                                                                ? 'var(--mantine-color-gray-5)'
+                                                                : 'var(--mantine-color-gray-6)',
+                                                            }}
+                                                          />
+                                                          <Text
+                                                            size="xs"
+                                                            style={{
+                                                              overflow: 'hidden',
+                                                              textOverflow: 'ellipsis',
+                                                              whiteSpace: 'nowrap',
+                                                            }}
+                                                          >
+                                                            {savedRequest.name}
+                                                          </Text>
+                                                        </Box>
+                                                      </Menu.Target>
+                                                      <Menu.Dropdown>
+                                                        <Menu.Item
+                                                          leftSection={<IconPencil size={14} />}
+                                                          onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            const newName = prompt('Enter new name for saved request:', savedRequest.name)
+                                                            if (newName && newName.trim() !== '' && newName !== savedRequest.name) {
+                                                              _onUpdateSavedRequest({
+                                                                ...savedRequest,
+                                                                name: newName.trim(),
+                                                              })
+                                                            }
+                                                          }}
+                                                        >
+                                                          Rename
+                                                        </Menu.Item>
+                                                        <Menu.Item
+                                                          leftSection={<IconTrash size={14} />}
+                                                          color="red"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            onDeleteSavedRequest(savedRequest.id)
+                                                          }}
+                                                        >
+                                                          Delete
+                                                        </Menu.Item>
+                                                      </Menu.Dropdown>
+                                                    </Menu>
+                                                  )
+                                                })}
+                                              </Stack>
+                                            </Box>
+                                          )}
+                                        </Box>
                                       )
                                     })}
                                   </Stack>

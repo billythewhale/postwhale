@@ -104,3 +104,14 @@ export interface CheckPathResult {
   isDirectory: boolean;
   resolvedPath: string;
 }
+
+export interface SavedRequest {
+  id: number;
+  endpointId: number;
+  name: string;
+  pathParamsJson: string;
+  queryParamsJson: string;
+  headersJson: string;
+  body: string;
+  createdAt: string;
+}

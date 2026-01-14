@@ -464,4 +464,67 @@ export function useViewState() {
 **When:** Tree views, navigation sidebars with collapsible sections and favorites/bookmarks
 **Gotcha:** Always reserve space for hidden icons (empty Box with same dimensions) to prevent layout shifts. Use `pointerEvents: 'none'` on empty space to pass clicks through.
 
-Last updated: 2026-01-13 (TODO.md bugs - Add Header button width & star icon positioning patterns)
+### 30. Request Cancellation Pattern - AbortController for Client-Side Cancellation
+**Pattern:** Use AbortController to track request state and provide immediate cancellation feedback
+**Example:**
+```typescript
+// Component state
+const [isLoading, setIsLoading] = useState(false)
+const [abortController, setAbortController] = useState<AbortController | null>(null)
+
+// Request handler
+const handleSend = async () => {
+  const controller = new AbortController()
+  setAbortController(controller)
+  setIsLoading(true)
+
+  try {
+    const result = await invoke('executeRequest', { /* ... */ })
+
+    // Only update UI if not aborted
+    if (!controller.signal.aborted) {
+      setResponse(result)
+    }
+  } catch (err) {
+    // Check if error is due to abort
+    if (err instanceof Error && err.name === 'AbortError') {
+      setResponse({ status: 'Cancelled', error: 'Request cancelled by user' })
+    }
+  } finally {
+    setIsLoading(false)
+    setAbortController(null)
+  }
+}
+
+// Cancel handler
+const handleCancel = () => {
+  if (abortController) {
+    abortController.abort()
+  }
+}
+
+// Cleanup on unmount
+useEffect(() => {
+  return () => {
+    if (abortController) {
+      abortController.abort()
+    }
+  }
+}, [abortController])
+
+// UI
+{isLoading ? (
+  <>
+    <Button loading disabled>Sending...</Button>
+    <Button onClick={handleCancel} variant="outline" color="red">Cancel</Button>
+  </>
+) : (
+  <Button onClick={handleSend}>Send Request</Button>
+)}
+```
+**Why:** AbortController is the Web standard for cancellable async operations. Client-side cancellation provides immediate UI feedback without requiring backend protocol changes.
+**When:** Long-running requests (API calls, file uploads) where user may want to cancel
+**Gotcha:** Client-side only - backend request completes naturally. For true backend cancellation, need IPC changes to pass cancellation token.
+**Scope:** Client-side cancellation shows "Cancelled" immediately, but backend request continues until timeout (30s). For most cases, this is acceptable UX.
+
+Last updated: 2026-01-14 (Request cancellation pattern added)

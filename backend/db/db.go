@@ -47,6 +47,18 @@ type Request struct {
 	CreatedAt   string
 }
 
+// SavedRequest represents a user-saved request configuration
+type SavedRequest struct {
+	ID              int64
+	EndpointID      int64
+	Name            string
+	PathParamsJSON  string
+	QueryParamsJSON string
+	HeadersJSON     string
+	Body            string
+	CreatedAt       string
+}
+
 // InitDB initializes the SQLite database and creates tables
 func InitDB(dbPath string) (*sql.DB, error) {
 	// Validate and sanitize database path
@@ -111,6 +123,18 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		headers TEXT,
 		body TEXT,
 		response TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (endpoint_id) REFERENCES endpoints(id) ON DELETE CASCADE
+	);
+
+	CREATE TABLE IF NOT EXISTS saved_requests (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		endpoint_id INTEGER NOT NULL,
+		name TEXT NOT NULL,
+		path_params_json TEXT NOT NULL DEFAULT '{}',
+		query_params_json TEXT NOT NULL DEFAULT '[]',
+		headers_json TEXT NOT NULL DEFAULT '[]',
+		body TEXT NOT NULL DEFAULT '',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (endpoint_id) REFERENCES endpoints(id) ON DELETE CASCADE
 	);
@@ -338,4 +362,84 @@ func GetRequestHistory(db *sql.DB, endpointID int64, limit int) ([]Request, erro
 	}
 
 	return requests, nil
+}
+
+// AddSavedRequest adds a new saved request to the database
+func AddSavedRequest(db *sql.DB, savedRequest SavedRequest) (int64, error) {
+	// Validate inputs
+	if savedRequest.Name == "" {
+		return 0, fmt.Errorf("saved request name cannot be empty")
+	}
+	if savedRequest.EndpointID == 0 {
+		return 0, fmt.Errorf("endpoint_id cannot be empty")
+	}
+
+	result, err := db.Exec(
+		"INSERT INTO saved_requests (endpoint_id, name, path_params_json, query_params_json, headers_json, body) VALUES (?, ?, ?, ?, ?, ?)",
+		savedRequest.EndpointID, savedRequest.Name, savedRequest.PathParamsJSON, savedRequest.QueryParamsJSON, savedRequest.HeadersJSON, savedRequest.Body,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	return result.LastInsertId()
+}
+
+// GetSavedRequestsByEndpoint retrieves all saved requests for an endpoint
+func GetSavedRequestsByEndpoint(db *sql.DB, endpointID int64) ([]SavedRequest, error) {
+	rows, err := db.Query(
+		`SELECT id, endpoint_id, name, path_params_json, query_params_json, headers_json, body, created_at
+		FROM saved_requests
+		WHERE endpoint_id = ?
+		ORDER BY created_at DESC`,
+		endpointID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Initialize as empty slice, not nil
+	savedRequests := []SavedRequest{}
+	for rows.Next() {
+		var req SavedRequest
+		if err := rows.Scan(&req.ID, &req.EndpointID, &req.Name, &req.PathParamsJSON, &req.QueryParamsJSON, &req.HeadersJSON, &req.Body, &req.CreatedAt); err != nil {
+			return nil, err
+		}
+		savedRequests = append(savedRequests, req)
+	}
+
+	// Check for errors during iteration
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return savedRequests, nil
+}
+
+// UpdateSavedRequest updates an existing saved request
+func UpdateSavedRequest(db *sql.DB, savedRequest SavedRequest) error {
+	// Validate inputs
+	if savedRequest.ID == 0 {
+		return fmt.Errorf("saved request id cannot be empty")
+	}
+	if savedRequest.Name == "" {
+		return fmt.Errorf("saved request name cannot be empty")
+	}
+
+	_, err := db.Exec(
+		"UPDATE saved_requests SET name = ?, path_params_json = ?, query_params_json = ?, headers_json = ?, body = ? WHERE id = ?",
+		savedRequest.Name, savedRequest.PathParamsJSON, savedRequest.QueryParamsJSON, savedRequest.HeadersJSON, savedRequest.Body, savedRequest.ID,
+	)
+	return err
+}
+
+// DeleteSavedRequest deletes a saved request from the database
+func DeleteSavedRequest(db *sql.DB, id int64) error {
+	if id == 0 {
+		return fmt.Errorf("saved request id cannot be empty")
+	}
+
+	_, err := db.Exec("DELETE FROM saved_requests WHERE id = ?", id)
+	return err
 }
