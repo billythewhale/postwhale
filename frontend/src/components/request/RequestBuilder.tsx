@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react"
-import { IconSend, IconX, IconStar, IconStarFilled, IconPlus, IconDeviceFloppy } from "@tabler/icons-react"
-import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Textarea, Stack, Group, Box, Divider, useMantineColorScheme, ActionIcon, Switch } from "@mantine/core"
+import { useState, useEffect, useRef } from "react"
+import { IconSend, IconX, IconStar, IconStarFilled, IconPlus, IconDeviceFloppy, IconChevronDown } from "@tabler/icons-react"
+import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Textarea, Stack, Group, Box, Divider, useMantineColorScheme, ActionIcon, Switch, Menu } from "@mantine/core"
 import type { Endpoint, Environment, SavedRequest } from "@/types"
 import { useFavorites } from "@/contexts/FavoritesContext"
 import { useGlobalHeaders } from "@/contexts/GlobalHeadersContext"
 import { useShop } from "@/contexts/ShopContext"
-import { SaveRequestModal } from "./SaveRequestModal"
 
 interface RequestBuilderProps {
   endpoint: Endpoint | null
@@ -19,6 +18,7 @@ interface RequestBuilderProps {
   }) => void
   onCancel: () => void
   onSaveRequest: (savedRequest: Omit<SavedRequest, 'id' | 'createdAt'>) => void
+  onUpdateRequest: (savedRequest: SavedRequest) => void
   isLoading: boolean
 }
 
@@ -29,6 +29,7 @@ export function RequestBuilder({
   onSend,
   onCancel,
   onSaveRequest,
+  onUpdateRequest,
   isLoading,
 }: RequestBuilderProps) {
   const { colorScheme } = useMantineColorScheme()
@@ -43,11 +44,17 @@ export function RequestBuilder({
   const [body, setBody] = useState("")
   const [pathParams, setPathParams] = useState<Record<string, string>>({})
   const [queryParams, setQueryParams] = useState<Array<{ key: string; value: string; enabled: boolean }>>([])
-  const [saveModalOpened, setSaveModalOpened] = useState(false)
+  const [requestName, setRequestName] = useState("New Request")
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [nameError, setNameError] = useState(false)
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   // Load saved request data when selected
   useEffect(() => {
     if (selectedSavedRequest) {
+      // Load request name
+      setRequestName(selectedSavedRequest.name)
+
       // Parse JSON fields with try-catch for malformed data
       try {
         if (selectedSavedRequest.pathParamsJson) {
@@ -80,8 +87,18 @@ export function RequestBuilder({
       if (selectedSavedRequest.body) {
         setBody(selectedSavedRequest.body)
       }
+    } else {
+      // Reset to "New Request" when no saved request is selected
+      setRequestName("New Request")
     }
   }, [selectedSavedRequest])
+
+  // Reset to "New Request" when endpoint changes (unless a saved request is loaded)
+  useEffect(() => {
+    if (!selectedSavedRequest) {
+      setRequestName("New Request")
+    }
+  }, [endpoint, selectedSavedRequest])
 
   // Initialize query params from spec when endpoint changes
   useEffect(() => {
@@ -158,13 +175,25 @@ export function RequestBuilder({
     setQueryParams(queryParams.filter((_, i) => i !== index))
   }
 
-  const handleSaveRequest = (name: string) => {
+  const handleSaveAsNew = () => {
     if (!endpoint) return
+
+    // Validate name
+    const trimmedName = requestName.trim()
+    if (!trimmedName) {
+      setNameError(true)
+      setIsEditingName(true)
+      // Focus the name input
+      setTimeout(() => {
+        nameInputRef.current?.focus()
+      }, 0)
+      return
+    }
 
     // Serialize current form state to JSON
     const savedRequest = {
       endpointId: endpoint.id,
-      name,
+      name: trimmedName,
       pathParamsJson: JSON.stringify(pathParams),
       queryParamsJson: JSON.stringify(queryParams),
       headersJson: JSON.stringify(headers),
@@ -172,6 +201,36 @@ export function RequestBuilder({
     }
 
     onSaveRequest(savedRequest)
+    setNameError(false)
+  }
+
+  const handleUpdate = () => {
+    if (!endpoint || !selectedSavedRequest) return
+
+    // Validate name
+    const trimmedName = requestName.trim()
+    if (!trimmedName) {
+      setNameError(true)
+      setIsEditingName(true)
+      // Focus the name input
+      setTimeout(() => {
+        nameInputRef.current?.focus()
+      }, 0)
+      return
+    }
+
+    // Update existing saved request with current form state
+    const updatedRequest: SavedRequest = {
+      ...selectedSavedRequest,
+      name: trimmedName,
+      pathParamsJson: JSON.stringify(pathParams),
+      queryParamsJson: JSON.stringify(queryParams),
+      headersJson: JSON.stringify(headers),
+      body,
+    }
+
+    onUpdateRequest(updatedRequest)
+    setNameError(false)
   }
 
   const handleSend = () => {
@@ -275,6 +334,42 @@ export function RequestBuilder({
               {endpoint.spec.summary}
             </Text>
           )}
+
+          <Divider label="REQUEST NAME" labelPosition="center" />
+
+          <Group gap="sm" align="center">
+            {isEditingName ? (
+              <TextInput
+                ref={nameInputRef}
+                value={requestName}
+                onChange={(e) => {
+                  setRequestName(e.currentTarget.value)
+                  setNameError(false)
+                }}
+                onBlur={() => setIsEditingName(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setIsEditingName(false)
+                  } else if (e.key === 'Escape') {
+                    setIsEditingName(false)
+                  }
+                }}
+                error={nameError ? 'Request name is required' : undefined}
+                autoFocus
+                style={{ flex: 1 }}
+              />
+            ) : (
+              <Text
+                size="md"
+                fw={500}
+                style={{ flex: 1, cursor: 'pointer' }}
+                onClick={() => setIsEditingName(true)}
+                c={nameError ? 'red' : undefined}
+              >
+                {requestName}
+              </Text>
+            )}
+          </Group>
 
           <Tabs defaultValue="params">
             <Tabs.List>
@@ -415,16 +510,36 @@ export function RequestBuilder({
           <Divider />
 
           <Group justify="space-between">
-            {/* Left side: Save Request button */}
-            <Button
-              variant="default"
-              size="md"
-              leftSection={<IconDeviceFloppy size={16} />}
-              onClick={() => setSaveModalOpened(true)}
-              disabled={isLoading}
-            >
-              Save Request
-            </Button>
+            {/* Left side: Save Request menu */}
+            <Menu position="top-start" withinPortal>
+              <Menu.Target>
+                <Button
+                  variant="default"
+                  size="md"
+                  leftSection={<IconDeviceFloppy size={16} />}
+                  rightSection={<IconChevronDown size={16} />}
+                  disabled={isLoading}
+                >
+                  Save
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item
+                  leftSection={<IconDeviceFloppy size={16} />}
+                  onClick={handleSaveAsNew}
+                >
+                  Save as New
+                </Menu.Item>
+                {selectedSavedRequest && (
+                  <Menu.Item
+                    leftSection={<IconDeviceFloppy size={16} />}
+                    onClick={handleUpdate}
+                  >
+                    Update
+                  </Menu.Item>
+                )}
+              </Menu.Dropdown>
+            </Menu>
 
             {/* Right side: Send/Cancel buttons */}
             <Group gap="sm">
@@ -460,13 +575,6 @@ export function RequestBuilder({
           </Group>
         </Stack>
       </Paper>
-
-      {/* Save Request Modal */}
-      <SaveRequestModal
-        opened={saveModalOpened}
-        onClose={() => setSaveModalOpened(false)}
-        onSave={handleSaveRequest}
-      />
     </Box>
   )
 }

@@ -356,6 +356,7 @@ function App() {
                   onSend={handleSend}
                   onCancel={handleCancel}
                   onSaveRequest={handleSaveRequest}
+                  onUpdateRequest={handleUpdateSavedRequest}
                   isLoading={isLoading}
                 />
 
