@@ -20,6 +20,7 @@ interface RequestBuilderProps {
   onSaveRequest: (savedRequest: Omit<SavedRequest, 'id' | 'createdAt'>) => void
   onUpdateRequest: (savedRequest: SavedRequest) => void
   isLoading: boolean
+  isSaving: boolean
 }
 
 export function RequestBuilder({
@@ -31,6 +32,7 @@ export function RequestBuilder({
   onSaveRequest,
   onUpdateRequest,
   isLoading,
+  isSaving,
 }: RequestBuilderProps) {
   const { colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
@@ -49,10 +51,10 @@ export function RequestBuilder({
   const [nameError, setNameError] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
-  // Load saved request data when selected
+  // H1 FIX: Combined useEffect to prevent state desync and guarantee execution order
   useEffect(() => {
     if (selectedSavedRequest) {
-      // Load request name
+      // Load saved request data
       setRequestName(selectedSavedRequest.name)
 
       // Parse JSON fields with try-catch for malformed data
@@ -88,34 +90,23 @@ export function RequestBuilder({
         setBody(selectedSavedRequest.body)
       }
     } else {
-      // Reset to "New Request" when no saved request is selected
+      // Clear all state when no saved request is selected
       setRequestName("New Request")
-    }
-  }, [selectedSavedRequest])
+      setHeaders([{ key: "Content-Type", value: "application/json", enabled: true }])
+      setBody("")
+      setPathParams({})
 
-  // Reset to "New Request" when endpoint changes (unless a saved request is loaded)
-  useEffect(() => {
-    if (!selectedSavedRequest) {
-      setRequestName("New Request")
+      // Initialize query params from spec when endpoint changes (only if no saved request)
+      if (endpoint?.spec?.parameters) {
+        const specQueryParams = endpoint.spec.parameters
+          .filter((p) => p.in === "query")
+          .map((p) => ({ key: p.name, value: "", enabled: true }))
+        setQueryParams(specQueryParams)
+      } else {
+        setQueryParams([])
+      }
     }
-  }, [endpoint, selectedSavedRequest])
-
-  // Initialize query params from spec when endpoint changes
-  useEffect(() => {
-    if (endpoint?.spec?.parameters) {
-      const specQueryParams = endpoint.spec.parameters
-        .filter((p) => p.in === "query")
-        .map((p) => ({ key: p.name, value: "", enabled: true }))
-
-      // Merge: Keep existing user params, add missing spec params
-      setQueryParams((prev) => {
-        const existingKeys = new Set(prev.map(q => q.key))
-        const newSpecParams = specQueryParams.filter(sp => !existingKeys.has(sp.key))
-        return [...prev, ...newSpecParams]
-      })
-    }
-    // Don't clear params when endpoint has no spec - preserve user's manual entries
-  }, [endpoint])
+  }, [selectedSavedRequest, endpoint])
 
   if (!endpoint) {
     return (
@@ -518,7 +509,8 @@ export function RequestBuilder({
                   size="md"
                   leftSection={<IconDeviceFloppy size={16} />}
                   rightSection={<IconChevronDown size={16} />}
-                  disabled={isLoading}
+                  disabled={isLoading || isSaving}
+                  loading={isSaving}
                 >
                   Save
                 </Button>
