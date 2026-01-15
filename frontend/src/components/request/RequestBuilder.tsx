@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
-import { IconSend, IconX, IconStar, IconStarFilled, IconPlus, IconDeviceFloppy, IconChevronDown } from "@tabler/icons-react"
-import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Textarea, Stack, Group, Box, Divider, useMantineColorScheme, ActionIcon, Switch, Menu } from "@mantine/core"
+import { IconSend, IconX, IconStar, IconStarFilled, IconPlus, IconDeviceFloppy, IconChevronDown, IconPencil, IconTrash } from "@tabler/icons-react"
+import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Textarea, Stack, Group, Box, Divider, useMantineColorScheme, ActionIcon, Switch, Menu, Modal } from "@mantine/core"
 import type { Endpoint, Environment, SavedRequest } from "@/types"
 import { useFavorites } from "@/contexts/FavoritesContext"
 import { useGlobalHeaders } from "@/contexts/GlobalHeadersContext"
@@ -19,6 +19,7 @@ interface RequestBuilderProps {
   onCancel: () => void
   onSaveRequest: (savedRequest: Omit<SavedRequest, 'id' | 'createdAt'>) => void
   onUpdateRequest: (savedRequest: SavedRequest) => void
+  onDeleteRequest: (id: number) => void
   isLoading: boolean
   isSaving: boolean
 }
@@ -31,6 +32,7 @@ export function RequestBuilder({
   onCancel,
   onSaveRequest,
   onUpdateRequest,
+  onDeleteRequest,
   isLoading,
   isSaving,
 }: RequestBuilderProps) {
@@ -49,6 +51,8 @@ export function RequestBuilder({
   const [requestName, setRequestName] = useState("New Request")
   const [isEditingName, setIsEditingName] = useState(false)
   const [nameError, setNameError] = useState(false)
+  const [isHoveringName, setIsHoveringName] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -297,6 +301,75 @@ export function RequestBuilder({
             <Title order={3} style={{ fontFamily: 'monospace' }}>
               {endpoint.path}
             </Title>
+
+            <Divider orientation="vertical" />
+
+            <Group
+              gap="xs"
+              align="center"
+              onMouseEnter={() => setIsHoveringName(true)}
+              onMouseLeave={() => setIsHoveringName(false)}
+            >
+              {isEditingName ? (
+                <TextInput
+                  ref={nameInputRef}
+                  value={requestName}
+                  onChange={(e) => {
+                    setRequestName(e.currentTarget.value)
+                    setNameError(false)
+                  }}
+                  onBlur={() => setIsEditingName(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setIsEditingName(false)
+                    } else if (e.key === 'Escape') {
+                      setIsEditingName(false)
+                    }
+                  }}
+                  error={nameError ? 'Request name is required' : undefined}
+                  autoFocus
+                  size="md"
+                  style={{ minWidth: 200 }}
+                />
+              ) : (
+                <>
+                  <Text
+                    size="md"
+                    fw={500}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setIsEditingName(true)}
+                    c={nameError ? 'red' : undefined}
+                  >
+                    {requestName}
+                  </Text>
+                  {isHoveringName && (
+                    <>
+                      <ActionIcon
+                        size="sm"
+                        variant="subtle"
+                        onClick={() => setIsEditingName(true)}
+                        title="Rename request"
+                        aria-label="Rename request"
+                      >
+                        <IconPencil size={14} />
+                      </ActionIcon>
+                      {selectedSavedRequest && (
+                        <ActionIcon
+                          size="sm"
+                          variant="subtle"
+                          color="red"
+                          onClick={() => setShowDeleteModal(true)}
+                          title="Delete saved request"
+                          aria-label="Delete saved request"
+                        >
+                          <IconTrash size={14} />
+                        </ActionIcon>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </Group>
           </Group>
 
           {endpoint.spec?.summary && (
@@ -304,42 +377,6 @@ export function RequestBuilder({
               {endpoint.spec.summary}
             </Text>
           )}
-
-          <Divider label="REQUEST NAME" labelPosition="center" />
-
-          <Group gap="sm" align="center">
-            {isEditingName ? (
-              <TextInput
-                ref={nameInputRef}
-                value={requestName}
-                onChange={(e) => {
-                  setRequestName(e.currentTarget.value)
-                  setNameError(false)
-                }}
-                onBlur={() => setIsEditingName(false)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    setIsEditingName(false)
-                  } else if (e.key === 'Escape') {
-                    setIsEditingName(false)
-                  }
-                }}
-                error={nameError ? 'Request name is required' : undefined}
-                autoFocus
-                style={{ flex: 1 }}
-              />
-            ) : (
-              <Text
-                size="md"
-                fw={500}
-                style={{ flex: 1, cursor: 'pointer' }}
-                onClick={() => setIsEditingName(true)}
-                c={nameError ? 'red' : undefined}
-              >
-                {requestName}
-              </Text>
-            )}
-          </Group>
 
           <Tabs defaultValue="params">
             <Tabs.List>
@@ -550,6 +587,39 @@ export function RequestBuilder({
           </Group>
         </Stack>
       </Paper>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        opened={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Saved Request"
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            Are you sure you want to delete "{selectedSavedRequest?.name}"? This action cannot be undone.
+          </Text>
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="default"
+              onClick={() => setShowDeleteModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              color="red"
+              onClick={() => {
+                if (selectedSavedRequest) {
+                  onDeleteRequest(selectedSavedRequest.id)
+                }
+                setShowDeleteModal(false)
+              }}
+            >
+              Delete
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Box>
   )
 }

@@ -403,6 +403,7 @@ function App() {
                   onCancel={handleCancel}
                   onSaveRequest={handleSaveRequest}
                   onUpdateRequest={handleUpdateSavedRequest}
+                  onDeleteRequest={handleDeleteSavedRequest}
                   isLoading={isLoading}
                   isSaving={isSaving}
                 />

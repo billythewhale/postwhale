@@ -476,7 +476,7 @@ export function Sidebar({
                                 <Box ml={24} mt={2}>
                                   <Stack gap={2}>
                                     {serviceEndpoints.map((endpoint) => {
-                                      const isSelected = selectedEndpoint?.id === endpoint.id
+                                      const isSelected = selectedEndpoint?.id === endpoint.id && selectedSavedRequest === null
                                       const isEndpointFavorite = isFavorite('endpoints', endpoint.id)
                                       const isEndpointHovered = hoveredEndpointId === endpoint.id
                                       const endpointSavedRequests = savedRequests.filter(
