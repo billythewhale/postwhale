@@ -80,3 +80,8 @@ Terminology: The main app window is broken up like so:
     - [ ] Raw: Raw response, in case Response tab shows interactive JSON; if Response tab is already raw, hide this
     - [ ] Timing
 
+- [ ] User can create new Endpoints and Requests on the sidebar
+  - [ ] Action item in sidebar context menu "Add Request"
+    - [ ] First, opens a modal: Users chooses (existing) repo, chooses existing service in that repo, chooses or adds an endpoint. Checkbox/toggle for `internal` or `public`.
+    - [ ] This adds the endpoint to local state first, user configures and sends requests as normal
+    - [ ] When user chooses "Save Request", new endpoint info is written to openapi.yml (if public) or openapi.internal.yml (if internal) in the repo.
