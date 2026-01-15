@@ -51,13 +51,10 @@ export function RequestBuilder({
   const [nameError, setNameError] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
-  // H1 FIX: Combined useEffect to prevent state desync and guarantee execution order
   useEffect(() => {
     if (selectedSavedRequest) {
-      // Load saved request data
       setRequestName(selectedSavedRequest.name)
 
-      // Parse JSON fields with try-catch for malformed data
       try {
         if (selectedSavedRequest.pathParamsJson) {
           const parsed = JSON.parse(selectedSavedRequest.pathParamsJson)
@@ -85,18 +82,15 @@ export function RequestBuilder({
         console.error('Failed to parse headers:', err)
       }
 
-      // Body is plain text, no parsing needed
       if (selectedSavedRequest.body) {
         setBody(selectedSavedRequest.body)
       }
     } else {
-      // Clear all state when no saved request is selected
       setRequestName("New Request")
       setHeaders([{ key: "Content-Type", value: "application/json", enabled: true }])
       setBody("")
       setPathParams({})
 
-      // Initialize query params from spec when endpoint changes (only if no saved request)
       if (endpoint?.spec?.parameters) {
         const specQueryParams = endpoint.spec.parameters
           .filter((p) => p.in === "query")
@@ -169,19 +163,16 @@ export function RequestBuilder({
   const handleSaveAsNew = () => {
     if (!endpoint) return
 
-    // Validate name
     const trimmedName = requestName.trim()
     if (!trimmedName) {
       setNameError(true)
       setIsEditingName(true)
-      // Focus the name input
       setTimeout(() => {
         nameInputRef.current?.focus()
       }, 0)
       return
     }
 
-    // Serialize current form state to JSON
     const savedRequest = {
       endpointId: endpoint.id,
       name: trimmedName,
@@ -198,19 +189,16 @@ export function RequestBuilder({
   const handleUpdate = () => {
     if (!endpoint || !selectedSavedRequest) return
 
-    // Validate name
     const trimmedName = requestName.trim()
     if (!trimmedName) {
       setNameError(true)
       setIsEditingName(true)
-      // Focus the name input
       setTimeout(() => {
         nameInputRef.current?.focus()
       }, 0)
       return
     }
 
-    // Update existing saved request with current form state
     const updatedRequest: SavedRequest = {
       ...selectedSavedRequest,
       name: trimmedName,
@@ -225,18 +213,15 @@ export function RequestBuilder({
   }
 
   const handleSend = () => {
-    // Start with shop header (if selected)
     const headersObj: Record<string, string> = {}
     const shopHeader = getShopHeader()
     Object.assign(headersObj, shopHeader)
 
-    // Apply global headers next
     const globalHeaders = getEnabledGlobalHeaders()
     globalHeaders.forEach((h) => {
       headersObj[h.key] = h.value
     })
 
-    // Request-specific headers override global headers and shop header (same key)
     headers.forEach((h) => {
       if (h.enabled && h.key && h.value) {
         headersObj[h.key] = h.value
@@ -245,20 +230,15 @@ export function RequestBuilder({
 
     let finalPath = endpoint.path
 
-    // CRITICAL FIX: Validate and encode path parameters to prevent path injection
-    // Prevents path traversal (../../admin) and query injection attacks
     Object.entries(pathParams).forEach(([key, value]) => {
-      // Basic validation: reject values containing path separators or dangerous patterns
       if (value.includes('../') || value.includes('..\\')) {
         console.error(`Invalid path parameter value: ${value}`)
         return
       }
-      // Encode the value to ensure it's URL-safe
       const encodedValue = encodeURIComponent(value)
       finalPath = finalPath.replace(`{${key}}`, encodedValue)
     })
 
-    // Add query parameters (only enabled ones with non-empty key and value)
     const queryString = queryParams
       .filter((q) => q.enabled && q.key && q.value)
       .map((q) => `${encodeURIComponent(q.key)}=${encodeURIComponent(q.value)}`)
@@ -277,7 +257,6 @@ export function RequestBuilder({
     })
   }
 
-  // Extract path parameters
   const pathParamNames = endpoint.path.match(/\{([^}]+)\}/g)?.map((p) => p.slice(1, -1)) || []
 
   return (
@@ -376,7 +355,11 @@ export function RequestBuilder({
                   <Stack gap="xs">
                     {pathParamNames.map((param) => (
                       <Group key={param} gap="sm" align="center">
-                        <Text size="sm" style={{ fontFamily: 'monospace', width: 128 }}>
+                        <Text
+                          size="sm"
+                          ff="monospace"
+                          w={128}
+                        >
                           {param}
                         </Text>
                         <TextInput
@@ -385,7 +368,7 @@ export function RequestBuilder({
                           onChange={(e) =>
                             setPathParams({ ...pathParams, [param]: e.currentTarget.value })
                           }
-                          style={{ flex: 1 }}
+                          flex={1}
                         />
                       </Group>
                     ))}
@@ -404,13 +387,13 @@ export function RequestBuilder({
                       placeholder="Header key"
                       value={header.key}
                       onChange={(e) => updateHeader(index, "key", e.currentTarget.value)}
-                      style={{ flex: 1 }}
+                      flex={1}
                     />
                     <TextInput
                       placeholder="Header value"
                       value={header.value}
                       onChange={(e) => updateHeader(index, "value", e.currentTarget.value)}
-                      style={{ flex: 1 }}
+                      flex={1}
                     />
                     <Switch
                       checked={header.enabled}
@@ -447,13 +430,13 @@ export function RequestBuilder({
                       placeholder="Query param key"
                       value={query.key}
                       onChange={(e) => updateQueryParam(index, "key", e.currentTarget.value)}
-                      style={{ flex: 1 }}
+                      flex={1}
                     />
                     <TextInput
                       placeholder="Query param value"
                       value={query.value}
                       onChange={(e) => updateQueryParam(index, "value", e.currentTarget.value)}
-                      style={{ flex: 1 }}
+                      flex={1}
                     />
                     <Switch
                       checked={query.enabled}
