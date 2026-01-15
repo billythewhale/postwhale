@@ -203,7 +203,6 @@ function App() {
   }
 
   const handleSelectSavedRequest = (savedRequest: SavedRequest) => {
-    // Find the endpoint for this saved request
     const endpoint = endpoints.find(e => e.id === savedRequest.endpointId)
     if (endpoint) {
       setSelectedEndpoint(endpoint)
