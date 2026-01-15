@@ -23,56 +23,73 @@ function App() {
   const [response, setResponse] = useState<Response | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const isRequestInFlightRef = useRef(false)
   const [isLoadingData, setIsLoadingData] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showAutoAddDialog, setShowAutoAddDialog] = useState(false)
 
   const { invoke } = useIPC()
 
-  // Load all data from backend
-  const loadData = async () => {
+  const loadData = async (showGlobalLoading = true) => {
+    const errors: string[] = []
+
     try {
-      setIsLoadingData(true)
+      if (showGlobalLoading) {
+        setIsLoadingData(true)
+      }
       setError(null)
       const repos = await invoke<Repository[]>('getRepositories', {})
       setRepositories(repos || [])
 
-      // Load all services for all repositories
       if (repos && repos.length > 0) {
         const allServices: Service[] = []
         const allEndpoints: Endpoint[] = []
         const allSavedRequests: SavedRequest[] = []
 
         for (const repo of repos) {
-          const repoServices = await invoke<Service[]>('getServices', {
-            repositoryId: repo.id,
-          })
+          try {
+            const repoServices = await invoke<Service[]>('getServices', {
+              repositoryId: repo.id,
+            })
 
-          if (repoServices) {
-            allServices.push(...repoServices)
+            if (repoServices) {
+              allServices.push(...repoServices)
 
-            // Load endpoints for each service
-            for (const service of repoServices) {
-              const serviceEndpoints = await invoke<Endpoint[]>('getEndpoints', {
-                serviceId: service.id,
-              })
-
-              if (serviceEndpoints) {
-                allEndpoints.push(...serviceEndpoints)
-
-                // Load saved requests for each endpoint
-                for (const endpoint of serviceEndpoints) {
-                  const endpointSavedRequests = await invoke<SavedRequest[]>('getSavedRequests', {
-                    endpointId: endpoint.id,
+              for (const service of repoServices) {
+                try {
+                  const serviceEndpoints = await invoke<Endpoint[]>('getEndpoints', {
+                    serviceId: service.id,
                   })
 
-                  if (endpointSavedRequests) {
-                    allSavedRequests.push(...endpointSavedRequests)
+                  if (serviceEndpoints) {
+                    allEndpoints.push(...serviceEndpoints)
+
+                    for (const endpoint of serviceEndpoints) {
+                      try {
+                        const endpointSavedRequests = await invoke<SavedRequest[]>('getSavedRequests', {
+                          endpointId: endpoint.id,
+                        })
+
+                        if (endpointSavedRequests) {
+                          allSavedRequests.push(...endpointSavedRequests)
+                        }
+                      } catch (err) {
+                        const msg = err instanceof Error ? err.message : 'Unknown error'
+                        errors.push(`Failed to load saved requests for endpoint ${endpoint.path}: ${msg}`)
+                      }
+                    }
                   }
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : 'Unknown error'
+                  errors.push(`Failed to load endpoints for service ${service.name}: ${msg}`)
                 }
               }
             }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Unknown error'
+            errors.push(`Failed to load services for repository ${repo.path}: ${msg}`)
           }
         }
 
@@ -80,21 +97,26 @@ function App() {
         setEndpoints(allEndpoints)
         setSavedRequests(allSavedRequests)
       }
+
+      if (errors.length > 0) {
+        const errorSummary = `Warning: ${errors.length} item(s) failed to load. ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? `; and ${errors.length - 3} more...` : ''}`
+        setError(errorSummary)
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load data'
       setError(errorMessage)
     } finally {
-      setIsLoadingData(false)
+      if (showGlobalLoading) {
+        setIsLoadingData(false)
+      }
     }
   }
 
-  // Load repositories on app mount
   useEffect(() => {
     loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Cleanup: abort any in-flight request on unmount
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
@@ -103,14 +125,12 @@ function App() {
     }
   }, [])
 
-  // Clear response when endpoint changes
   useEffect(() => {
     setResponse(null)
   }, [selectedEndpoint])
 
   const handleAddRepository = async (path: string) => {
     await invoke('addRepository', { path })
-    // Reload all data after adding repository
     await loadData()
   }
 
@@ -123,10 +143,8 @@ function App() {
   }
 
   const handleAddRepositories = async (paths: string[]) => {
-    // Track results for each repository add attempt
     const results: { path: string; success: boolean; error?: string }[] = []
 
-    // Add repositories sequentially, collecting results
     for (const path of paths) {
       try {
         await invoke('addRepository', { path })
@@ -140,10 +158,8 @@ function App() {
       }
     }
 
-    // Reload all data after adding repositories
     await loadData()
 
-    // Report failures if any
     const failed = results.filter(r => !r.success)
     if (failed.length > 0) {
       const failedNames = failed.map(f => f.path.split('/').pop()).join(', ')
@@ -154,11 +170,9 @@ function App() {
   const handleRefreshAll = async () => {
     try {
       setError(null)
-      // Refresh each repository
       for (const repo of repositories) {
         await invoke('refreshRepository', { id: repo.id })
       }
-      // Reload all data after refreshing
       await loadData()
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to refresh repositories'
@@ -169,7 +183,6 @@ function App() {
   const handleRemoveRepository = async (id: number) => {
     try {
       setError(null)
-      // Clear selected endpoint if it belongs to repo being removed
       if (selectedEndpoint) {
         const service = services.find(s => s.id === selectedEndpoint.serviceId)
         if (service && service.repoId === id) {
@@ -177,12 +190,16 @@ function App() {
         }
       }
       await invoke('removeRepository', { id })
-      // Reload all data after removing
       await loadData()
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to remove repository'
       setError(errorMessage)
     }
+  }
+
+  const handleSelectEndpoint = (endpoint: Endpoint) => {
+    setSelectedEndpoint(endpoint)
+    setSelectedSavedRequest(null)
   }
 
   const handleSelectSavedRequest = (savedRequest: SavedRequest) => {
@@ -195,39 +212,68 @@ function App() {
   }
 
   const handleSaveRequest = async (savedRequest: Omit<SavedRequest, 'id' | 'createdAt'>) => {
+    setIsSaving(true)
     try {
       await invoke('saveSavedRequest', savedRequest)
-      // Reload saved requests
-      await loadData()
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to save request'
-      setError(errorMessage)
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      setError(`Failed to save request: ${errorMessage}`)
+      setIsSaving(false)
+      return
+    }
+
+    try {
+      await loadData(false)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      setError(`Request saved successfully, but failed to reload data: ${errorMessage}`)
+    } finally {
+      setIsSaving(false)
     }
   }
 
   const handleUpdateSavedRequest = async (savedRequest: SavedRequest) => {
+    setIsSaving(true)
     try {
       await invoke('updateSavedRequest', savedRequest)
-      // Reload saved requests
-      await loadData()
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update request'
-      setError(errorMessage)
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      setError(`Failed to update request: ${errorMessage}`)
+      setIsSaving(false)
+      return
+    }
+
+    try {
+      await loadData(false)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      setError(`Request updated successfully, but failed to reload data: ${errorMessage}`)
+    } finally {
+      setIsSaving(false)
     }
   }
 
   const handleDeleteSavedRequest = async (id: number) => {
+    setIsSaving(true)
     try {
       await invoke('deleteSavedRequest', { id })
-      // Clear selection if deleted saved request is selected
       if (selectedSavedRequest && selectedSavedRequest.id === id) {
         setSelectedSavedRequest(null)
       }
-      // Reload saved requests
-      await loadData()
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete request'
-      setError(errorMessage)
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      setError(`Failed to delete request: ${errorMessage}`)
+      setIsSaving(false)
+      return
+    }
+
+    try {
+      await loadData(false)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      setError(`Request deleted successfully, but failed to reload data: ${errorMessage}`)
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -239,20 +285,20 @@ function App() {
   }) => {
     if (!selectedEndpoint) return
 
-    // Guard against duplicate sends while request is in flight
-    if (isLoading) {
+    if (isRequestInFlightRef.current) {
       console.warn('Request already in progress')
       return
     }
 
-    // Create new AbortController for this request
+    const requestEndpointId = selectedEndpoint.id
+
     const controller = new AbortController()
     abortControllerRef.current = controller
+    isRequestInFlightRef.current = true
     setIsLoading(true)
     setError(null)
 
     try {
-      // Find the service for this endpoint
       const service = services.find((s) => s.id === selectedEndpoint.serviceId)
       if (!service) {
         throw new Error('Service not found for endpoint')
@@ -269,25 +315,26 @@ function App() {
         endpointId: selectedEndpoint.id,
       })
 
-      // Only set response if not aborted
-      if (!controller.signal.aborted) {
+      if (!controller.signal.aborted && selectedEndpoint?.id === requestEndpointId) {
         setResponse(result)
       }
     } catch (err) {
-      // Note: AbortError is never thrown by IPC (doesn't support abort signals)
-      // Cancellation is handled via controller.signal.aborted check above
       const errorMessage = err instanceof Error ? err.message : 'Request failed'
-      setResponse({
-        statusCode: 0,
-        status: 'Error',
-        headers: {},
-        body: '',
-        responseTime: 0,
-        error: errorMessage,
-      })
+
+      if (selectedEndpoint?.id === requestEndpointId) {
+        setResponse({
+          statusCode: 0,
+          status: 'Error',
+          headers: {},
+          body: '',
+          responseTime: 0,
+          error: errorMessage,
+        })
+      }
     } finally {
       setIsLoading(false)
       abortControllerRef.current = null
+      isRequestInFlightRef.current = false
     }
   }
 
@@ -338,7 +385,7 @@ function App() {
                 savedRequests={savedRequests}
                 selectedEndpoint={selectedEndpoint}
                 selectedSavedRequest={selectedSavedRequest}
-                onSelectEndpoint={setSelectedEndpoint}
+                onSelectEndpoint={handleSelectEndpoint}
                 onSelectSavedRequest={handleSelectSavedRequest}
                 onAddRepository={() => setShowAddDialog(true)}
                 onAutoAddRepos={() => setShowAutoAddDialog(true)}
@@ -358,6 +405,7 @@ function App() {
                   onSaveRequest={handleSaveRequest}
                   onUpdateRequest={handleUpdateSavedRequest}
                   isLoading={isLoading}
+                  isSaving={isSaving}
                 />
 
                 <ResponseViewer response={response} />
