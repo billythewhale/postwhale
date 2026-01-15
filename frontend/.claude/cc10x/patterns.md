@@ -1,5 +1,45 @@
 # PostWhale - Project Patterns
 
+## Code Style Guidelines
+
+### NO COMMENTS UNLESS ABSOLUTELY NECESSARY
+**Rule:** Do NOT add comments in code unless absolutely necessary for understanding complex logic (e.g., complicated RegExp patterns, non-obvious algorithms, critical security considerations).
+
+**Rationale:**
+- Code should be self-documenting through clear variable names, function names, and structure
+- Comments often become outdated and misleading
+- If code needs explanation, it might need refactoring instead
+
+**Exceptions (Comments ARE allowed):**
+- Complex regex patterns that aren't immediately clear
+- Non-obvious algorithms with mathematical or domain-specific logic
+- eslint/TypeScript directives (e.g., `// eslint-disable-next-line`)
+- Critical security considerations that aren't obvious from the code itself
+- Workarounds for known platform/library bugs with reference links
+
+**Examples of unnecessary comments (DON'T do this):**
+```typescript
+// Load all data from backend
+const loadData = async () => { ... }
+
+// Add query parameters
+const queryString = queryParams.filter(...).map(...).join("&")
+
+// H1 FIX: Combined useEffect to prevent state desync
+useEffect(() => { ... }, [deps])
+```
+
+**Examples of acceptable comments (OK to do):**
+```typescript
+// Regex matches ISO 8601 datetime: YYYY-MM-DDTHH:mm:ss.sssZ
+const isoDatePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+
+// eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => { ... }, [])
+```
+
+---
+
 ## Architecture Patterns
 
 ### Pattern #1: Tree Filtering with Matching ID Sets
