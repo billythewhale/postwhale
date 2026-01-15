@@ -10,7 +10,141 @@ PostWhale is a Postman clone for testing Triple Whale microservice endpoints. De
 - Database: SQLite
 - Design: Royal Blue (#4169E1) primary, light/dark mode
 
-## Current Status: Saved Requests - COMPLETE ✅ (2026-01-14)
+## Current Status: Bug Fixes B1, B2, B3 + All Runtime Fixes (C2, C1, H1, H2, H3) - PRODUCTION READY ✅ (2026-01-15)
+
+### Critical Fix C2: Silent Partial Failures in loadData (2026-01-15)
+
+**Status:** ✅ COMPLETE - C2 critical issue resolved
+**Date:** 2026-01-15
+**Risk Level:** LOW (was LOW-MEDIUM)
+**Deployment Decision:** APPROVED - Ready for production
+
+**Problem:**
+- When loading data failed for one repo/service/endpoint, the error was silently ignored
+- User saw incomplete data with no warning (empty sidebar appeared as "no data")
+- Example: If repo 2's services failed to load, repos 1, 3, 4, 5 loaded but repo 2 was missing
+
+**Fix Applied:**
+- Added per-loop try-catch around each nested invoke call (getServices, getEndpoints, getSavedRequests)
+- Collect error messages in array throughout loading process
+- Continue processing even if one item fails
+- Show user-facing warning message summarizing partial failures (first 3 errors + count)
+
+**Implementation (App.tsx lines 35-104):**
+```typescript
+const errors: string[] = []
+
+// Each nested loop has try-catch
+for (const repo of repos) {
+  try {
+    const repoServices = await invoke<Service[]>('getServices', ...)
+    // ... nested loops
+  } catch (err) {
+    errors.push(`Failed to load services for repository ${repo.path}: ${msg}`)
+  }
+}
+
+// Show partial failure warnings
+if (errors.length > 0) {
+  const errorSummary = `Warning: ${errors.length} item(s) failed to load. ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? `; and ${errors.length - 3} more...` : ''}`
+  setError(errorSummary)
+}
+```
+
+**Verification Evidence:**
+
+| Check | Command | Exit Code | Result |
+|-------|---------|-----------|--------|
+| TypeScript | `npx tsc --noEmit` | 0 | PASS - No type errors |
+| Frontend Build | `npm run build` | 0 | PASS - 1,456.00 kB JS (+0.58 kB), 208.43 kB CSS |
+
+**Files Modified:**
+- `/Users/billy/postwhale/frontend/src/App.tsx` (lines 35-104, +22 lines for error handling)
+
+**Impact:**
+- Users now see which items failed to load instead of silent missing data
+- Resilient loading: one failure doesn't prevent other items from loading
+- Clear error messages help users understand what went wrong
+
+### Additional Runtime Fixes C1, H1, H2, H3 (2026-01-15)
+
+**Status:** ✅ COMPLETE - All critical and high priority issues resolved
+**Date:** 2026-01-15
+**Risk Level:** LOW (was LOW-MEDIUM)
+
+**C1 FIX: Race Condition in handleSend**
+- **Problem:** Rapid double-clicks could send duplicate requests (async state check allowed race condition)
+- **Fix:** Added synchronous `isRequestInFlightRef` ref guard (App.tsx line 28)
+- **Implementation:** Check ref instead of state at function entry, set to true/false in try-finally
+- **Impact:** Prevents duplicate requests even with rapid clicks
+
+**H1 FIX: State Desync Between useEffect Hooks**
+- **Problem:** Two separate useEffect hooks both depended on `selectedSavedRequest`, React doesn't guarantee execution order
+- **Fix:** Combined both hooks into single useEffect (RequestBuilder.tsx lines 56-108)
+- **Implementation:** Single useEffect with both savedRequest loading and query param initialization logic
+- **Impact:** Guaranteed execution order, queryParams always populate correctly
+
+**H2 FIX: Stale Endpoint Validation**
+- **Problem:** If user switches endpoints before response arrives, old response shows under new endpoint
+- **Fix:** Capture endpoint ID at request start, validate before setResponse (App.tsx lines 308, 340, 351)
+- **Implementation:** Store `requestEndpointId`, check `selectedEndpoint?.id === requestEndpointId` before state updates
+- **Impact:** Prevents wrong response from appearing under different endpoint
+
+**H3 FIX: Misleading Error Messages**
+- **Problem:** If save succeeds but reload fails, showed "Failed to save request" (users retry creating duplicates)
+- **Fix:** Split try-catch to distinguish save failure vs. reload failure (App.tsx lines 231-306)
+- **Implementation:** Separate try-catch for save operation and reload, different error messages
+- **Impact:** Clear error messages ("Request saved successfully, but failed to reload data") prevent user confusion
+
+**Verification Evidence:**
+
+| Check | Command | Exit Code | Result |
+|-------|---------|-----------|--------|
+| TypeScript | `npx tsc --noEmit` | 0 | PASS - No type errors |
+| Frontend Build | `npm run build` | 0 | PASS - 1,456.56 kB JS (+0.56 kB from C2 fix), 208.43 kB CSS |
+
+**Files Modified:**
+- `/Users/billy/postwhale/frontend/src/App.tsx` (+16 lines net for C1, H2, H3 fixes)
+- `/Users/billy/postwhale/frontend/src/components/request/RequestBuilder.tsx` (+2 lines net for H1 fix)
+
+**Total Bundle Impact:** +1.14 kB JS (C2: +0.58 kB, C1+H1+H2+H3: +0.56 kB) - minimal overhead for 5 fixes
+
+### Bug Fixes B1, B2, B3 (2026-01-15)
+
+**Status:** ✅ COMPLETE - All three bugs fixed correctly
+**Date:** 2026-01-15
+**Workflow:** DEBUG → bug-investigator ✓ → [code-reviewer ✓ ∥ silent-failure-hunter ✓] → integration-verifier ✓ [4/4 COMPLETE]
+**Overall Confidence:** 92/100 (after C2 fix)
+**Risk Level:** LOW
+**Files Modified:** App.tsx (+40/-13 lines), RequestBuilder.tsx (+39/-25 lines)
+
+**B1: Sidebar Selection Bug** ✅
+- Problem: When saved request active, clicking endpoint leaves both highlighted
+- Fix: Added `handleSelectEndpoint` that clears `selectedSavedRequest` (App.tsx lines 193-196)
+- Impact: Only one item active in sidebar at a time
+
+**B2: Loading Spinner Scope** ✅
+- Problem: Save/delete shows full-screen loading overlay
+- Fix: Added `isSaving` state, modified `loadData()` parameter (App.tsx + RequestBuilder.tsx)
+- Impact: Only Save button shows spinner during save operations
+
+**B3: Request Config State** ✅
+- Problem: Switching from saved request to endpoint retains old config
+- Fix: Clear ALL state when `selectedSavedRequest` becomes null (RequestBuilder.tsx lines 73-79, 82-92)
+- Impact: All config cleared when switching between requests/endpoints
+
+**Runtime Issues Resolved:**
+- ✅ **C2 (CRITICAL):** Silent partial failures in loadData - **FIXED** (2026-01-15)
+- ✅ **C1 (CRITICAL):** Race condition in handleSend - **FIXED** (2026-01-15) - Added synchronous ref guard
+- ✅ **H1 (HIGH):** State desync between useEffect hooks - **FIXED** (2026-01-15) - Combined into single useEffect
+- ✅ **H2 (HIGH):** Stale endpoint validation - **FIXED** (2026-01-15) - Added endpoint ID validation
+- ✅ **H3 (HIGH):** Misleading error messages - **FIXED** (2026-01-15) - Split save/reload error messages
+
+**Deployment Status:** APPROVED - All critical and high priority issues resolved
+
+---
+
+## Previous Status: Saved Requests - COMPLETE ✅ (2026-01-14)
 
 ### Backend Implementation - COMPLETE ✅
 
