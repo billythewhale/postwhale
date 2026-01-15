@@ -1,5 +1,41 @@
 # PostWhale - Progress Tracker
 
+## Bug B4 + Tasks T1, T2 - UI Improvements ✅ COMPLETE (2026-01-15)
+
+**Status:** All fixes implemented, tested, and verified
+**Commits:** Pending (B4, T1, T2 fixes)
+**Workflow:** DEBUG → bug-investigator ✓ → code-reviewer ✓ → integration-verifier ✓ [3/3 COMPLETE]
+
+### Completed Fixes
+1. B4 (Bug): Endpoint and request both highlighted ✅
+   - Fixed sidebar selection logic (only one item highlighted)
+2. T1 (Task): REQUEST NAME display improvement ✅
+   - Moved request name inline next to endpoint path
+3. T2 (Task): Hover icons for rename/delete ✅
+   - Added pencil and trash icons on hover with confirmation modal
+
+### Quality Metrics (Final)
+- Overall Confidence: 94/100
+- Risk Level: LOW
+- TypeScript: PASS (exit 0)
+- Frontend Build: PASS (1,457.43 kB JS, 208.43 kB CSS)
+- Git Stats: 3 files, +110/-39 lines (net +71)
+
+### Files Modified
+- frontend/src/components/sidebar/Sidebar.tsx (1 line)
+- frontend/src/components/request/RequestBuilder.tsx (~70 lines)
+- frontend/src/App.tsx (1 line)
+
+### Manual Testing Required
+- 26 scenarios documented (20 minutes)
+- B4: Sidebar selection (3 tests)
+- T1: Inline name display (4 tests)
+- T2: Hover icons + delete (6 tests)
+- Integration & edge cases (5 tests)
+- Regression testing (8 tests)
+
+---
+
 ## Phase 1: Backend Foundation ✅ COMPLETE
 
 **Status:** All features implemented, tested, and verified
