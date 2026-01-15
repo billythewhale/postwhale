@@ -1,13 +1,19 @@
 # TODOS
 
+## IMPORTANT: HOW TO USE THIS DOCUMENT
+
+AGENTS: When you begin working on an open task, change it to `[-]` In progress.
+AGENTS: When you think you finish a task, mark it as `[*]` Coding Done (even if you tested it)
+AGENTS: When you update a task, always add the date like (MM/DD/YYYY) at the end
+AGENTS: NEVER mark a task as `[x]` Done, `[c]` Canceled, `[?]` Needs Research; these statuses are FOR HUMAN USE ONLY
+
 [ ]: Open
 [-]: In Progress
-[*]: Coding Done, needs testing (ATTENTION AGENTS: when you think you finished a task, mark it like this)
+[*]: Coding Done, needs testing
 [x]: Done
 [c]: Canceled
 [/]: Blocked
 [?]: Blocked (needs further research)
-
 
 # Open
 
@@ -31,15 +37,15 @@ Terminology: The main app window is broken up like so:
 
 ## BUGS
 
-- [ ] B4: When selecting a request in the sidebar, the endpoint the request belongs to SHOULD NOT also be active. Requests are nodes nested under endpoints. EITHER an endpoint (i.e. its anonymous request) OR a request can be active at a time.
-  - This may or may not require a deeper architecture review and refactor so that the idea of the active Request (either saved/anonymous) is a first-class citizen
+- [x] B4: When selecting a request in the sidebar, the endpoint the request belongs to SHOULD NOT also be active. Requests are nodes nested under endpoints. EITHER an endpoint (i.e. its anonymous request) OR a request can be active at a time. (01/15/2026)
 
 
 ## TASKS
 
-- [ ] T1: "REQUEST NAME" looks like shit. Should just show the name to the right of the endpoint name. Click to edit behavior should remain the same.
-- [ ] T2: When hovering the request name, show pencil and trash icons. Clicking pencil starts rename (same as just clicking name). Clicking trash deletes after confirmation modal.
-- [ ] T3: When clicking the already-selected shop in the dropdown, that shop should remain the selected shop, rather than de-selecting it
+- [x] T1: "REQUEST NAME" looks like shit. Should just show the name to the right of the endpoint name. Click to edit behavior should remain the same. (01/15/2026)
+- [x] T2: When hovering the request name, show pencil and trash icons. Clicking pencil starts rename (same as just clicking name). Clicking trash deletes after confirmation modal. (01/15/2026)
+- [x] T3: When clicking the already-selected shop in the dropdown, that shop should remain the selected shop, rather than de-selecting it (01/15/2026)
+- [ ] T4: When editing the Name of a request, the text input should be flex={1} i.e. take up all the horizontal space available to it
 
 
 ## FEATURES
