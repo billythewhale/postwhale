@@ -67,7 +67,11 @@ export function Header({ environment, onEnvironmentChange }: HeaderProps) {
           <Select
             value={selectedShop}
             onChange={(v) => {
-              selectShop(v)
+              // Prevent de-selection when clicking already-selected shop
+              // Only update state if value actually changed
+              if (v !== selectedShop) {
+                selectShop(v)
+              }
             }}
             data={[
               { value: 'None', label: 'None (no shop)' },
@@ -75,7 +79,7 @@ export function Header({ environment, onEnvironmentChange }: HeaderProps) {
             ]}
             placeholder="Select Shop"
             searchable
-            w={180}
+            w={280}
             clearable
             nothingFoundMessage="Type shop ID and press Enter"
             onKeyDown={(e) => {
