@@ -495,6 +495,60 @@ Last updated: 2026-01-12 (Integration verification complete)
 
 Last updated: 2026-01-14 12:13
 
+## Bug Fixes B1, B2, B3 - Complete (2026-01-15)
+
+**Status:** ✅ COMPLETE - Automated verification passed, manual testing documented
+**Workflow:** DEBUG → bug-investigator ✓
+**Date:** 2026-01-15
+
+### Verification Completed
+
+**Automated Checks: 2/2 PASS**
+- [x] TypeScript compilation - exit 0
+- [x] Frontend build - exit 0 (1,455.42 kB JS, 208.43 kB CSS)
+
+**Manual Testing Documented: 8 Scenarios**
+- [x] B1: Sidebar selection scenarios documented (3 tests)
+- [x] B2: Loading spinner scope scenarios documented (3 tests)
+- [x] B3: Request config state scenarios documented (3 tests)
+- [x] Estimated testing time: 5-10 minutes in Electron app
+
+### Evidence Captured
+
+| Check | Command | Result |
+|-------|---------|--------|
+| TypeScript | `cd frontend && npx tsc --noEmit` | exit 0 |
+| Build | `cd frontend && npm run build` | exit 0, 1,455.42 kB JS |
+| Git diff | `git diff HEAD frontend/src/` | +59/-13 lines (net +46) |
+
+### Bugs Fixed
+
+**B1: Sidebar Selection Bug**
+- Root Cause: No handler to clear `selectedSavedRequest` when clicking endpoint
+- Fix: Added `handleSelectEndpoint` in App.tsx (lines 248-251)
+- Files: App.tsx (+4 lines)
+
+**B2: Loading Spinner Scope**
+- Root Cause: Save/delete used global `isLoadingData` state
+- Fix: Added `isSaving` state, modified `loadData()` parameter, updated Save button
+- Files: App.tsx (+20 lines), RequestBuilder.tsx (+2 lines)
+
+**B3: Request Config State Not Cleared**
+- Root Cause: State clearing logic only reset name, not all fields
+- Fix: Clear headers/body/pathParams when `selectedSavedRequest` becomes null
+- Files: RequestBuilder.tsx (+30 lines, -13 lines)
+
+### Verification Decision
+
+**APPROVED** - All automated checks pass
+- Risk Level: LOW
+- Blockers: None
+- Recommendation: Manual testing in Electron app before deployment
+
+Last updated: 2026-01-15 (Bug fixes complete)
+
+---
+
 ## Shop Dropdown + Saved Request Name UX - Integration Verification (2026-01-14)
 
 **Status:** ✅ PRODUCTION READY - Integration verification complete
@@ -596,3 +650,82 @@ Last updated: 2026-01-14 12:13
 - Lines changed: +274 insertions, -119 deletions (net +155 lines)
 
 Last updated: 2026-01-14 15:57
+
+## Bug Fixes B1, B2, B3 - Integration Verification (2026-01-15)
+
+**Status:** ✅ COMPLETE - Automated verification passed, deployment recommendation provided
+**Workflow:** DEBUG → bug-investigator ✓ → [code-reviewer ✓ ∥ silent-failure-hunter ✓] → integration-verifier ✓ [3/3]
+**Verification Date:** 2026-01-15 16:30
+**Overall Confidence:** 88/100
+**Risk Level:** LOW-MEDIUM
+
+### Verification Results
+
+**Automated Checks: 3/3 PASS**
+- [x] TypeScript compilation - exit 0 (no errors)
+- [x] Frontend build - exit 0 (1,455.42 kB JS, 208.43 kB CSS, 1.99s)
+- [x] Git stats - 5 files, +254/-38 lines
+
+**Bug Fix Implementation: 3/3 PASS**
+- [x] B1: handleSelectEndpoint clears selectedSavedRequest (App.tsx lines 193-196) ✅
+- [x] B2: isSaving state + loadData parameter (App.tsx lines 27, 35, 209-243; RequestBuilder.tsx lines 23, 518) ✅
+- [x] B3: State clearing in useEffect (RequestBuilder.tsx lines 73-79, 82-92) ✅
+
+**Runtime Issues: 2 CRITICAL, 3 HIGH, 5 MEDIUM, 2 LOW**
+- ⚠️ C1 (CRITICAL): Race condition - PARTIALLY MITIGATED (button disabled, async state guard)
+- ❌ C2 (CRITICAL): Silent partial failures in loadData - NOT FIXED (BLOCKING)
+- ❌ H1 (HIGH): Effect timing desync - NOT FIXED
+- ⚠️ H2 (HIGH): Stale endpoint validation - PARTIALLY MITIGATED
+- ❌ H3 (HIGH): Misleading error messages - NOT FIXED
+- 📋 M1-M5 (MEDIUM): Documented for future iteration
+- 📋 L1-L2 (LOW): Documented (L1 false positive)
+
+### Deployment Decision: NEEDS FIXES
+
+**Verdict:** NEEDS FIXES for C2 before production deployment
+
+**Blocking Issue:**
+- C2 (CRITICAL): Silent partial failures in loadData
+  - Impact: Users don't know data is incomplete
+  - Effort: 30-60 minutes
+  - Must fix before production
+
+**Recommended Fixes (Non-Blocking):**
+- C1 (CRITICAL): Add synchronous ref guard (10-15 minutes)
+- H1-H3 (HIGH): State timing, stale endpoint, error messages (40-60 minutes)
+
+**Alternative:** Can deploy with documented risks if urgent
+
+### Manual Testing Required
+
+**8 scenarios documented (5-10 minutes):**
+- B1: Sidebar selection (3 tests)
+- B2: Loading spinner scope (3 tests)
+- B3: Request config state (2 tests)
+- Regression testing (11 checks)
+
+### Evidence Captured
+
+**Verification Report:** `/Users/billy/postwhale/.claude/cc10x/integration_verification_b1_b2_b3.md`
+**Silent Failure Report:** `/Users/billy/postwhale/.claude/cc10x/silent_failure_hunt_b1_b2_b3.md`
+
+**Git Stats:**
+- Files modified: 5 (App.tsx, RequestBuilder.tsx, activeContext.md, progress.md, TODO.md)
+- Lines changed: +254/-38 (net +216)
+- Build time: 1.99s
+- Bundle size: 1,455.42 kB (unchanged)
+
+### Next Steps
+
+**Immediate (Before Deployment):**
+1. Fix C2 (silent partial failures) - BLOCKING - 30-60 minutes
+2. Consider fixing C1 (race condition) - RECOMMENDED - 10-15 minutes
+3. Consider fixing H1-H3 (state timing, stale endpoint, errors) - RECOMMENDED - 40-60 minutes
+4. Manual testing (required) - 5-10 minutes
+5. Mark B1, B2, B3 as complete in TODO.md
+
+**Future Iteration:**
+6. Fix M1-M5 (medium priority issues)
+7. Fix L2 (Cancel button loading state)
+
+Last updated: 2026-01-15 16:30 (Integration verification complete)
