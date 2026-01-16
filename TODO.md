@@ -36,7 +36,8 @@ Terminology: The main app window is broken up like so:
 ## BUGS
 
 - [x] B4: When selecting a request in the sidebar, the endpoint the request belongs to SHOULD NOT also be active. Requests are nodes nested under endpoints. EITHER an endpoint (i.e. its anonymous request) OR a request can be active at a time. (01/15/2026)
-- [*] B5: When filtering by search term, any children of a node that matches the search should be displayed. So if my search matches a service name, all the endpoints of that service should still be visible, regardless of whether they match or not. (01/16/2026)
+- [x] B5: When filtering by search term, any children of a node that matches the search should be displayed. So if my search matches a service name, all the endpoints of that service should still be visible, regardless of whether they match or not. (01/16/2026)
+- [*] B6: When the name of a Saved Request is very long, the little icon next to the saved request on the sidebar is far too tiny to be visible, needs to always be the same size (01/16/2026)
 
 
 ## TASKS
@@ -44,7 +45,7 @@ Terminology: The main app window is broken up like so:
 - [x] T1: "REQUEST NAME" looks like shit. Should just show the name to the right of the endpoint name. Click to edit behavior should remain the same. (01/15/2026)
 - [x] T2: When hovering the request name, show pencil and trash icons. Clicking pencil starts rename (same as just clicking name). Clicking trash deletes after confirmation modal. (01/15/2026)
 - [x] T3: When clicking the already-selected shop in the dropdown, that shop should remain the selected shop, rather than de-selecting it (01/15/2026)
-- [*] T4: When editing the Name of a request, the text input should be flex={1} i.e. take up all the horizontal space available to it (01/16/2026)
+- [x] T4: When editing the Name of a request, the text input should be flex={1} i.e. take up all the horizontal space available to it (01/16/2026)
 
 
 ## FEATURES
