@@ -9,6 +9,7 @@ import { useShop } from "@/contexts/ShopContext"
 interface RequestBuilderProps {
   endpoint: Endpoint | null
   selectedSavedRequest: SavedRequest | null
+  savedRequests: SavedRequest[]
   environment: Environment
   onSend: (config: {
     method: string
@@ -27,6 +28,7 @@ interface RequestBuilderProps {
 export function RequestBuilder({
   endpoint,
   selectedSavedRequest,
+  savedRequests,
   environment: _environment,
   onSend,
   onCancel,
@@ -50,7 +52,7 @@ export function RequestBuilder({
   const [queryParams, setQueryParams] = useState<Array<{ key: string; value: string; enabled: boolean }>>([])
   const [requestName, setRequestName] = useState("New Request")
   const [isEditingName, setIsEditingName] = useState(false)
-  const [nameError, setNameError] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
   const [isHoveringName, setIsHoveringName] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
@@ -168,8 +170,22 @@ export function RequestBuilder({
     if (!endpoint) return
 
     const trimmedName = requestName.trim()
-    if (!trimmedName) {
-      setNameError(true)
+
+    if (!trimmedName || trimmedName === 'New Request') {
+      setNameError('Name is required')
+      setIsEditingName(true)
+      setTimeout(() => {
+        nameInputRef.current?.focus()
+      }, 0)
+      return
+    }
+
+    // Check for duplicate names under the same endpoint
+    const duplicate = savedRequests.find(
+      (sr) => sr.endpointId === endpoint.id && sr.name === trimmedName
+    )
+    if (duplicate) {
+      setNameError(`A request called "${trimmedName}" already exists`)
       setIsEditingName(true)
       setTimeout(() => {
         nameInputRef.current?.focus()
@@ -187,15 +203,28 @@ export function RequestBuilder({
     }
 
     onSaveRequest(savedRequest)
-    setNameError(false)
+    setNameError(null)
   }
 
   const handleUpdate = () => {
     if (!endpoint || !selectedSavedRequest) return
 
     const trimmedName = requestName.trim()
-    if (!trimmedName) {
-      setNameError(true)
+
+    if (!trimmedName || trimmedName === 'New Request') {
+      setNameError('Name is required')
+      setIsEditingName(true)
+      setTimeout(() => {
+        nameInputRef.current?.focus()
+      }, 0)
+      return
+    }
+
+    const duplicate = savedRequests.find(
+      (sr) => sr.endpointId === endpoint.id && sr.name === trimmedName && sr.id !== selectedSavedRequest.id
+    )
+    if (duplicate) {
+      setNameError(`A request called "${trimmedName}" already exists`)
       setIsEditingName(true)
       setTimeout(() => {
         nameInputRef.current?.focus()
@@ -213,7 +242,7 @@ export function RequestBuilder({
     }
 
     onUpdateRequest(updatedRequest)
-    setNameError(false)
+    setNameError(null)
   }
 
   const handleSend = () => {
@@ -309,6 +338,7 @@ export function RequestBuilder({
               align="center"
               onMouseEnter={() => setIsHoveringName(true)}
               onMouseLeave={() => setIsHoveringName(false)}
+              style={{ flex: 1 }}
             >
               {isEditingName ? (
                 <TextInput
@@ -316,7 +346,7 @@ export function RequestBuilder({
                   value={requestName}
                   onChange={(e) => {
                     setRequestName(e.currentTarget.value)
-                    setNameError(false)
+                    setNameError(null)
                   }}
                   onBlur={() => setIsEditingName(false)}
                   onKeyDown={(e) => {
@@ -326,10 +356,10 @@ export function RequestBuilder({
                       setIsEditingName(false)
                     }
                   }}
-                  error={nameError ? 'Request name is required' : undefined}
+                  error={nameError || undefined}
                   autoFocus
                   size="md"
-                  style={{ minWidth: 200 }}
+                  flex={1}
                 />
               ) : (
                 <>

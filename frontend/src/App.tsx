@@ -398,6 +398,7 @@ function App() {
                 <RequestBuilder
                   endpoint={selectedEndpoint}
                   selectedSavedRequest={selectedSavedRequest}
+                  savedRequests={savedRequests}
                   environment={environment}
                   onSend={handleSend}
                   onCancel={handleCancel}
