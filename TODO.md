@@ -57,9 +57,9 @@ P3 - Lowest
 ### F0: Auto-save instead of button clicks (P1)
 
 - [*] Change explicit save to auto-save behavior for existing saved requests: (01/16/2026)
-  - [*] When changing from a request to another request/endpoint, the updated request config should remain in local state (persist across restarts), even if the User didn't click "Save" (01/16/2026)
+  - [ ] There should be an anonymous Request for each endpoint that is loaded when that endpoint is the active node in the sidebar
+  - [ ] When the active node in the sidebar changes, the updated Request (AnonymousRequest if the active node was an endpoint) should remain in local state (persist across restarts), even if the User didn't click "Save"
   - [*] When the User makes changes to a request and then clicks "Save" and then "Save as New", the updated config should become the new request and the original config for the initial request should be restored (01/16/2026)
-  - [*] When an edpoint is active and the User clicks on a different endpoint or request in the sidebar, the (anonymous) request config should remain in local state (persist across restarts) (01/16/2026)
 
 ### F1: Query items (P1)
 

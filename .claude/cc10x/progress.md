@@ -1,5 +1,108 @@
 # PostWhale - Progress Tracker
 
+## M7-M8: Minor Fixes ✅ COMPLETE (2026-01-16)
+
+**Status:** ✅ COMPLETE - Both minor issues fixed and verified
+**Date:** 2026-01-16
+**Estimated Time:** 2 minutes actual (1 min + 15-20 min estimated)
+**Workflow:** Direct fix (no TDD for trivial issues)
+
+### Completed Fixes
+1. M7: Duplicate addError call ✅
+   - Removed duplicate `addError(errorMessage)` at App.tsx line 113
+   - Simple deletion of one line
+2. M8: Unbounded error history growth ✅
+   - Added `const MAX_ERRORS = 100` to ErrorHistoryContext.tsx
+   - Modified addError to use `newErrors.slice(-MAX_ERRORS)`
+   - Keeps last 100 errors, preventing memory issues in long sessions
+
+### Quality Metrics
+- TypeScript: PASS (exit 0, no errors)
+- Frontend Build: PASS (1,547.08 kB JS, 208.43 kB CSS, 2.54s)
+
+### Files Modified
+- frontend/src/App.tsx (M7 - removed 1 line)
+- frontend/src/contexts/ErrorHistoryContext.tsx (M8 - added MAX_ERRORS constant + slice logic)
+
+### Next Steps
+1. ⏳ Manual testing (19 scenarios from M1-M6) - RECOMMENDED
+2. ⏳ Deploy to production
+
+---
+
+## M1-M6: MEDIUM Priority UX Fixes ✅ INTEGRATION VERIFIED (2026-01-16)
+
+**Status:** ✅ INTEGRATION VERIFIED - All 6 fixes approved for production
+**Date:** 2026-01-16
+**Workflow:** BUILD → component-builder ✓ → [code-reviewer ✓ ∥ silent-failure-hunter ✓] → integration-verifier ✓ [4/4 COMPLETE]
+**Chain Progress:** BUILD chain complete [4/4]
+**Overall Confidence:** 90/100
+**Risk Level:** LOW-MEDIUM
+**Deployment Decision:** APPROVED
+
+### Completed Fixes
+1. M1-M3: Error aggregation in useRequestConfig ✅
+   - clearConfig: Orange notification on failure (5s)
+   - clearAllConfigs: Aggregated notification with count and first 3 errors
+   - Success notification when all configs cleared (teal, 3s)
+2. M4: Path parameter validation ✅
+   - Validates empty, missing, and path traversal attempts
+   - Shows clear notifications for missing/invalid params (red, 5s)
+   - Prevents request send if validation fails
+3. M5: Batch add error details ✅
+   - Results phase shows succeeded/failed counts
+   - Expandable "Show failed repositories" with error details
+   - Summary notifications (teal/orange/red based on outcome)
+4. M6: Persistent error indicator ✅
+   - ErrorHistoryContext created with addError, clearErrors, removeError
+   - Header shows red badge with error count (only when errors > 0)
+   - Error history modal with scrollable list, timestamps, dismiss actions
+
+### Quality Metrics (Final)
+- TypeScript: PASS (exit 0, no errors)
+- Frontend Build: PASS (1,547.08 kB JS, 208.43 kB CSS, 2.14s)
+- Git Stats: 10 files, +631/-63 lines (net +568)
+- Code Review: 92/100 (from previous run)
+- Silent Failure Hunt: 92.5/100 (from previous run)
+- Integration Verification: 90/100 (this run)
+
+### Files Modified
+- frontend/src/hooks/useRequestConfig.ts (M1-M3)
+- frontend/src/components/request/RequestBuilder.tsx (M4)
+- frontend/src/components/sidebar/AutoAddReposDialog.tsx (M5)
+- frontend/src/App.tsx (M6)
+- frontend/src/components/layout/Header.tsx (M6)
+
+### Files Created
+- frontend/src/contexts/ErrorHistoryContext.tsx (M6 - 52 lines)
+
+### Issues Found (2 minor, 0 blocking)
+- M7: Duplicate addError call at App.tsx:113 (1 min fix)
+- M8: Error history unbounded growth (15-20 min fix)
+- M9, L1, L2: From previous audits (total 12 min)
+
+### Manual Testing Required (19 scenarios, 15-20 minutes)
+- M1-M3: Error aggregation (3 tests)
+- M4: Path parameter validation (4 tests)
+- M5: Batch add error details (4 tests)
+- M6: Persistent error indicator (5 tests)
+- Regression tests (3 tests)
+
+### Integration Verification
+- Automated Verification: PASS (3/3) - TypeScript, Build, Git Stats
+- Implementation Verification: PASS (6/6) - M1-M6 all correct
+- Issues Found: 2 minor, 0 blocking
+- Deployment Decision: APPROVED for production
+- Full Report: .claude/cc10x/integration_verification_m1_m6.md
+
+### Next Steps
+1. ⏳ Fix M7 (duplicate addError) - 1 minute - RECOMMENDED
+2. ⏳ Manual testing (19 scenarios) - 15-20 minutes - RECOMMENDED
+3. ⏳ Fix M8 (error history unbounded growth) - 15-20 minutes - Optional
+4. ⏳ Deploy to production
+
+---
+
 ## Feature F0 - Auto-save Request Config [*] CODING DONE (2026-01-16)
 
 **Status:** [*] CODING DONE - All features implemented, needs manual testing

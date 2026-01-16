@@ -10,7 +10,262 @@ PostWhale is a Postman clone for testing Triple Whale microservice endpoints. De
 - Database: SQLite
 - Design: **#0C70F2 primary**, macOS-quality dark mode
 
-## Current Status: Feature F0 - Auto-save Request Config ✅ PRODUCTION READY (2026-01-16)
+# PostWhale - Active Context
+
+## Project Overview
+PostWhale is a Postman clone for testing Triple Whale microservice endpoints. Desktop Electron app running locally on Mac.
+
+**Tech Stack:**
+- Backend: Golang (embedded in Electron via IPC)
+- Frontend: React + TypeScript + **MANTINE UI v7** (migration from Tailwind CSS COMPLETE)
+- Desktop: Electron for Mac
+- Database: SQLite
+- Design: **#0C70F2 primary**, macOS-quality dark mode
+
+## Current Status: M7-M8 Minor Fixes ✅ COMPLETE (2026-01-16)
+
+### M7-M8 Minor Fixes - COMPLETE (2026-01-16)
+
+**Status:** ✅ COMPLETE - Both minor issues fixed and verified
+**Date:** 2026-01-16
+**Fixes Applied:**
+1. ✅ M7: Removed duplicate addError call at App.tsx line 113
+2. ✅ M8: Added MAX_ERRORS=100 limit to ErrorHistoryContext with slice(-MAX_ERRORS)
+
+**Verification Evidence:**
+| Check | Command | Exit Code | Result |
+|-------|---------|-----------|--------|
+| TypeScript | cd frontend && npx tsc --noEmit | 0 | PASS (no errors) |
+| Frontend Build | cd frontend && npm run build | 0 | PASS (1,547.08 kB JS, 208.43 kB CSS, 2.54s) |
+
+**Next Steps:**
+1. ⏳ Manual testing (19 scenarios from M1-M6) - 15-20 minutes - RECOMMENDED
+2. ⏳ Deploy to production
+
+---
+
+## Previous Status: MEDIUM Priority UX Fixes (M1-M6) ✅ INTEGRATION VERIFIED (2026-01-16)
+
+### MEDIUM Priority UX Fixes - Integration Verification COMPLETE (2026-01-16)
+
+**Status:** ✅ INTEGRATION VERIFIED - All 6 fixes implemented and verified, APPROVED for production
+**Date:** 2026-01-16
+**Workflow:** BUILD → component-builder ✓ → [code-reviewer ✓ ∥ silent-failure-hunter ✓] → integration-verifier ✓ [4/4 COMPLETE]
+**Requirements:** ✅ ALL VERIFIED
+**Overall Confidence:** 90/100
+**Risk Level:** LOW-MEDIUM
+**Deployment Decision:** APPROVED
+
+**Verification Evidence:**
+| Check | Command | Exit Code | Result |
+|-------|---------|-----------|--------|
+| TypeScript | cd frontend && npx tsc --noEmit | 0 | PASS (no errors) |
+| Frontend Build | cd frontend && npm run build | 0 | PASS (1,547.08 kB JS, 208.43 kB CSS, 2.14s) |
+| Git Stats | git diff --stat HEAD | - | 10 files, +631/-63 lines (net +568) |
+
+**All 6 Fixes Verified:**
+1. ✅ M1-M3: Error aggregation in useRequestConfig - PASS (lines 94-152, notifications show counts)
+2. ✅ M4: Path parameter validation - PASS (lines 362-407, validates & notifies)
+3. ✅ M5: Batch add error details - PASS (lines 160-267, results phase + expandable)
+4. ✅ M6: Persistent error indicator - PASS (ErrorHistoryContext + Header badge + modal)
+
+**Files Modified:**
+- frontend/src/hooks/useRequestConfig.ts (M1-M3)
+- frontend/src/components/request/RequestBuilder.tsx (M4)
+- frontend/src/components/sidebar/AutoAddReposDialog.tsx (M5)
+- frontend/src/App.tsx (M6)
+- frontend/src/components/layout/Header.tsx (M6)
+
+**Files Created:**
+- frontend/src/contexts/ErrorHistoryContext.tsx (M6)
+
+**Issues Found: 2 MINOR (non-blocking)**
+- M7: Duplicate addError call at App.tsx:113 (1 min fix)
+- M8: Error history unbounded growth (15-20 min fix)
+
+**Additional Issues (from previous audits):**
+- M9: useErrorHistory crashes if provider missing (10 min)
+- L1: Timestamp display edge case (2 min)
+- L2: JSON parse continues with partial data (debatable)
+
+**Manual Testing Required: 19 scenarios, 15-20 minutes**
+- M1-M3: Error aggregation (3 tests)
+- M4: Path parameter validation (4 tests)
+- M5: Batch add error details (4 tests)
+- M6: Persistent error indicator (5 tests)
+- Regression tests (3 tests)
+
+**Next Steps:**
+1. ⏳ Fix M7 (duplicate addError) - 1 minute - RECOMMENDED
+2. ⏳ Manual testing (19 scenarios) - 15-20 minutes - RECOMMENDED
+3. ⏳ Fix M8 (error history unbounded growth) - 15-20 minutes - Optional
+4. ⏳ Deploy to production
+
+**Full Report:** .claude/cc10x/integration_verification_m1_m6.md
+
+---
+
+## Current Status: MEDIUM Priority UX Fixes (M1-M6) ✅ ALL FIXES IMPLEMENTED (2026-01-16)
+
+### MEDIUM Priority UX Fixes - Silent Failure Hunt (2026-01-16)
+
+**Status:** ✅ ALL FIXES IMPLEMENTED - 6/6 issues fixed
+**Date:** 2026-01-16
+**Workflow:** BUILD → component-builder ✓
+**Requirements:** ✅ ALL IMPLEMENTED
+
+**Implementation Summary:**
+1. ✅ M1-M3: Error aggregation in useRequestConfig - Collect and show aggregated notifications with counts
+2. ✅ M4: Path parameter validation feedback - Show notification when required params missing or invalid
+3. ✅ M5: Batch repository add error details - Show detailed results modal with expandable failed list
+4. ✅ M6: Persistent error indicator - Error badge in header with history modal
+
+**Files Modified:**
+- frontend/src/hooks/useRequestConfig.ts (M1-M3 fixes)
+- frontend/src/components/request/RequestBuilder.tsx (M4 fix)
+- frontend/src/components/sidebar/AutoAddReposDialog.tsx (M5 fix)
+- frontend/src/App.tsx (M5, M6 fixes)
+- frontend/src/components/layout/Header.tsx (M6 fix)
+- frontend/src/contexts/ErrorHistoryContext.tsx (M6 - CREATED)
+
+**Verification Evidence:**
+| Check | Command | Exit Code | Result |
+|-------|---------|-----------|--------|
+| TypeScript | cd frontend && npx tsc --noEmit | 0 | PASS (no errors) |
+| Frontend Build | cd frontend && npm run build | 0 | PASS (1,547.08 kB JS, 208.43 kB CSS, 2.15s) |
+
+**Technical Decisions:**
+1. **M1-M3 fix:**
+   - clearConfig: Shows orange notification on failure (5s)
+   - clearAllConfigs: Collects errors, shows aggregated notification with count and first 3 errors
+   - Success notification when all configs cleared (teal, 3s)
+
+2. **M4 fix:**
+   - Validates all path parameters before sending request
+   - Shows notification with list of missing params (red, 5s)
+   - Shows notification with list of invalid params containing ../ (red, 5s)
+   - Prevents request send if validation fails
+
+3. **M5 fix:**
+   - Changed onAddRepositories to return results array with success/error per repo
+   - AutoAddReposDialog shows results phase with success/failed counts
+   - Expandable "Show failed repositories" button with error details
+   - Notifications show summary: "Added X of Y repositories. Z failed" (orange/red/teal based on outcome)
+
+4. **M6 fix:**
+   - Created ErrorHistoryContext with addError, clearErrors, removeError
+   - Header shows red badge with error count (only when errors > 0)
+   - Clicking badge opens modal with scrollable error list
+   - Each error shows: message, timestamp (relative format), dismiss button
+   - "Clear All" button to dismiss all errors
+   - All setError calls now also call addError to persist to history
+
+**Next Steps:**
+1. ⏳ Manual testing (TBD scenarios)
+2. ⏳ Update TODO.md
+3. ⏳ Create commit
+
+---
+
+## Previous Status: Feature F0/F1 - Silent Failure Fixes ✅ ALL FIXES IMPLEMENTED (2026-01-16)
+
+### Silent Failure Fixes for F0/F1 (2026-01-16)
+
+**Status:** ✅ ALL FIXES IMPLEMENTED - 5/5 issues fixed
+**Date:** 2026-01-16
+**Workflow:** BUILD → component-builder ✓
+**Requirements:** ✅ ALL IMPLEMENTED
+
+**Implementation Summary:**
+1. ✅ C1: Silent localStorage parse failures - Added Mantine notification in useRequestConfig.ts
+2. ✅ C2: Silent database JSON parse failures - Added Mantine notifications for each field in RequestBuilder.tsx
+3. ✅ H1: Race condition on rapid saved request switching - Added cleanup function with isCurrentLoad guard
+4. ✅ H2: Modified state false positives - Replaced JSON.stringify with lodash.isEqual for deep comparison
+5. ✅ H3: Missing configId validation - Added null and type validation in useRequestConfig hook
+
+**Files Modified:**
+- frontend/src/hooks/useRequestConfig.ts (C1, H2, H3 fixes)
+- frontend/src/components/request/RequestBuilder.tsx (C2, H1 fixes)
+- package.json (added lodash dependency)
+
+**Verification Evidence:**
+| Check | Command | Exit Code | Result |
+|-------|---------|-----------|--------|
+| TypeScript | cd frontend && npx tsc --noEmit | 0 | PASS (no errors) |
+| Frontend Build | cd frontend && npm run build | 0 | PASS (1,536.56 kB JS, 208.43 kB CSS, 2.13s) |
+| Dependencies | npm list lodash | - | lodash@4.17.21, @types/lodash@4.17.16 |
+
+**Technical Decisions:**
+1. **C1 fix:** Added notification in loadConfigFromStorage catch block (orange, 5s)
+2. **C2 fix:** Added separate notifications for each parse failure (pathParams, queryParams, headers) - red, 7s
+3. **H1 fix:** Used isCurrentLoad flag with cleanup return to abort stale loads
+4. **H2 fix:** Replaced all JSON.stringify comparisons with lodash.isEqual (order-independent deep equality)
+5. **H3 fix:** Added explicit null and type checks in both useEffect hooks
+
+---
+
+## Previous Status: Feature F1 - Request State Management with Modified Indicators ✅ IMPLEMENTATION COMPLETE (2026-01-16)
+
+### Feature F1 - Request State Management (2026-01-16)
+
+**Status:** ✅ IMPLEMENTATION COMPLETE - Coding done, needs manual testing
+**Date:** 2026-01-16
+**Workflow:** BUILD → component-builder ✓ [1/4]
+**Chain Progress:** component-builder complete [1/4]
+**Requirements:** ✅ ALL IMPLEMENTED
+
+**Implementation Summary:**
+1. ✅ Separate localStorage keys for endpoints and saved requests
+   - Endpoints (anonymous): `postwhale_request_config_{endpointId}`
+   - Saved requests: `postwhale_request_config_saved_{savedRequestId}`
+2. ✅ Auto-save to localStorage on every change (both types)
+3. ✅ Modified indicator on saved request sidebar nodes (blue dot)
+   - Shows when localStorage differs from database
+   - Only for saved requests (endpoints have no "saved" state)
+4. ✅ State preservation when switching nodes
+   - Endpoint → endpoint: localStorage config loaded
+   - Saved request → saved request: localStorage config loaded (in-progress changes)
+   - Switching preserves changes in localStorage
+
+**Files Modified:**
+- frontend/src/hooks/useRequestConfig.ts (UPDATED - ~30 lines)
+- frontend/src/components/request/RequestBuilder.tsx (UPDATED - ~40 lines)
+- frontend/src/App.tsx (UPDATED - ~15 lines)
+- frontend/src/components/sidebar/Sidebar.tsx (UPDATED - ~10 lines)
+
+**Verification Evidence:**
+| Check | Command | Exit Code | Result |
+|-------|---------|-----------|--------|
+| TypeScript | cd frontend && npx tsc --noEmit | 0 | PASS (no errors) |
+| Frontend Build | cd frontend && npm run build | 0 | PASS (1,460.87 kB JS, 208.43 kB CSS, 2.19s) |
+
+**Technical Decisions:**
+1. **localStorage keying:** Different prefixes for endpoints vs saved requests
+   - `postwhale_request_config_{endpointId}` for anonymous endpoint requests
+   - `postwhale_request_config_saved_{savedRequestId}` for saved requests
+2. **Auto-save trigger:** Two separate useEffect hooks in useRequestConfig
+   - One for endpoints (when !isSavedRequest)
+   - One for saved requests (when isSavedRequest)
+3. **Modified detection:** Compare currentConfig with originalSavedRequestConfigRef
+   - Use compareConfigs() helper (deep JSON comparison)
+   - Notify parent via onModifiedStateChange callback
+4. **Load priority for saved requests:** localStorage > database
+   - Load database config as "original" (stored in ref)
+   - Check localStorage for in-progress changes
+   - Use localStorage if exists, else use database config
+5. **Modified indicator:** Blue dot (6px) next to saved request name in sidebar
+   - Only shows when localStorage differs from database
+   - Title attribute: "Unsaved changes"
+
+**Next Steps:**
+1. ⏳ Code Review (cc10x:code-review-patterns)
+2. ⏳ Silent Failure Hunt (cc10x:debugging-patterns)
+3. ⏳ Integration Verification
+4. ⏳ Manual testing (TBD scenarios)
+
+---
+
+## Previous Status: Feature F0 - Auto-save Request Config ✅ PRODUCTION READY (2026-01-16)
 
 ### Feature F0 - Auto-save instead of button clicks (2026-01-16)
 
