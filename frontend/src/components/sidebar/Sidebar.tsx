@@ -620,6 +620,7 @@ export function Sidebar({
                                                               color: isDark
                                                                 ? 'var(--mantine-color-gray-5)'
                                                                 : 'var(--mantine-color-gray-6)',
+                                                              flexShrink: 0,
                                                             }}
                                                           />
                                                           <Text
