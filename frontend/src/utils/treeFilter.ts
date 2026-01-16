@@ -76,6 +76,14 @@ function filterBySearch(
   repositories.forEach((repo) => {
     if (repo.name.toLowerCase().includes(query)) {
       matchingRepoIds.add(repo.id);
+      const repoServices = indexMaps.servicesByRepoId.get(repo.id) || [];
+      repoServices.forEach((service) => {
+        matchingServiceIds.add(service.id);
+        const serviceEndpoints = indexMaps.endpointsByServiceId.get(service.id) || [];
+        serviceEndpoints.forEach((endpoint) => {
+          matchingEndpointIds.add(endpoint.id);
+        });
+      });
     }
   });
 
@@ -83,6 +91,10 @@ function filterBySearch(
     if (service.name.toLowerCase().includes(query)) {
       matchingServiceIds.add(service.id);
       matchingRepoIds.add(service.repoId);
+      const serviceEndpoints = indexMaps.endpointsByServiceId.get(service.id) || [];
+      serviceEndpoints.forEach((endpoint) => {
+        matchingEndpointIds.add(endpoint.id);
+      });
     }
   });
 
@@ -92,7 +104,6 @@ function filterBySearch(
 
     if (matchesPath || matchesMethod) {
       matchingEndpointIds.add(endpoint.id);
-
       const service = indexMaps.serviceById.get(endpoint.serviceId);
       if (service) {
         matchingServiceIds.add(service.id);
