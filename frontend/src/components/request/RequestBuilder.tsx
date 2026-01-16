@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react"
 import { IconSend, IconX, IconStar, IconStarFilled, IconPlus, IconDeviceFloppy, IconChevronDown, IconPencil, IconTrash } from "@tabler/icons-react"
 import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Textarea, Stack, Group, Box, Divider, useMantineColorScheme, ActionIcon, Switch, Menu, Modal } from "@mantine/core"
+import { notifications } from '@mantine/notifications'
 import type { Endpoint, Environment, SavedRequest } from "@/types"
 import { useFavorites } from "@/contexts/FavoritesContext"
 import { useGlobalHeaders } from "@/contexts/GlobalHeadersContext"
 import { useShop } from "@/contexts/ShopContext"
-import { useRequestConfig, type RequestConfig } from "@/hooks/useRequestConfig"
+import { useRequestConfig, type RequestConfig, compareConfigs } from "@/hooks/useRequestConfig"
 
 interface RequestBuilderProps {
   endpoint: Endpoint | null
@@ -22,6 +23,7 @@ interface RequestBuilderProps {
   onSaveRequest: (savedRequest: Omit<SavedRequest, 'id' | 'createdAt'>) => void
   onUpdateRequest: (savedRequest: SavedRequest) => void
   onDeleteRequest: (id: number) => void
+  onModifiedStateChange?: (savedRequestId: number, isModified: boolean) => void
   isLoading: boolean
   isSaving: boolean
 }
@@ -36,6 +38,7 @@ export function RequestBuilder({
   onSaveRequest,
   onUpdateRequest,
   onDeleteRequest,
+  onModifiedStateChange,
   isLoading,
   isSaving,
 }: RequestBuilderProps) {
@@ -66,19 +69,30 @@ export function RequestBuilder({
     body,
   }
 
+  const configId = selectedSavedRequest ? selectedSavedRequest.id : endpoint?.id || null
+
   const { loadConfig } = useRequestConfig(
-    endpoint?.id || null,
+    configId,
     currentConfig,
-    !selectedSavedRequest
+    !!selectedSavedRequest
   )
+
+  useEffect(() => {
+    if (!selectedSavedRequest || !originalSavedRequestConfigRef.current || !onModifiedStateChange) return
+
+    const isModified = !compareConfigs(currentConfig, originalSavedRequestConfigRef.current)
+    onModifiedStateChange(selectedSavedRequest.id, isModified)
+  }, [selectedSavedRequest, currentConfig, onModifiedStateChange])
 
   useEffect(() => {
     if (!endpoint) return
 
+    let isCurrentLoad = true
+
     if (selectedSavedRequest) {
       setRequestName(selectedSavedRequest.name)
 
-      const savedConfig: RequestConfig = {
+      const databaseConfig: RequestConfig = {
         pathParams: {},
         queryParams: [],
         headers: [{ key: "Content-Type", value: "application/json", enabled: true }],
@@ -87,43 +101,74 @@ export function RequestBuilder({
 
       try {
         if (selectedSavedRequest.pathParamsJson) {
-          savedConfig.pathParams = JSON.parse(selectedSavedRequest.pathParamsJson)
+          databaseConfig.pathParams = JSON.parse(selectedSavedRequest.pathParamsJson)
         }
       } catch (err) {
         console.error('Failed to parse path params:', err)
+        notifications.show({
+          title: 'Failed to load path parameters',
+          message: `Could not restore path parameters for "${selectedSavedRequest.name}". The saved data may be corrupted.`,
+          color: 'red',
+          autoClose: 7000,
+        })
       }
 
       try {
         if (selectedSavedRequest.queryParamsJson) {
-          savedConfig.queryParams = JSON.parse(selectedSavedRequest.queryParamsJson)
+          databaseConfig.queryParams = JSON.parse(selectedSavedRequest.queryParamsJson)
         }
       } catch (err) {
         console.error('Failed to parse query params:', err)
+        notifications.show({
+          title: 'Failed to load query parameters',
+          message: `Could not restore query parameters for "${selectedSavedRequest.name}". The saved data may be corrupted.`,
+          color: 'red',
+          autoClose: 7000,
+        })
       }
 
       try {
         if (selectedSavedRequest.headersJson) {
-          savedConfig.headers = JSON.parse(selectedSavedRequest.headersJson)
+          databaseConfig.headers = JSON.parse(selectedSavedRequest.headersJson)
         }
       } catch (err) {
         console.error('Failed to parse headers:', err)
+        notifications.show({
+          title: 'Failed to load headers',
+          message: `Could not restore headers for "${selectedSavedRequest.name}". The saved data may be corrupted.`,
+          color: 'red',
+          autoClose: 7000,
+        })
       }
 
       if (selectedSavedRequest.body) {
-        savedConfig.body = selectedSavedRequest.body
+        databaseConfig.body = selectedSavedRequest.body
       }
 
-      originalSavedRequestConfigRef.current = savedConfig
+      originalSavedRequestConfigRef.current = databaseConfig
 
-      setPathParams(savedConfig.pathParams)
-      setQueryParams(savedConfig.queryParams)
-      setHeaders(savedConfig.headers)
-      setBody(savedConfig.body)
+      const localStorageConfig = loadConfig(selectedSavedRequest.id, true)
+
+      if (!isCurrentLoad) return
+
+      if (localStorageConfig) {
+        setPathParams(localStorageConfig.pathParams)
+        setQueryParams(localStorageConfig.queryParams)
+        setHeaders(localStorageConfig.headers)
+        setBody(localStorageConfig.body)
+      } else {
+        setPathParams(databaseConfig.pathParams)
+        setQueryParams(databaseConfig.queryParams)
+        setHeaders(databaseConfig.headers)
+        setBody(databaseConfig.body)
+      }
     } else {
       setRequestName("New Request")
       originalSavedRequestConfigRef.current = null
 
-      const storedConfig = loadConfig(endpoint.id)
+      const storedConfig = loadConfig(endpoint.id, false)
+
+      if (!isCurrentLoad) return
 
       if (storedConfig) {
         setPathParams(storedConfig.pathParams)
@@ -144,6 +189,10 @@ export function RequestBuilder({
           setQueryParams([])
         }
       }
+    }
+
+    return () => {
+      isCurrentLoad = false
     }
   }, [selectedSavedRequest, endpoint, loadConfig])
 
@@ -310,14 +359,52 @@ export function RequestBuilder({
 
     let finalPath = endpoint.path
 
+    const missingParams: string[] = []
+    const invalidParams: string[] = []
+
     Object.entries(pathParams).forEach(([key, value]) => {
+      if (!value || !value.trim()) {
+        missingParams.push(key)
+        return
+      }
+
       if (value.includes('../') || value.includes('..\\')) {
+        invalidParams.push(key)
         console.error(`Invalid path parameter value: ${value}`)
         return
       }
+
       const encodedValue = encodeURIComponent(value)
       finalPath = finalPath.replace(`{${key}}`, encodedValue)
     })
+
+    pathParamNames.forEach((param) => {
+      if (!pathParams[param] || !pathParams[param].trim()) {
+        if (!missingParams.includes(param)) {
+          missingParams.push(param)
+        }
+      }
+    })
+
+    if (missingParams.length > 0) {
+      notifications.show({
+        title: 'Missing path parameters',
+        message: `Required path parameters: ${missingParams.join(', ')}`,
+        color: 'red',
+        autoClose: 5000,
+      })
+      return
+    }
+
+    if (invalidParams.length > 0) {
+      notifications.show({
+        title: 'Invalid path parameters',
+        message: `Path parameters contain invalid characters (../ or ..\\): ${invalidParams.join(', ')}`,
+        color: 'red',
+        autoClose: 5000,
+      })
+      return
+    }
 
     const queryString = queryParams
       .filter((q) => q.enabled && q.key && q.value)

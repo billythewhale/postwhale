@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
-import { IconFolder, IconFolderCode } from "@tabler/icons-react"
-import { Modal, TextInput, Button, Stack, Group, Text, Checkbox, ScrollArea, Alert, Paper, Badge } from "@mantine/core"
+import { IconFolder, IconFolderCode, IconAlertCircle } from "@tabler/icons-react"
+import { Modal, TextInput, Button, Stack, Group, Text, Checkbox, ScrollArea, Alert, Paper, Badge, Collapse, List } from "@mantine/core"
+import { notifications } from '@mantine/notifications'
 import type { SubdirInfo } from "@/types"
 
 interface AutoAddReposDialogProps {
@@ -8,11 +9,11 @@ interface AutoAddReposDialogProps {
   onOpenChange: (open: boolean) => void
   onCheckPath: (path: string) => Promise<{ exists: boolean; isDirectory: boolean; resolvedPath: string }>
   onScanDirectory: (path: string) => Promise<{ basePath: string; subdirs: SubdirInfo[] }>
-  onAddRepositories: (paths: string[]) => Promise<void>
+  onAddRepositories: (paths: string[]) => Promise<{ path: string; success: boolean; error?: string }[]>
   existingPaths: Set<string>
 }
 
-type Phase = "check" | "select"
+type Phase = "check" | "select" | "results"
 
 export function AutoAddReposDialog({
   open,
@@ -28,6 +29,8 @@ export function AutoAddReposDialog({
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [addResults, setAddResults] = useState<{ path: string; success: boolean; error?: string }[]>([])
+  const [showFailedDetails, setShowFailedDetails] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -39,6 +42,8 @@ export function AutoAddReposDialog({
       setSubdirs([])
       setSelectedPaths(new Set())
       setError(null)
+      setAddResults([])
+      setShowFailedDetails(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
@@ -152,8 +157,37 @@ export function AutoAddReposDialog({
     setError(null)
 
     try {
-      await onAddRepositories(Array.from(selectedPaths))
-      onOpenChange(false)
+      const results = await onAddRepositories(Array.from(selectedPaths))
+      setAddResults(results)
+
+      const succeeded = results.filter(r => r.success)
+      const failed = results.filter(r => !r.success)
+
+      if (failed.length === 0) {
+        notifications.show({
+          title: 'All repositories added',
+          message: `Successfully added ${succeeded.length} ${succeeded.length === 1 ? 'repository' : 'repositories'}.`,
+          color: 'teal',
+          autoClose: 4000,
+        })
+        onOpenChange(false)
+      } else if (succeeded.length === 0) {
+        setPhase("results")
+        notifications.show({
+          title: 'All repositories failed',
+          message: `Failed to add all ${failed.length} ${failed.length === 1 ? 'repository' : 'repositories'}. See details below.`,
+          color: 'red',
+          autoClose: 5000,
+        })
+      } else {
+        setPhase("results")
+        notifications.show({
+          title: 'Partially successful',
+          message: `Added ${succeeded.length} of ${results.length} repositories. ${failed.length} failed.`,
+          color: 'orange',
+          autoClose: 5000,
+        })
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add repositories")
     } finally {
@@ -178,10 +212,83 @@ export function AutoAddReposDialog({
         <Text size="sm" c="dimmed">
           {phase === "check"
             ? "Enter the base directory containing Triple Whale repositories"
-            : "Select repositories to add"}
+            : phase === "select"
+            ? "Select repositories to add"
+            : "Repository addition results"}
         </Text>
 
-        {phase === "check" ? (
+        {phase === "results" ? (
+          <Stack gap="md">
+            <Paper p="md" withBorder>
+              <Stack gap="md">
+                <Group gap="xs">
+                  <Text size="sm" fw={500}>
+                    {addResults.filter(r => r.success).length} succeeded,{' '}
+                    {addResults.filter(r => !r.success).length} failed
+                  </Text>
+                </Group>
+
+                {addResults.filter(r => !r.success).length > 0 && (
+                  <>
+                    <Button
+                      variant="subtle"
+                      size="sm"
+                      onClick={() => setShowFailedDetails(!showFailedDetails)}
+                      leftSection={<IconAlertCircle size={16} />}
+                      w="auto"
+                    >
+                      {showFailedDetails ? 'Hide' : 'Show'} failed repositories
+                    </Button>
+
+                    <Collapse in={showFailedDetails}>
+                      <Stack gap="xs">
+                        <Text size="sm" fw={500} c="red">Failed repositories:</Text>
+                        <List size="sm" spacing="xs">
+                          {addResults
+                            .filter(r => !r.success)
+                            .map((result, idx) => (
+                              <List.Item key={idx}>
+                                <Text size="sm">
+                                  <strong>{result.path.split('/').pop()}</strong>
+                                  {result.error && (
+                                    <>
+                                      <br />
+                                      <Text size="xs" c="dimmed">{result.error}</Text>
+                                    </>
+                                  )}
+                                </Text>
+                              </List.Item>
+                            ))}
+                        </List>
+                      </Stack>
+                    </Collapse>
+                  </>
+                )}
+
+                {addResults.filter(r => r.success).length > 0 && (
+                  <Stack gap="xs">
+                    <Text size="sm" fw={500} c="teal">Successfully added:</Text>
+                    <List size="sm" spacing="xs">
+                      {addResults
+                        .filter(r => r.success)
+                        .map((result, idx) => (
+                          <List.Item key={idx}>
+                            <Text size="sm">{result.path.split('/').pop()}</Text>
+                          </List.Item>
+                        ))}
+                    </List>
+                  </Stack>
+                )}
+              </Stack>
+            </Paper>
+
+            <Group justify="flex-end" mt="md">
+              <Button onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+            </Group>
+          </Stack>
+        ) : phase === "check" ? (
           <form onSubmit={handleCustomPathSubmit}>
             <Stack gap="md">
               <TextInput
