@@ -37,7 +37,7 @@ Terminology: The main app window is broken up like so:
 
 - [x] B4: When selecting a request in the sidebar, the endpoint the request belongs to SHOULD NOT also be active. Requests are nodes nested under endpoints. EITHER an endpoint (i.e. its anonymous request) OR a request can be active at a time. (01/15/2026)
 - [x] B5: When filtering by search term, any children of a node that matches the search should be displayed. So if my search matches a service name, all the endpoints of that service should still be visible, regardless of whether they match or not. (01/16/2026)
-- [*] B6: When the name of a Saved Request is very long, the little icon next to the saved request on the sidebar is far too tiny to be visible, needs to always be the same size (01/16/2026)
+- [x] B6: When the name of a Saved Request is very long, the little icon next to the saved request on the sidebar is far too tiny to be visible, needs to always be the same size (01/16/2026)
 
 
 ## TASKS
