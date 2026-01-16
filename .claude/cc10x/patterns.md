@@ -605,4 +605,51 @@ const { loadConfig } = useRequestConfig(
 **Gotcha:** Pass entire config object (not individual fields) as dependency to useEffect to trigger save on any field change. Use ref to store "original" state when editing saved items for restore functionality. Disable auto-save when editing saved items (`!selectedSavedRequest`) to avoid overwriting database records.
 **Storage key pattern:** `{prefix}_{uniqueId}` (e.g., `postwhale_request_config_123` where 123 is endpoint.id)
 
-Last updated: 2026-01-16 (localStorage auto-save pattern added)
+### 33. React useEffect Infinite Loop Prevention Pattern
+**Pattern:** When useEffect depends on objects, memoize them with useMemo. When setState callbacks create new collections, return same reference if unchanged.
+**Example:**
+```typescript
+// WRONG - creates new object every render, triggers useEffect every time
+const config = {
+  pathParams,
+  queryParams,
+  headers,
+}
+
+useEffect(() => {
+  onConfigChange(config)  // Called every render!
+}, [config])
+
+// RIGHT - memoize the object
+const config = useMemo(() => ({
+  pathParams,
+  queryParams,
+  headers,
+}), [pathParams, queryParams, headers])
+
+useEffect(() => {
+  onConfigChange(config)  // Only called when actual values change
+}, [config])
+
+// WRONG - always creates new Set, always triggers re-render
+setItems((prev) => {
+  const newSet = new Set(prev)  // Always new reference
+  if (shouldAdd) newSet.add(item)
+  return newSet
+})
+
+// RIGHT - return same reference when unchanged
+setItems((prev) => {
+  const hasItem = prev.has(item)
+  if (hasItem === shouldAdd) return prev  // Same reference = no re-render
+  const newSet = new Set(prev)
+  if (shouldAdd) newSet.add(item)
+  else newSet.delete(item)
+  return newSet
+})
+```
+**Why:** Object/array references in React useEffect dependency arrays cause useEffect to run when the reference changes, even if the content is identical. Combined with setState that creates new references, this creates infinite re-render loops.
+**When:** Any useEffect with object dependencies, or setState callbacks that create collections (Set, Array, Map)
+**Gotcha:** The stack trace may show the loop detected deep in a library (like Mantine's assignRef), but the actual cause is usually in your own code's useEffect/setState interaction.
+
+Last updated: 2026-01-16 (React infinite loop prevention pattern added)

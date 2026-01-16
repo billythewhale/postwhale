@@ -348,6 +348,10 @@ function AppContent() {
 
   const handleModifiedStateChange = (savedRequestId: number, isModified: boolean) => {
     setModifiedSavedRequests((prev) => {
+      const currentlyModified = prev.has(savedRequestId)
+      if (currentlyModified === isModified) {
+        return prev
+      }
       const newSet = new Set(prev)
       if (isModified) {
         newSet.add(savedRequestId)

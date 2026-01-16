@@ -10,19 +10,90 @@ PostWhale is a Postman clone for testing Triple Whale microservice endpoints. De
 - Database: SQLite
 - Design: **#0C70F2 primary**, macOS-quality dark mode
 
-# PostWhale - Active Context
+## Current Status: CRITICAL BUG FIX - React Infinite Loop (2026-01-16)
 
-## Project Overview
-PostWhale is a Postman clone for testing Triple Whale microservice endpoints. Desktop Electron app running locally on Mac.
+### Bug B6: Maximum update depth exceeded - React infinite loop when switching active nodes
 
-**Tech Stack:**
-- Backend: Golang (embedded in Electron via IPC)
-- Frontend: React + TypeScript + **MANTINE UI v7** (migration from Tailwind CSS COMPLETE)
-- Desktop: Electron for Mac
-- Database: SQLite
-- Design: **#0C70F2 primary**, macOS-quality dark mode
+**Status:** FIXED
+**Date:** 2026-01-16
+**Root Cause:** React infinite re-render loop in the modified state tracking for saved requests
 
-## Current Status: M7-M8 Minor Fixes ✅ COMPLETE (2026-01-16)
+**Stack Trace Analysis:**
+```
+Uncaught Error: Maximum update depth exceeded...
+    at assignRef2 (chunk-SPSUY6GX.js:1679:12)
+```
+The `assignRef2` from Mantine's floating-ui integration was where React detected the loop, but it was NOT the cause.
+
+**Root Cause Investigation:**
+
+1. `currentConfig` at RequestBuilder.tsx line 65-70 was a **NEW OBJECT every render**
+2. useEffect at line 80-85 had `currentConfig` in its dependency array
+3. Since `currentConfig` was new every render, the useEffect ALWAYS ran
+4. The useEffect called `onModifiedStateChange(savedRequestId, isModified)`
+5. `handleModifiedStateChange` in App.tsx called `setModifiedSavedRequests()` with a **new Set** every time
+6. This caused App.tsx to re-render
+7. Which caused RequestBuilder to re-render
+8. Which created a new `currentConfig`
+9. **INFINITE LOOP**
+
+**Fix Applied (3 parts):**
+
+1. **RequestBuilder.tsx** - Added `useMemo` to memoize `currentConfig`:
+   ```typescript
+   const currentConfig: RequestConfig = useMemo(() => ({
+     pathParams,
+     queryParams,
+     headers,
+     body,
+   }), [pathParams, queryParams, headers, body])
+   ```
+
+2. **RequestBuilder.tsx** - Added ref to track last notified state and prevent redundant calls:
+   ```typescript
+   const lastNotifiedModifiedStateRef = useRef<{ id: number; isModified: boolean } | null>(null)
+
+   useEffect(() => {
+     // ... skip if same state already notified
+     if (lastNotified && lastNotified.id === selectedSavedRequest.id && lastNotified.isModified === isModified) {
+       return
+     }
+     lastNotifiedModifiedStateRef.current = { id: selectedSavedRequest.id, isModified }
+     onModifiedStateChange(selectedSavedRequest.id, isModified)
+   }, [selectedSavedRequest, currentConfig, onModifiedStateChange])
+   ```
+
+3. **App.tsx** - Fixed `handleModifiedStateChange` to return same reference when unchanged:
+   ```typescript
+   const handleModifiedStateChange = (savedRequestId: number, isModified: boolean) => {
+     setModifiedSavedRequests((prev) => {
+       const currentlyModified = prev.has(savedRequestId)
+       if (currentlyModified === isModified) {
+         return prev  // Return SAME reference when unchanged
+       }
+       const newSet = new Set(prev)
+       // ... add/delete logic
+       return newSet
+     })
+   }
+   ```
+
+**Files Modified:**
+- `/Users/billy/postwhale/frontend/src/components/request/RequestBuilder.tsx`
+- `/Users/billy/postwhale/frontend/src/App.tsx`
+
+**Verification Evidence:**
+| Check | Command | Exit Code | Result |
+|-------|---------|-----------|--------|
+| TypeScript | cd frontend && npx tsc --noEmit | 0 | PASS (no errors) |
+| Frontend Build | cd frontend && npm run build | 0 | PASS (1,547.26 kB JS, 208.43 kB CSS, 2.30s) |
+
+**Pattern Added to Gotchas:**
+- React useEffect infinite loop: When passing objects to useEffect dependency arrays, ensure they are memoized with useMemo. When setState creates new collections (Set, Array), return the same reference if nothing actually changed.
+
+---
+
+## Previous Status: M7-M8 Minor Fixes ✅ COMPLETE (2026-01-16)
 
 ### M7-M8 Minor Fixes - COMPLETE (2026-01-16)
 
