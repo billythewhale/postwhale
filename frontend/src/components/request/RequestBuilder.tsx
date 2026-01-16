@@ -5,6 +5,7 @@ import type { Endpoint, Environment, SavedRequest } from "@/types"
 import { useFavorites } from "@/contexts/FavoritesContext"
 import { useGlobalHeaders } from "@/contexts/GlobalHeadersContext"
 import { useShop } from "@/contexts/ShopContext"
+import { useRequestConfig, type RequestConfig } from "@/hooks/useRequestConfig"
 
 interface RequestBuilderProps {
   endpoint: Endpoint | null
@@ -56,15 +57,37 @@ export function RequestBuilder({
   const [isHoveringName, setIsHoveringName] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
+  const originalSavedRequestConfigRef = useRef<RequestConfig | null>(null)
+
+  const currentConfig: RequestConfig = {
+    pathParams,
+    queryParams,
+    headers,
+    body,
+  }
+
+  const { loadConfig } = useRequestConfig(
+    endpoint?.id || null,
+    currentConfig,
+    !selectedSavedRequest
+  )
 
   useEffect(() => {
+    if (!endpoint) return
+
     if (selectedSavedRequest) {
       setRequestName(selectedSavedRequest.name)
 
+      const savedConfig: RequestConfig = {
+        pathParams: {},
+        queryParams: [],
+        headers: [{ key: "Content-Type", value: "application/json", enabled: true }],
+        body: '',
+      }
+
       try {
         if (selectedSavedRequest.pathParamsJson) {
-          const parsed = JSON.parse(selectedSavedRequest.pathParamsJson)
-          setPathParams(parsed)
+          savedConfig.pathParams = JSON.parse(selectedSavedRequest.pathParamsJson)
         }
       } catch (err) {
         console.error('Failed to parse path params:', err)
@@ -72,8 +95,7 @@ export function RequestBuilder({
 
       try {
         if (selectedSavedRequest.queryParamsJson) {
-          const parsed = JSON.parse(selectedSavedRequest.queryParamsJson)
-          setQueryParams(parsed)
+          savedConfig.queryParams = JSON.parse(selectedSavedRequest.queryParamsJson)
         }
       } catch (err) {
         console.error('Failed to parse query params:', err)
@@ -81,32 +103,49 @@ export function RequestBuilder({
 
       try {
         if (selectedSavedRequest.headersJson) {
-          const parsed = JSON.parse(selectedSavedRequest.headersJson)
-          setHeaders(parsed)
+          savedConfig.headers = JSON.parse(selectedSavedRequest.headersJson)
         }
       } catch (err) {
         console.error('Failed to parse headers:', err)
       }
 
       if (selectedSavedRequest.body) {
-        setBody(selectedSavedRequest.body)
+        savedConfig.body = selectedSavedRequest.body
       }
+
+      originalSavedRequestConfigRef.current = savedConfig
+
+      setPathParams(savedConfig.pathParams)
+      setQueryParams(savedConfig.queryParams)
+      setHeaders(savedConfig.headers)
+      setBody(savedConfig.body)
     } else {
       setRequestName("New Request")
-      setHeaders([{ key: "Content-Type", value: "application/json", enabled: true }])
-      setBody("")
-      setPathParams({})
+      originalSavedRequestConfigRef.current = null
 
-      if (endpoint?.spec?.parameters) {
-        const specQueryParams = endpoint.spec.parameters
-          .filter((p) => p.in === "query")
-          .map((p) => ({ key: p.name, value: "", enabled: true }))
-        setQueryParams(specQueryParams)
+      const storedConfig = loadConfig(endpoint.id)
+
+      if (storedConfig) {
+        setPathParams(storedConfig.pathParams)
+        setQueryParams(storedConfig.queryParams)
+        setHeaders(storedConfig.headers)
+        setBody(storedConfig.body)
       } else {
-        setQueryParams([])
+        setHeaders([{ key: "Content-Type", value: "application/json", enabled: true }])
+        setBody("")
+        setPathParams({})
+
+        if (endpoint?.spec?.parameters) {
+          const specQueryParams = endpoint.spec.parameters
+            .filter((p) => p.in === "query")
+            .map((p) => ({ key: p.name, value: "", enabled: true }))
+          setQueryParams(specQueryParams)
+        } else {
+          setQueryParams([])
+        }
       }
     }
-  }, [selectedSavedRequest, endpoint])
+  }, [selectedSavedRequest, endpoint, loadConfig])
 
   if (!endpoint) {
     return (
@@ -204,6 +243,14 @@ export function RequestBuilder({
 
     onSaveRequest(savedRequest)
     setNameError(null)
+
+    if (selectedSavedRequest && originalSavedRequestConfigRef.current) {
+      setPathParams(originalSavedRequestConfigRef.current.pathParams)
+      setQueryParams(originalSavedRequestConfigRef.current.queryParams)
+      setHeaders(originalSavedRequestConfigRef.current.headers)
+      setBody(originalSavedRequestConfigRef.current.body)
+      setRequestName(selectedSavedRequest.name)
+    }
   }
 
   const handleUpdate = () => {
