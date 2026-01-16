@@ -1,5 +1,33 @@
 # PostWhale - Progress Tracker
 
+## Feature F0 - Auto-save Request Config [*] CODING DONE (2026-01-16)
+
+**Status:** [*] CODING DONE - All features implemented, needs manual testing
+**Date:** 2026-01-16
+**Workflow:** BUILD → component-builder ✓
+
+### Completed Implementation
+1. F0: Auto-save request config ✅
+   - localStorage persistence for anonymous request configs (keyed by endpoint.id)
+   - Auto-save on every config change when no saved request active
+   - Restore original saved request config after "Save as New"
+
+### Quality Metrics
+- TypeScript: PASS (exit 0, no errors)
+- Frontend Build: PASS (1,459.61 kB JS, 208.43 kB CSS, 1.99s)
+
+### Files Modified
+- frontend/src/hooks/useRequestConfig.ts (CREATED - 83 lines)
+- frontend/src/components/request/RequestBuilder.tsx (~70 lines modified)
+
+### Manual Testing Required
+- 10 scenarios documented (10 minutes)
+- Requirement 1: Persist anonymous config (3 tests)
+- Requirement 2: Restore original after "Save as New" (4 tests)
+- Requirement 3: Anonymous config persists across switches (3 tests)
+
+---
+
 ## Bug B5 + Task T4 + Feature F5 - Search & Validation Fixes ✅ INTEGRATION VERIFIED (2026-01-15)
 
 **Status:** ✅ INTEGRATION VERIFIED - All changes production-ready, approved for deployment

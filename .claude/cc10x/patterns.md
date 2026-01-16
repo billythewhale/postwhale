@@ -573,4 +573,36 @@ const toggleService = (serviceId: number) => {
 **Gotcha:** Use functional setState to check `userHasInteracted` and conditionally initialize. Initialize BOTH hierarchical states (repos and services) even when toggling just one level, to preserve full tree state.
 **Bug prevented:** Clicking to collapse service on favorites tab collapsed entire repo because manual state started empty while auto-expand state was populated.
 
-Last updated: 2026-01-14 (Tree state pattern added)
+### 32. localStorage Auto-Save Pattern - Persist Component State with Conditional Auto-Save
+**Pattern:** Custom hook that monitors component state and auto-saves to localStorage with conditional logic
+**Example:**
+```typescript
+export function useRequestConfig(
+  endpointId: number | null,
+  currentConfig: RequestConfig,
+  autoSave: boolean = true
+) {
+  useEffect(() => {
+    if (!endpointId || !autoSave) return
+    saveConfigToStorage(endpointId, currentConfig)
+  }, [endpointId, currentConfig, autoSave])
+
+  const loadConfig = useCallback((id: number): RequestConfig | null => {
+    return loadConfigFromStorage(id)
+  }, [])
+
+  return { loadConfig }
+}
+
+const { loadConfig } = useRequestConfig(
+  endpoint?.id || null,
+  currentConfig,
+  !selectedSavedRequest
+)
+```
+**Why:** Enables auto-save behavior without explicit save buttons while maintaining control via conditional flag. Component state changes trigger auto-save via useEffect dependency array.
+**When:** Building forms/editors where user expects changes to persist automatically (e.g., drafts, configs)
+**Gotcha:** Pass entire config object (not individual fields) as dependency to useEffect to trigger save on any field change. Use ref to store "original" state when editing saved items for restore functionality. Disable auto-save when editing saved items (`!selectedSavedRequest`) to avoid overwriting database records.
+**Storage key pattern:** `{prefix}_{uniqueId}` (e.g., `postwhale_request_config_123` where 123 is endpoint.id)
+
+Last updated: 2026-01-16 (localStorage auto-save pattern added)
