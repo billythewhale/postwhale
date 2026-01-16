@@ -9,10 +9,11 @@ import { AutoAddReposDialog } from '@/components/sidebar/AutoAddReposDialog'
 import { FavoritesProvider } from '@/contexts/FavoritesContext'
 import { GlobalHeadersProvider } from '@/contexts/GlobalHeadersContext'
 import { ShopProvider } from '@/contexts/ShopContext'
+import { ErrorHistoryProvider, useErrorHistory } from '@/contexts/ErrorHistoryContext'
 import { useIPC } from '@/hooks/useIPC'
 import type { Environment, Repository, Service, Endpoint, Response, CheckPathResult, ScanDirectoryResult, SavedRequest } from '@/types'
 
-function App() {
+function AppContent() {
   const [environment, setEnvironment] = useState<Environment>('LOCAL')
   const [repositories, setRepositories] = useState<Repository[]>([])
   const [services, setServices] = useState<Service[]>([])
@@ -29,8 +30,10 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showAutoAddDialog, setShowAutoAddDialog] = useState(false)
+  const [modifiedSavedRequests, setModifiedSavedRequests] = useState<Set<number>>(new Set())
 
   const { invoke } = useIPC()
+  const { addError } = useErrorHistory()
 
   const loadData = async (showGlobalLoading = true) => {
     const errors: string[] = []
@@ -101,10 +104,12 @@ function App() {
       if (errors.length > 0) {
         const errorSummary = `Warning: ${errors.length} item(s) failed to load. ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? `; and ${errors.length - 3} more...` : ''}`
         setError(errorSummary)
+        addError(errorSummary)
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load data'
       setError(errorMessage)
+      addError(errorMessage)
     } finally {
       if (showGlobalLoading) {
         setIsLoadingData(false)
@@ -142,7 +147,7 @@ function App() {
     return await invoke<ScanDirectoryResult>('scanDirectory', { path })
   }
 
-  const handleAddRepositories = async (paths: string[]) => {
+  const handleAddRepositories = async (paths: string[]): Promise<{ path: string; success: boolean; error?: string }[]> => {
     const results: { path: string; success: boolean; error?: string }[] = []
 
     for (const path of paths) {
@@ -160,11 +165,7 @@ function App() {
 
     await loadData()
 
-    const failed = results.filter(r => !r.success)
-    if (failed.length > 0) {
-      const failedNames = failed.map(f => f.path.split('/').pop()).join(', ')
-      setError(`Failed to add ${failed.length} repository(s): ${failedNames}`)
-    }
+    return results
   }
 
   const handleRefreshAll = async () => {
@@ -177,6 +178,7 @@ function App() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to refresh repositories'
       setError(errorMessage)
+      addError(errorMessage)
     }
   }
 
@@ -194,6 +196,7 @@ function App() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to remove repository'
       setError(errorMessage)
+      addError(errorMessage)
     }
   }
 
@@ -343,12 +346,21 @@ function App() {
     }
   }
 
+  const handleModifiedStateChange = (savedRequestId: number, isModified: boolean) => {
+    setModifiedSavedRequests((prev) => {
+      const newSet = new Set(prev)
+      if (isModified) {
+        newSet.add(savedRequestId)
+      } else {
+        newSet.delete(savedRequestId)
+      }
+      return newSet
+    })
+  }
+
   return (
-    <GlobalHeadersProvider>
-      <ShopProvider>
-        <FavoritesProvider>
-          <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-            <Header environment={environment} onEnvironmentChange={setEnvironment} />
+    <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Header environment={environment} onEnvironmentChange={setEnvironment} />
 
         {error && (
           <Alert
@@ -382,6 +394,7 @@ function App() {
                 services={services}
                 endpoints={endpoints}
                 savedRequests={savedRequests}
+                modifiedSavedRequests={modifiedSavedRequests}
                 selectedEndpoint={selectedEndpoint}
                 selectedSavedRequest={selectedSavedRequest}
                 onSelectEndpoint={handleSelectEndpoint}
@@ -405,6 +418,7 @@ function App() {
                   onSaveRequest={handleSaveRequest}
                   onUpdateRequest={handleUpdateSavedRequest}
                   onDeleteRequest={handleDeleteSavedRequest}
+                  onModifiedStateChange={handleModifiedStateChange}
                   isLoading={isLoading}
                   isSaving={isSaving}
                 />
@@ -430,9 +444,20 @@ function App() {
           existingPaths={new Set(repositories.map(r => r.path))}
         />
       </Box>
-        </FavoritesProvider>
-      </ShopProvider>
-    </GlobalHeadersProvider>
+  )
+}
+
+function App() {
+  return (
+    <ErrorHistoryProvider>
+      <GlobalHeadersProvider>
+        <ShopProvider>
+          <FavoritesProvider>
+            <AppContent />
+          </FavoritesProvider>
+        </ShopProvider>
+      </GlobalHeadersProvider>
+    </ErrorHistoryProvider>
   )
 }
 

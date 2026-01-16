@@ -41,6 +41,7 @@ interface SidebarProps {
   services: Service[]
   endpoints: Endpoint[]
   savedRequests: SavedRequest[]
+  modifiedSavedRequests: Set<number>
   selectedEndpoint: Endpoint | null
   selectedSavedRequest: SavedRequest | null
   onSelectEndpoint: (endpoint: Endpoint) => void
@@ -60,6 +61,7 @@ export function Sidebar({
   services,
   endpoints,
   savedRequests,
+  modifiedSavedRequests,
   selectedEndpoint,
   selectedSavedRequest,
   onSelectEndpoint,
@@ -579,6 +581,7 @@ export function Sidebar({
                                               <Stack gap={2}>
                                                 {endpointSavedRequests.map((savedRequest) => {
                                                   const isSavedRequestSelected = selectedSavedRequest?.id === savedRequest.id
+                                                  const isModified = modifiedSavedRequests.has(savedRequest.id)
 
                                                   return (
                                                     <Menu
@@ -629,10 +632,24 @@ export function Sidebar({
                                                               overflow: 'hidden',
                                                               textOverflow: 'ellipsis',
                                                               whiteSpace: 'nowrap',
+                                                              flex: 1,
                                                             }}
                                                           >
                                                             {savedRequest.name}
                                                           </Text>
+                                                          {isModified && (
+                                                            <Box
+                                                              style={{
+                                                                width: 6,
+                                                                height: 6,
+                                                                borderRadius: '50%',
+                                                                backgroundColor: 'var(--mantine-color-blue-6)',
+                                                                flexShrink: 0,
+                                                                marginLeft: 4,
+                                                              }}
+                                                              title="Unsaved changes"
+                                                            />
+                                                          )}
                                                         </Box>
                                                       </Menu.Target>
                                                       <Menu.Dropdown>
