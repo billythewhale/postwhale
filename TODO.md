@@ -38,6 +38,19 @@ Terminology: The main app window is broken up like so:
 - [x] B4: When selecting a request in the sidebar, the endpoint the request belongs to SHOULD NOT also be active. Requests are nodes nested under endpoints. EITHER an endpoint (i.e. its anonymous request) OR a request can be active at a time. (01/15/2026)
 - [x] B5: When filtering by search term, any children of a node that matches the search should be displayed. So if my search matches a service name, all the endpoints of that service should still be visible, regardless of whether they match or not. (01/16/2026)
 - [x] B6: When the name of a Saved Request is very long, the little icon next to the saved request on the sidebar is far too tiny to be visible, needs to always be the same size (01/16/2026)
+- [ ] B7: When switching from one node to another:
+  - [ ] Changes to the current config are saved to state (fine, FOR THAT REQUEST/ENDPOINT)
+  - [ ] Changes are ported to the newly active node (THIS IS BAD, MUST FIX)
+  - Understand this context:
+    - 1. I select an endpoint node
+    - 2. I add a new Query Param
+    - 3. I select a Saved Request under that endpoint
+      - I notice that the new Query Param is still active in the state: BAD
+      - I notice that the "modified" dot appears next to the Saved Request: BAD (I didn't modify this one, I modified the AnonymousRequest on the endpoint node)
+    - 4. I select the endpoint node again
+      - Now my new Query Param should be visible and active again
+- [ ] B8: The "modified" dot is the same color as as active node highlight, so it's not visible on the active node. Should be a different color on all nodes, like a golden color
+- [ ] B9: The "modified" dot does not appear next to an endpoint node when I modified the query params (or any part of the config)
 
 
 ## TASKS
@@ -54,23 +67,16 @@ P1 - Highest
 P2
 P3 - Lowest
 
-### F0: Auto-save instead of button clicks (P1)
-
-- [*] Change explicit save to auto-save behavior for existing saved requests: (01/16/2026)
-  - [ ] There should be an anonymous Request for each endpoint that is loaded when that endpoint is the active node in the sidebar
-  - [ ] When the active node in the sidebar changes, the updated Request (AnonymousRequest if the active node was an endpoint) should remain in local state (persist across restarts), even if the User didn't click "Save"
-  - [*] When the User makes changes to a request and then clicks "Save" and then "Save as New", the updated config should become the new request and the original config for the initial request should be restored (01/16/2026)
-
 ### F1: Query items (P1)
 
-- [-] User can set Query items for requests
+- [*] User can set Query items for requests (01/16/2026)
   - [x] Need a tab next to Params / Headers / Body
   - [x] User inputs query items in table format, like our headers currently
   - [/] If request schema shows query items, pre-populate the query table with these properties
 
 ### F2: Cancelling (P1)
 
-- [-] Allow for canceling a request in flight
+- [*] Allow for canceling a request in flight (01/16/2026)
   - [x] Once "Send Request" Has been hit, show a spinner in the button with "Cancel" next to it
   - [?] when pressed, cancel the request
   - [x] When req is done, back to normal "Send Request"
@@ -85,7 +91,7 @@ P3 - Lowest
 
 ### F4: Global shop selector (P1)
 
-- [-] Add "Shop" dropdown selector at top, next to env menu
+- [*] Add "Shop" dropdown selector at top, next to env menu (01/16/2026)
   - [x] User can pick from previously used values or add a new one
   - [x] User can also select "None" (for testing when no shop is sent)
     - [x] Use localstorage to store these
@@ -95,7 +101,7 @@ P3 - Lowest
 
 ### F5: Save Requests (P1)
 
-- [-] User can save "Requests" nested under each endpoint
+- [*] User can save "Requests" nested under each endpoint (01/16/2026)
   - [x] A request represents certain params for that endpoint. e.g. maybe I want to be able to test "No shop" where the "x-tw-shop-id" header is turned off
   - [x] Such saved requests show up as nodes nested under the endpoint in the left sidebar
   - [x] Request name is next to the endpoint name in the CONFIG section, clicking it turns it into a text input where it can be changed
