@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { IconSend, IconX, IconStar, IconStarFilled, IconPlus, IconDeviceFloppy, IconChevronDown, IconPencil, IconTrash } from "@tabler/icons-react"
 import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Textarea, Stack, Group, Box, Divider, useMantineColorScheme, ActionIcon, Switch, Menu, Modal } from "@mantine/core"
 import { notifications } from '@mantine/notifications'
@@ -62,12 +62,12 @@ export function RequestBuilder({
   const nameInputRef = useRef<HTMLInputElement>(null)
   const originalSavedRequestConfigRef = useRef<RequestConfig | null>(null)
 
-  const currentConfig: RequestConfig = {
+  const currentConfig: RequestConfig = useMemo(() => ({
     pathParams,
     queryParams,
     headers,
     body,
-  }
+  }), [pathParams, queryParams, headers, body])
 
   const configId = selectedSavedRequest ? selectedSavedRequest.id : endpoint?.id || null
 
