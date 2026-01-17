@@ -204,12 +204,6 @@ function AppContent() {
   const handleSelectEndpoint = (endpoint: Endpoint) => {
     setSelectedEndpoint(endpoint)
     setSelectedSavedRequest(null)
-    setModifiedEndpoints(prev => {
-      if (!prev.has(endpoint.id)) return prev
-      const next = new Set(prev)
-      next.delete(endpoint.id)
-      return next
-    })
   }
 
   const handleSelectSavedRequest = (savedRequest: SavedRequest) => {
@@ -217,12 +211,6 @@ function AppContent() {
     if (endpoint) {
       setSelectedEndpoint(endpoint)
       setSelectedSavedRequest(savedRequest)
-      setModifiedSavedRequests(prev => {
-        if (!prev.has(savedRequest.id)) return prev
-        const next = new Set(prev)
-        next.delete(savedRequest.id)
-        return next
-      })
     }
   }
 
