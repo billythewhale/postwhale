@@ -1,101 +1,41 @@
-import { IconCopy, IconCheck } from "@tabler/icons-react"
-import { useState } from "react"
-import { Paper, Tabs, Button, Badge, Group, Text, Box, Stack, Code, ScrollArea, Alert, useMantineColorScheme } from "@mantine/core"
-import { CodeHighlight } from "@mantine/code-highlight"
-import type { Response } from "@/types"
+import { useState } from 'react'
+import { IconCopy, IconCheck } from '@tabler/icons-react'
+import { Paper, Tabs, Button, Badge, Group, Text, Box, Stack, Code, ScrollArea, Alert, useMantineColorScheme, Loader } from '@mantine/core'
+import { CodeHighlight } from '@mantine/code-highlight'
+import type { RequestResponsePair } from '@/types'
+import { getStatusColor } from '@/utils/http'
+import { formatJSON, isJSON } from '@/utils/json'
 
 interface ResponseViewerProps {
-  response: Response | null
+  requestResponse: RequestResponsePair | null
 }
 
-export function ResponseViewer({ response }: ResponseViewerProps) {
+export function ResponseViewer({ requestResponse }: ResponseViewerProps) {
   const { colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
   const [copied, setCopied] = useState(false)
 
+  if (!requestResponse) {
+    return <EmptyState isDark={isDark} message="No response yet" subMessage="Send a request to see the response" />
+  }
+
+  if (requestResponse.isLoading) {
+    return <LoadingState isDark={isDark} />
+  }
+
+  const response = requestResponse.response
   if (!response) {
-    return (
-      <Box style={{ flex: 1, margin: '1rem', marginTop: 0 }}>
-        <Paper
-          shadow="sm"
-          p="xl"
-          style={{
-            boxShadow: isDark
-              ? '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08)'
-              : undefined
-          }}
-        >
-          <Stack align="center" gap="xs" py="xl">
-            <Text size="lg" fw={500} c="dimmed">No response yet</Text>
-            <Text size="sm" c="dimmed">Send a request to see the response</Text>
-          </Stack>
-        </Paper>
-      </Box>
-    )
-  }
-
-  const getStatusColor = (statusCode: number): string => {
-    if (statusCode >= 200 && statusCode < 300) return "teal"
-    if (statusCode >= 300 && statusCode < 400) return "blue"
-    if (statusCode >= 400 && statusCode < 500) return "yellow"
-    if (statusCode >= 500) return "red"
-    return "gray"
-  }
-
-  const copyToClipboard = async () => {
-    // CRITICAL FIX: Check clipboard API availability and handle errors
-    // Prevents crashes in insecure contexts (non-HTTPS, file://)
-    if (!navigator.clipboard) {
-      console.error('Clipboard API not available')
-      return
-    }
-
-    try {
-      await navigator.clipboard.writeText(response.body)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error)
-    }
-  }
-
-  const formatJSON = (text: string): string => {
-    try {
-      return JSON.stringify(JSON.parse(text), null, 2)
-    } catch {
-      return text
-    }
-  }
-
-  const isJSON = (text: string): boolean => {
-    try {
-      JSON.parse(text)
-      return true
-    } catch {
-      return false
-    }
+    return <EmptyState isDark={isDark} message="No response yet" subMessage="Send a request to see the response" />
   }
 
   return (
     <Box style={{ flex: 1, margin: '1rem', marginTop: 0 }}>
-      <Paper
-        shadow="sm"
-        p="lg"
-        style={{
-          boxShadow: isDark
-            ? '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08)'
-            : undefined
-        }}
-      >
+      <Paper shadow="sm" p="lg" style={getPaperStyle(isDark)}>
         <Stack gap="md">
           <Group justify="space-between" align="center">
             <Group gap="md">
               <Text size="xl" fw={600}>Response</Text>
-              <Badge
-                color={getStatusColor(response.statusCode)}
-                size="lg"
-                variant="filled"
-              >
+              <Badge color={getStatusColor(response.statusCode)} size="lg" variant="filled">
                 {response.statusCode} {response.status}
               </Badge>
               <Text size="sm" fw={500} c="dimmed">
@@ -105,10 +45,10 @@ export function ResponseViewer({ response }: ResponseViewerProps) {
             <Button
               variant="subtle"
               size="sm"
-              onClick={copyToClipboard}
+              onClick={() => copyToClipboard(response.body)}
               leftSection={copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
             >
-              {copied ? "Copied!" : "Copy"}
+              {copied ? 'Copied!' : 'Copy'}
             </Button>
           </Group>
 
@@ -126,11 +66,7 @@ export function ResponseViewer({ response }: ResponseViewerProps) {
               <Tabs.Panel value="body" pt="md">
                 <ScrollArea.Autosize mah={400}>
                   {isJSON(response.body) ? (
-                    <CodeHighlight
-                      code={formatJSON(response.body)}
-                      language="json"
-                      withCopyButton
-                    />
+                    <CodeHighlight code={formatJSON(response.body)} language="json" withCopyButton />
                   ) : (
                     <Code block style={{ fontSize: '0.875rem' }}>
                       {response.body}
@@ -147,7 +83,7 @@ export function ResponseViewer({ response }: ResponseViewerProps) {
                         {key}
                       </Text>
                       <Text size="sm" c="dimmed" style={{ fontFamily: 'monospace', flex: 1 }}>
-                        {Array.isArray(values) ? values.join(", ") : values}
+                        {Array.isArray(values) ? values.join(', ') : values}
                       </Text>
                     </Group>
                   ))}
@@ -159,4 +95,48 @@ export function ResponseViewer({ response }: ResponseViewerProps) {
       </Paper>
     </Box>
   )
+
+  async function copyToClipboard(text: string) {
+    if (!navigator.clipboard) return
+
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error)
+    }
+  }
+}
+
+function EmptyState({ isDark, message, subMessage }: { isDark: boolean; message: string; subMessage: string }) {
+  return (
+    <Box style={{ flex: 1, margin: '1rem', marginTop: 0 }}>
+      <Paper shadow="sm" p="xl" style={getPaperStyle(isDark)}>
+        <Stack align="center" gap="xs" py="xl">
+          <Text size="lg" fw={500} c="dimmed">{message}</Text>
+          <Text size="sm" c="dimmed">{subMessage}</Text>
+        </Stack>
+      </Paper>
+    </Box>
+  )
+}
+
+function LoadingState({ isDark }: { isDark: boolean }) {
+  return (
+    <Box style={{ flex: 1, margin: '1rem', marginTop: 0 }}>
+      <Paper shadow="sm" p="xl" style={getPaperStyle(isDark)}>
+        <Stack align="center" gap="md" py="xl">
+          <Loader size="lg" />
+          <Text size="lg" fw={500} c="dimmed">Sending request...</Text>
+        </Stack>
+      </Paper>
+    </Box>
+  )
+}
+
+function getPaperStyle(isDark: boolean) {
+  return {
+    boxShadow: isDark ? '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08)' : undefined,
+  }
 }

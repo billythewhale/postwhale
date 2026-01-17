@@ -6,7 +6,8 @@
       "Bash(lsof:*)",
       "Bash(kill:*)",
       "Skill(cc10x:cc10x-router)",
-      "Skill(cc10x-router)"
+      "Skill(cc10x-router)",
+      "Bash(tree:*)"
     ]
   }
 }

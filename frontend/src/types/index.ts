@@ -115,3 +115,37 @@ export interface SavedRequest {
   body: string;
   createdAt: string;
 }
+
+export type ActiveNode =
+  | { type: 'endpoint'; endpointId: number }
+  | { type: 'savedRequest'; savedRequestId: number; endpointId: number }
+  | null
+
+export interface EditableRequestConfig {
+  id: string
+  endpointId: number
+  name: string | null
+  pathParams: Record<string, string>
+  queryParams: Array<{ key: string; value: string; enabled: boolean }>
+  headers: Array<{ key: string; value: string; enabled: boolean }>
+  body: string
+}
+
+export interface RequestResponsePair {
+  request: {
+    method: string
+    path: string
+    headers: Record<string, string>
+    body: string
+    sentAt: number
+  } | null
+  response: {
+    statusCode: number
+    status: string
+    headers: Record<string, string[]>
+    body: string
+    responseTime: number
+    error?: string
+  } | null
+  isLoading: boolean
+}
