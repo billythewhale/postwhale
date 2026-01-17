@@ -49,7 +49,7 @@ Terminology: The main app window is broken up like so:
       - I notice that the "modified" dot appears next to the Saved Request: BAD (I didn't modify this one, I modified the AnonymousRequest on the endpoint node)
     - 4. I select the endpoint node again
       - Now my new Query Param should be visible and active again
-  - Fix: Added configLoadedForRef to ensure modified check only runs after config is loaded for the correct node (01/16/2026)
+  - Fix: Converted all useRefs to useState with proper immutability patterns. Added loadedEntityKey/currentEntityKey state tracking to ensure modified check only runs after config is loaded for the correct node. Fixed auto-save in useRequestConfig to use entity key guards. (01/16/2026)
 - [*] B8: The "modified" dot is the same color as as active node highlight, so it's not visible on the active node. Should be a different color on all nodes, like a golden color (01/16/2026)
 - [*] B9: The "modified" dot does not appear next to an endpoint node when I modified the query params (or any part of the config) (01/16/2026)
 

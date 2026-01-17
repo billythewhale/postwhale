@@ -515,6 +515,46 @@ frontend/src/
 
 **Evidence:** All UI components import from "@mantine/core" (Box, Button, Text, Stack, etc.)
 
+### Gotcha #3: Modified State Tracking During Entity Switching
+**Problem:** When switching between endpoints/saved requests, the "modified" indicator shows on wrong nodes or fails to show when it should.
+
+**Cause:** React's async state updates mean that during an entity switch, `currentConfig` (derived from state) still contains the OLD entity's values when the switch effect first runs. If you compare against the NEW entity's baseline, you get wrong results.
+
+**Solution:**
+1. Use a single ref to track the current entity (type + id) instead of separate refs
+2. Use a single ref for the baseline config that works for both endpoints and saved requests
+3. In the "leaving" check (first useEffect), capture the PREVIOUS entity's modified state while `currentConfig` still has its values
+4. In the "ongoing" check (second useEffect), compare `currentConfig` against the NEW entity's baseline
+
+**Pattern:**
+```typescript
+const currentEntityRef = useRef<{ type: 'endpoint' | 'savedRequest'; id: number } | null>(null)
+const originalConfigRef = useRef<RequestConfig | null>(null)
+
+useEffect(() => {
+  // Capture PREVIOUS entity's state while currentConfig still has old values
+  const prevEntity = currentEntityRef.current
+  if (prevEntity && originalConfigRef.current) {
+    const wasModified = !compareConfigs(currentConfig, originalConfigRef.current)
+    reportModifiedState(prevEntity, wasModified)
+  }
+
+  // Then update refs and load new entity
+  currentEntityRef.current = newEntity
+  originalConfigRef.current = newBaseline
+  loadNewConfig()
+}, [selectedEntity])
+
+useEffect(() => {
+  // Track ongoing modifications for current entity
+  if (!originalConfigRef.current) return
+  const isModified = !compareConfigs(currentConfig, originalConfigRef.current)
+  reportModifiedState(currentEntityRef.current, isModified)
+}, [currentConfig])
+```
+
+**Fixed in:** 2026-01-16 (Modified indicator bug fix)
+
 ---
 
 ## Testing Patterns
@@ -541,4 +581,4 @@ frontend/src/
 
 ---
 
-Last updated: 2026-01-13 (Search filtering fix)
+Last updated: 2026-01-16 (Modified indicator bug fix)

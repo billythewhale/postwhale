@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
 import { notifications } from '@mantine/notifications'
 import { isEqual } from 'lodash'
 
@@ -71,15 +71,25 @@ export function compareConfigs(a: RequestConfig, b: RequestConfig): boolean {
 export function useRequestConfig(
   id: number | null,
   currentConfig: RequestConfig,
-  isSavedRequest: boolean = false
+  isSavedRequest: boolean = false,
+  loadedEntityKey: string | null = null,
+  currentEntityKey: string | null = null
 ) {
   const shouldAutoSave = !isSavedRequest
+  const [lastSavedEntityKey, setLastSavedEntityKey] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!id || id === null || typeof id !== 'number' || !shouldAutoSave) return
+    if (!id || !shouldAutoSave) return
+    if (!currentEntityKey || !loadedEntityKey) return
+    if (currentEntityKey !== loadedEntityKey) return
+
+    if (lastSavedEntityKey !== currentEntityKey) {
+      setLastSavedEntityKey(currentEntityKey)
+      return
+    }
 
     saveConfigToStorage(id, currentConfig, false)
-  }, [id, currentConfig, shouldAutoSave])
+  }, [id, currentConfig, shouldAutoSave, currentEntityKey, loadedEntityKey, lastSavedEntityKey])
 
   const loadConfig = useCallback((configId: number, isForSavedRequest: boolean): RequestConfig | null => {
     return loadConfigFromStorage(configId, isForSavedRequest)

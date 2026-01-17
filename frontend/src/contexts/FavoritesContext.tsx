@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef } from 'react'
+import { createContext, useContext, useState, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import { notifications } from '@mantine/notifications'
 
@@ -75,18 +75,16 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     endpoints: loadFavoritesFromStorage('endpoints'),
   }))
 
-  // Track pending toggles to prevent race conditions
-  const pendingToggles = useRef<Set<string>>(new Set())
+  const [pendingToggles, setPendingToggles] = useState<Set<string>>(() => new Set())
 
   const toggleFavorite = useCallback((type: FavoriteType, id: number) => {
     const toggleKey = `${type}-${id}`
 
-    // Prevent rapid duplicate toggles (race condition)
-    if (pendingToggles.current.has(toggleKey)) {
+    if (pendingToggles.has(toggleKey)) {
       return
     }
 
-    pendingToggles.current.add(toggleKey)
+    setPendingToggles(prev => new Set([...prev, toggleKey]))
 
     setFavorites((prev) => {
       const newFavorites = { ...prev }
@@ -101,14 +99,17 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       newFavorites[type] = set
       saveFavoritesToStorage(type, set)
 
-      // Clear pending flag after state update
       setTimeout(() => {
-        pendingToggles.current.delete(toggleKey)
+        setPendingToggles(prev => {
+          const next = new Set(prev)
+          next.delete(toggleKey)
+          return next
+        })
       }, 0)
 
       return newFavorites
     })
-  }, [])
+  }, [pendingToggles])
 
   const isFavorite = useCallback((type: FavoriteType, id: number): boolean => {
     return favorites[type].has(id)
