@@ -81,12 +81,6 @@ export function useRequestConfig(
     saveConfigToStorage(id, currentConfig, false)
   }, [id, currentConfig, shouldAutoSave])
 
-  useEffect(() => {
-    if (!id || id === null || typeof id !== 'number' || !isSavedRequest) return
-
-    saveConfigToStorage(id, currentConfig, true)
-  }, [id, currentConfig, isSavedRequest])
-
   const loadConfig = useCallback((configId: number, isForSavedRequest: boolean): RequestConfig | null => {
     return loadConfigFromStorage(configId, isForSavedRequest)
   }, [])

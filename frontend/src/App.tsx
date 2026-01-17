@@ -31,6 +31,7 @@ function AppContent() {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showAutoAddDialog, setShowAutoAddDialog] = useState(false)
   const [modifiedSavedRequests, setModifiedSavedRequests] = useState<Set<number>>(new Set())
+  const [modifiedEndpoints, setModifiedEndpoints] = useState<Set<number>>(new Set())
 
   const { invoke } = useIPC()
   const { addError } = useErrorHistory()
@@ -203,6 +204,12 @@ function AppContent() {
   const handleSelectEndpoint = (endpoint: Endpoint) => {
     setSelectedEndpoint(endpoint)
     setSelectedSavedRequest(null)
+    setModifiedEndpoints(prev => {
+      if (!prev.has(endpoint.id)) return prev
+      const next = new Set(prev)
+      next.delete(endpoint.id)
+      return next
+    })
   }
 
   const handleSelectSavedRequest = (savedRequest: SavedRequest) => {
@@ -210,6 +217,12 @@ function AppContent() {
     if (endpoint) {
       setSelectedEndpoint(endpoint)
       setSelectedSavedRequest(savedRequest)
+      setModifiedSavedRequests(prev => {
+        if (!prev.has(savedRequest.id)) return prev
+        const next = new Set(prev)
+        next.delete(savedRequest.id)
+        return next
+      })
     }
   }
 
@@ -362,6 +375,22 @@ function AppContent() {
     })
   }
 
+  const handleEndpointModifiedStateChange = (endpointId: number, isModified: boolean) => {
+    setModifiedEndpoints((prev) => {
+      const currentlyModified = prev.has(endpointId)
+      if (currentlyModified === isModified) {
+        return prev
+      }
+      const newSet = new Set(prev)
+      if (isModified) {
+        newSet.add(endpointId)
+      } else {
+        newSet.delete(endpointId)
+      }
+      return newSet
+    })
+  }
+
   return (
     <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Header environment={environment} onEnvironmentChange={setEnvironment} />
@@ -399,6 +428,7 @@ function AppContent() {
                 endpoints={endpoints}
                 savedRequests={savedRequests}
                 modifiedSavedRequests={modifiedSavedRequests}
+                modifiedEndpoints={modifiedEndpoints}
                 selectedEndpoint={selectedEndpoint}
                 selectedSavedRequest={selectedSavedRequest}
                 onSelectEndpoint={handleSelectEndpoint}
@@ -423,6 +453,7 @@ function AppContent() {
                   onUpdateRequest={handleUpdateSavedRequest}
                   onDeleteRequest={handleDeleteSavedRequest}
                   onModifiedStateChange={handleModifiedStateChange}
+                  onEndpointModifiedStateChange={handleEndpointModifiedStateChange}
                   isLoading={isLoading}
                   isSaving={isSaving}
                 />
