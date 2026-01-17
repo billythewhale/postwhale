@@ -65,8 +65,12 @@ func (h *Handler) HandleRequest(request IPCRequest) IPCResponse {
 		response = h.handleRemoveRepository(request.Data)
 	case "getServices":
 		response = h.handleGetServices(request.Data)
+	case "getAllServices":
+		response = h.handleGetAllServices()
 	case "getEndpoints":
 		response = h.handleGetEndpoints(request.Data)
+	case "getAllEndpoints":
+		response = h.handleGetAllEndpoints()
 	case "executeRequest":
 		response = h.handleExecuteRequest(request.Data)
 	case "getRequestHistory":
@@ -81,6 +85,8 @@ func (h *Handler) HandleRequest(request IPCRequest) IPCResponse {
 		response = h.handleSaveSavedRequest(request.Data)
 	case "getSavedRequests":
 		response = h.handleGetSavedRequests(request.Data)
+	case "getAllSavedRequests":
+		response = h.handleGetAllSavedRequests()
 	case "updateSavedRequest":
 		response = h.handleUpdateSavedRequest(request.Data)
 	case "deleteSavedRequest":
@@ -295,6 +301,33 @@ func (h *Handler) handleGetServices(data json.RawMessage) IPCResponse {
 	}
 }
 
+// handleGetAllServices retrieves all services
+func (h *Handler) handleGetAllServices() IPCResponse {
+	services, err := db.GetAllServices(h.database)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to get services: %v", err),
+		}
+	}
+
+	result := make([]interface{}, len(services))
+	for i, svc := range services {
+		result[i] = map[string]interface{}{
+			"id":        svc.ID,
+			"repoId":    svc.RepoID,
+			"serviceId": svc.ServiceID,
+			"name":      svc.Name,
+			"port":      svc.Port,
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data:    result,
+	}
+}
+
 // handleGetEndpoints retrieves endpoints for a service
 func (h *Handler) handleGetEndpoints(data json.RawMessage) IPCResponse {
 	var input struct {
@@ -317,6 +350,33 @@ func (h *Handler) handleGetEndpoints(data json.RawMessage) IPCResponse {
 	}
 
 	// Convert to interface{} slice
+	result := make([]interface{}, len(endpoints))
+	for i, ep := range endpoints {
+		result[i] = map[string]interface{}{
+			"id":          ep.ID,
+			"serviceId":   ep.ServiceID,
+			"operationId": ep.OperationID,
+			"method":      ep.Method,
+			"path":        ep.Path,
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data:    result,
+	}
+}
+
+// handleGetAllEndpoints retrieves all endpoints
+func (h *Handler) handleGetAllEndpoints() IPCResponse {
+	endpoints, err := db.GetAllEndpoints(h.database)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to get endpoints: %v", err),
+		}
+	}
+
 	result := make([]interface{}, len(endpoints))
 	for i, ep := range endpoints {
 		result[i] = map[string]interface{}{
@@ -472,12 +532,12 @@ func (h *Handler) handleScanDirectory(data json.RawMessage) IPCResponse {
 			return IPCResponse{Success: false, Error: fmt.Sprintf("failed to get home directory: %v", err)}
 		}
 		path = home
-	} else if len(path) > 0 && path[0] == '~' {
+	} else if strings.HasPrefix(path, "~/") {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return IPCResponse{Success: false, Error: fmt.Sprintf("failed to get home directory: %v", err)}
 		}
-		path = filepath.Join(home, path[1:])
+		path = filepath.Join(home, path[2:])
 	}
 
 	// Clean the path
@@ -541,12 +601,18 @@ func (h *Handler) handleCheckPath(data json.RawMessage) IPCResponse {
 
 	// Expand ~ to home directory
 	path := input.Path
-	if len(path) > 0 && path[0] == '~' {
+	if strings.HasPrefix(path, "~/") {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return IPCResponse{Success: false, Error: fmt.Sprintf("failed to get home directory: %v", err)}
 		}
-		path = filepath.Join(home, path[1:])
+		path = filepath.Join(home, path[2:])
+	} else if path == "~" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return IPCResponse{Success: false, Error: fmt.Sprintf("failed to get home directory: %v", err)}
+		}
+		path = home
 	}
 
 	// Clean the path
@@ -786,6 +852,36 @@ func (h *Handler) handleGetSavedRequests(data json.RawMessage) IPCResponse {
 	}
 
 	// Convert to interface{} slice
+	result := make([]interface{}, len(savedRequests))
+	for i, req := range savedRequests {
+		result[i] = map[string]interface{}{
+			"id":              req.ID,
+			"endpointId":      req.EndpointID,
+			"name":            req.Name,
+			"pathParamsJson":  req.PathParamsJSON,
+			"queryParamsJson": req.QueryParamsJSON,
+			"headersJson":     req.HeadersJSON,
+			"body":            req.Body,
+			"createdAt":       req.CreatedAt,
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data:    result,
+	}
+}
+
+// handleGetAllSavedRequests retrieves all saved requests
+func (h *Handler) handleGetAllSavedRequests() IPCResponse {
+	savedRequests, err := db.GetAllSavedRequests(h.database)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to get saved requests: %v", err),
+		}
+	}
+
 	result := make([]interface{}, len(savedRequests))
 	for i, req := range savedRequests {
 		result[i] = map[string]interface{}{
