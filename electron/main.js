@@ -176,16 +176,42 @@ ipcMain.handle('ipc-request', async (event, action, data) => {
   });
 });
 
-app.whenReady().then(() => {
-  // Set up Content Security Policy before creating any windows
-  setupContentSecurityPolicy();
+async function waitForVite(url, maxAttempts = 30) {
+  const http = require('http');
 
+  for (let i = 0; i < maxAttempts; i++) {
+    const isReady = await new Promise((resolve) => {
+      const req = http.get(url, (res) => {
+        resolve(res.statusCode === 200);
+      });
+      req.on('error', () => resolve(false));
+      req.setTimeout(500, () => {
+        req.destroy();
+        resolve(false);
+      });
+    });
+
+    if (isReady) {
+      console.log('[Electron] Vite dev server ready');
+      return true;
+    }
+
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  console.error('[Electron] Vite dev server not ready after max attempts');
+  return false;
+}
+
+app.whenReady().then(async () => {
+  setupContentSecurityPolicy();
   startBackend();
 
-  // Wait a bit for backend to start before creating window
-  setTimeout(() => {
-    createWindow();
-  }, 500);
+  if (process.env.NODE_ENV === 'development') {
+    await waitForVite('http://localhost:5173');
+  }
+
+  createWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

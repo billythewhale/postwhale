@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { IconSend, IconStar, IconStarFilled, IconDeviceFloppy, IconChevronDown, IconPencil, IconTrash } from '@tabler/icons-react'
-import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Stack, Group, Box, Flex, Divider, useMantineColorScheme, ActionIcon, Menu } from '@mantine/core'
+import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Stack, Group, Flex, Divider, useMantineColorScheme, ActionIcon, Menu } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import type { Endpoint, SavedRequest, EditableRequestConfig } from '@/types'
 import { useFavorites } from '@/contexts/FavoritesContext'

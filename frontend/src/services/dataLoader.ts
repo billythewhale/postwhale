@@ -18,9 +18,11 @@ export async function loadAllData(invoke: InvokeFunction): Promise<LoadedData> {
     return { repositories, services: [], endpoints: [], savedRequests: [], errors }
   }
 
-  const services = await loadServicesForRepos(invoke, repositories, errors)
-  const endpoints = await loadEndpointsForServices(invoke, services, errors)
-  const savedRequests = await loadSavedRequestsForEndpoints(invoke, endpoints, errors)
+  const [services, endpoints, savedRequests] = await Promise.all([
+    loadAllServices(invoke, errors),
+    loadAllEndpoints(invoke, errors),
+    loadAllSavedRequests(invoke, errors),
+  ])
 
   return { repositories, services, endpoints, savedRequests, errors }
 }
@@ -34,61 +36,40 @@ async function loadRepositories(invoke: InvokeFunction, errors: string[]): Promi
   }
 }
 
-async function loadServicesForRepos(
+async function loadAllServices(
   invoke: InvokeFunction,
-  repos: Repository[],
   errors: string[]
 ): Promise<Service[]> {
-  const results = await Promise.allSettled(
-    repos.map(async (repo) => {
-      try {
-        return (await invoke<Service[]>('getServices', { repositoryId: repo.id })) || []
-      } catch (err) {
-        errors.push(formatError(`services for ${repo.path}`, err))
-        return []
-      }
-    })
-  )
-
-  return results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
+  try {
+    return (await invoke<Service[]>('getAllServices')) || []
+  } catch (err) {
+    errors.push(formatError('services', err))
+    return []
+  }
 }
 
-async function loadEndpointsForServices(
+async function loadAllEndpoints(
   invoke: InvokeFunction,
-  services: Service[],
   errors: string[]
 ): Promise<Endpoint[]> {
-  const results = await Promise.allSettled(
-    services.map(async (service) => {
-      try {
-        return (await invoke<Endpoint[]>('getEndpoints', { serviceId: service.id })) || []
-      } catch (err) {
-        errors.push(formatError(`endpoints for ${service.name}`, err))
-        return []
-      }
-    })
-  )
-
-  return results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
+  try {
+    return (await invoke<Endpoint[]>('getAllEndpoints')) || []
+  } catch (err) {
+    errors.push(formatError('endpoints', err))
+    return []
+  }
 }
 
-async function loadSavedRequestsForEndpoints(
+async function loadAllSavedRequests(
   invoke: InvokeFunction,
-  endpoints: Endpoint[],
   errors: string[]
 ): Promise<SavedRequest[]> {
-  const results = await Promise.allSettled(
-    endpoints.map(async (endpoint) => {
-      try {
-        return (await invoke<SavedRequest[]>('getSavedRequests', { endpointId: endpoint.id })) || []
-      } catch (err) {
-        errors.push(formatError(`saved requests for ${endpoint.path}`, err))
-        return []
-      }
-    })
-  )
-
-  return results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
+  try {
+    return (await invoke<SavedRequest[]>('getAllSavedRequests')) || []
+  } catch (err) {
+    errors.push(formatError('saved requests', err))
+    return []
+  }
 }
 
 function formatError(context: string, err: unknown): string {

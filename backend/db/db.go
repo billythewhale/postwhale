@@ -249,6 +249,32 @@ func GetServicesByRepo(db *sql.DB, repoID int64) ([]Service, error) {
 	return services, nil
 }
 
+// GetAllServices retrieves all services from the database
+func GetAllServices(db *sql.DB) ([]Service, error) {
+	rows, err := db.Query(
+		"SELECT id, repo_id, service_id, name, port, config_json FROM services ORDER BY name",
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	services := []Service{}
+	for rows.Next() {
+		var svc Service
+		if err := rows.Scan(&svc.ID, &svc.RepoID, &svc.ServiceID, &svc.Name, &svc.Port, &svc.ConfigJSON); err != nil {
+			return nil, err
+		}
+		services = append(services, svc)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return services, nil
+}
+
 // AddEndpoint adds a new endpoint to the database
 func AddEndpoint(db *sql.DB, endpoint Endpoint) (int64, error) {
 	// Validate inputs
@@ -306,6 +332,32 @@ func GetEndpointsByService(db *sql.DB, serviceID int64) ([]Endpoint, error) {
 	}
 
 	// Check for errors during iteration
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return endpoints, nil
+}
+
+// GetAllEndpoints retrieves all endpoints from the database
+func GetAllEndpoints(db *sql.DB) ([]Endpoint, error) {
+	rows, err := db.Query(
+		"SELECT id, service_id, method, path, operation_id, spec_json FROM endpoints ORDER BY path, method",
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	endpoints := []Endpoint{}
+	for rows.Next() {
+		var ep Endpoint
+		if err := rows.Scan(&ep.ID, &ep.ServiceID, &ep.Method, &ep.Path, &ep.OperationID, &ep.SpecJSON); err != nil {
+			return nil, err
+		}
+		endpoints = append(endpoints, ep)
+	}
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -442,4 +494,32 @@ func DeleteSavedRequest(db *sql.DB, id int64) error {
 
 	_, err := db.Exec("DELETE FROM saved_requests WHERE id = ?", id)
 	return err
+}
+
+// GetAllSavedRequests retrieves all saved requests from the database
+func GetAllSavedRequests(db *sql.DB) ([]SavedRequest, error) {
+	rows, err := db.Query(
+		`SELECT id, endpoint_id, name, path_params_json, query_params_json, headers_json, body, created_at
+		FROM saved_requests
+		ORDER BY created_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	savedRequests := []SavedRequest{}
+	for rows.Next() {
+		var req SavedRequest
+		if err := rows.Scan(&req.ID, &req.EndpointID, &req.Name, &req.PathParamsJSON, &req.QueryParamsJSON, &req.HeadersJSON, &req.Body, &req.CreatedAt); err != nil {
+			return nil, err
+		}
+		savedRequests = append(savedRequests, req)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return savedRequests, nil
 }

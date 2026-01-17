@@ -1,4 +1,4 @@
-import { IconMoon, IconSun, IconSettings, IconAlertCircle, IconX } from "@tabler/icons-react"
+import { IconMoon, IconSun, IconSettings, IconAlertCircle, IconX, IconTrash } from "@tabler/icons-react"
 import { Group, ActionIcon, Select, Box, Text, useMantineColorScheme, Indicator, Modal, Stack, ScrollArea, Paper, Badge } from "@mantine/core"
 import { useState } from "react"
 import type { Environment } from "@/types"
@@ -179,7 +179,7 @@ export function Header({ environment, onEnvironmentChange }: HeaderProps) {
                   size="sm"
                   title="Clear all errors"
                 >
-                  Clear All
+                  <IconTrash size={14} />
                 </ActionIcon>
               </Group>
 
