@@ -38,9 +38,9 @@ Terminology: The main app window is broken up like so:
 - [x] B4: When selecting a request in the sidebar, the endpoint the request belongs to SHOULD NOT also be active. Requests are nodes nested under endpoints. EITHER an endpoint (i.e. its anonymous request) OR a request can be active at a time. (01/15/2026)
 - [x] B5: When filtering by search term, any children of a node that matches the search should be displayed. So if my search matches a service name, all the endpoints of that service should still be visible, regardless of whether they match or not. (01/16/2026)
 - [x] B6: When the name of a Saved Request is very long, the little icon next to the saved request on the sidebar is far too tiny to be visible, needs to always be the same size (01/16/2026)
-- [ ] B7: When switching from one node to another:
-  - [ ] Changes to the current config are saved to state (fine, FOR THAT REQUEST/ENDPOINT)
-  - [ ] Changes are ported to the newly active node (THIS IS BAD, MUST FIX)
+- [*] B7: When switching from one node to another:
+  - [*] Changes to the current config are saved to state (fine, FOR THAT REQUEST/ENDPOINT)
+  - [*] Changes are ported to the newly active node (THIS IS BAD, MUST FIX)
   - Understand this context:
     - 1. I select an endpoint node
     - 2. I add a new Query Param
@@ -49,8 +49,9 @@ Terminology: The main app window is broken up like so:
       - I notice that the "modified" dot appears next to the Saved Request: BAD (I didn't modify this one, I modified the AnonymousRequest on the endpoint node)
     - 4. I select the endpoint node again
       - Now my new Query Param should be visible and active again
-- [ ] B8: The "modified" dot is the same color as as active node highlight, so it's not visible on the active node. Should be a different color on all nodes, like a golden color
-- [ ] B9: The "modified" dot does not appear next to an endpoint node when I modified the query params (or any part of the config)
+  - Fix: Added configLoadedForRef to ensure modified check only runs after config is loaded for the correct node (01/16/2026)
+- [*] B8: The "modified" dot is the same color as as active node highlight, so it's not visible on the active node. Should be a different color on all nodes, like a golden color (01/16/2026)
+- [*] B9: The "modified" dot does not appear next to an endpoint node when I modified the query params (or any part of the config) (01/16/2026)
 
 
 ## TASKS

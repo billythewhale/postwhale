@@ -42,6 +42,7 @@ interface SidebarProps {
   endpoints: Endpoint[]
   savedRequests: SavedRequest[]
   modifiedSavedRequests: Set<number>
+  modifiedEndpoints: Set<number>
   selectedEndpoint: Endpoint | null
   selectedSavedRequest: SavedRequest | null
   onSelectEndpoint: (endpoint: Endpoint) => void
@@ -62,6 +63,7 @@ export function Sidebar({
   endpoints,
   savedRequests,
   modifiedSavedRequests,
+  modifiedEndpoints,
   selectedEndpoint,
   selectedSavedRequest,
   onSelectEndpoint,
@@ -481,6 +483,7 @@ export function Sidebar({
                                       const isSelected = selectedEndpoint?.id === endpoint.id && selectedSavedRequest === null
                                       const isEndpointFavorite = isFavorite('endpoints', endpoint.id)
                                       const isEndpointHovered = hoveredEndpointId === endpoint.id
+                                      const isEndpointModified = modifiedEndpoints.has(endpoint.id)
                                       const endpointSavedRequests = savedRequests.filter(
                                         (sr) => sr.endpointId === endpoint.id
                                       )
@@ -572,6 +575,19 @@ export function Sidebar({
                                                   whiteSpace: 'nowrap',
                                                 }}
                                               />
+                                              {isEndpointModified && (
+                                                <Box
+                                                  style={{
+                                                    width: 6,
+                                                    height: 6,
+                                                    borderRadius: '50%',
+                                                    backgroundColor: 'var(--mantine-color-yellow-6)',
+                                                    flexShrink: 0,
+                                                    marginLeft: 4,
+                                                  }}
+                                                  title="Unsaved changes"
+                                                />
+                                              )}
                                             </Box>
                                           </Group>
 
@@ -643,7 +659,7 @@ export function Sidebar({
                                                                 width: 6,
                                                                 height: 6,
                                                                 borderRadius: '50%',
-                                                                backgroundColor: 'var(--mantine-color-blue-6)',
+                                                                backgroundColor: 'var(--mantine-color-yellow-6)',
                                                                 flexShrink: 0,
                                                                 marginLeft: 4,
                                                               }}

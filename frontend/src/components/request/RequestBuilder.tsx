@@ -24,6 +24,7 @@ interface RequestBuilderProps {
   onUpdateRequest: (savedRequest: SavedRequest) => void
   onDeleteRequest: (id: number) => void
   onModifiedStateChange?: (savedRequestId: number, isModified: boolean) => void
+  onEndpointModifiedStateChange?: (endpointId: number, isModified: boolean) => void
   isLoading: boolean
   isSaving: boolean
 }
@@ -39,6 +40,7 @@ export function RequestBuilder({
   onUpdateRequest,
   onDeleteRequest,
   onModifiedStateChange,
+  onEndpointModifiedStateChange,
   isLoading,
   isSaving,
 }: RequestBuilderProps) {
@@ -61,6 +63,8 @@ export function RequestBuilder({
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const originalSavedRequestConfigRef = useRef<RequestConfig | null>(null)
+  const prevEndpointIdRef = useRef<number | null>(null)
+  const prevSavedRequestIdRef = useRef<number | null>(null)
 
   const currentConfig: RequestConfig = useMemo(() => ({
     pathParams,
@@ -78,14 +82,33 @@ export function RequestBuilder({
   )
 
   useEffect(() => {
-    if (!selectedSavedRequest || !originalSavedRequestConfigRef.current || !onModifiedStateChange) return
-
-    const isModified = !compareConfigs(currentConfig, originalSavedRequestConfigRef.current)
-    onModifiedStateChange(selectedSavedRequest.id, isModified)
-  }, [selectedSavedRequest, currentConfig, onModifiedStateChange])
-
-  useEffect(() => {
     if (!endpoint) return
+
+    const currentEndpointId = endpoint.id
+    const currentSavedRequestId = selectedSavedRequest?.id || null
+    const prevEndpointId = prevEndpointIdRef.current
+    const prevSavedRequestId = prevSavedRequestIdRef.current
+
+    const selectionChanged = prevEndpointId !== currentEndpointId || prevSavedRequestId !== currentSavedRequestId
+
+    if (selectionChanged && prevEndpointId !== null) {
+      if (prevSavedRequestId !== null && originalSavedRequestConfigRef.current && onModifiedStateChange) {
+        const wasModified = !compareConfigs(currentConfig, originalSavedRequestConfigRef.current)
+        onModifiedStateChange(prevSavedRequestId, wasModified)
+      } else if (prevSavedRequestId === null && onEndpointModifiedStateChange) {
+        const defaultConfig: RequestConfig = {
+          pathParams: {},
+          queryParams: [],
+          headers: [{ key: "Content-Type", value: "application/json", enabled: true }],
+          body: '',
+        }
+        const wasModified = !compareConfigs(currentConfig, defaultConfig)
+        onEndpointModifiedStateChange(prevEndpointId, wasModified)
+      }
+    }
+
+    prevEndpointIdRef.current = currentEndpointId
+    prevSavedRequestIdRef.current = currentSavedRequestId
 
     let isCurrentLoad = true
 
@@ -151,17 +174,12 @@ export function RequestBuilder({
 
       if (!isCurrentLoad) return
 
-      if (localStorageConfig) {
-        setPathParams(localStorageConfig.pathParams)
-        setQueryParams(localStorageConfig.queryParams)
-        setHeaders(localStorageConfig.headers)
-        setBody(localStorageConfig.body)
-      } else {
-        setPathParams(databaseConfig.pathParams)
-        setQueryParams(databaseConfig.queryParams)
-        setHeaders(databaseConfig.headers)
-        setBody(databaseConfig.body)
-      }
+      const configToLoad = localStorageConfig || databaseConfig
+
+      setPathParams(configToLoad.pathParams)
+      setQueryParams(configToLoad.queryParams)
+      setHeaders(configToLoad.headers)
+      setBody(configToLoad.body)
     } else {
       setRequestName("New Request")
       originalSavedRequestConfigRef.current = null
@@ -176,25 +194,53 @@ export function RequestBuilder({
         setHeaders(storedConfig.headers)
         setBody(storedConfig.body)
       } else {
-        setHeaders([{ key: "Content-Type", value: "application/json", enabled: true }])
-        setBody("")
-        setPathParams({})
-
-        if (endpoint?.spec?.parameters) {
-          const specQueryParams = endpoint.spec.parameters
-            .filter((p) => p.in === "query")
-            .map((p) => ({ key: p.name, value: "", enabled: true }))
-          setQueryParams(specQueryParams)
-        } else {
-          setQueryParams([])
+        const defaultConfig: RequestConfig = {
+          pathParams: {},
+          queryParams: endpoint.spec?.parameters
+            ?.filter((p) => p.in === "query")
+            .map((p) => ({ key: p.name, value: "", enabled: true })) || [],
+          headers: [{ key: "Content-Type", value: "application/json", enabled: true }],
+          body: '',
         }
+        setPathParams(defaultConfig.pathParams)
+        setQueryParams(defaultConfig.queryParams)
+        setHeaders(defaultConfig.headers)
+        setBody(defaultConfig.body)
       }
     }
 
     return () => {
       isCurrentLoad = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSavedRequest, endpoint, loadConfig])
+
+  useEffect(() => {
+    if (!endpoint) return
+
+    const currentEndpointId = endpoint.id
+    const currentSavedRequestId = selectedSavedRequest?.id || null
+
+    if (prevEndpointIdRef.current !== currentEndpointId || prevSavedRequestIdRef.current !== currentSavedRequestId) {
+      return
+    }
+
+    if (selectedSavedRequest && originalSavedRequestConfigRef.current && onModifiedStateChange) {
+      const isModified = !compareConfigs(currentConfig, originalSavedRequestConfigRef.current)
+      onModifiedStateChange(selectedSavedRequest.id, isModified)
+    } else if (!selectedSavedRequest && onEndpointModifiedStateChange) {
+      const defaultConfig: RequestConfig = {
+        pathParams: {},
+        queryParams: endpoint.spec?.parameters
+          ?.filter((p) => p.in === "query")
+          .map((p) => ({ key: p.name, value: "", enabled: true })) || [],
+        headers: [{ key: "Content-Type", value: "application/json", enabled: true }],
+        body: '',
+      }
+      const isModified = !compareConfigs(currentConfig, defaultConfig)
+      onEndpointModifiedStateChange(endpoint.id, isModified)
+    }
+  }, [currentConfig, selectedSavedRequest, endpoint, onModifiedStateChange, onEndpointModifiedStateChange])
 
   if (!endpoint) {
     return (
