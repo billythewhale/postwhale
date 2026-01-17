@@ -1,46 +1,40 @@
-import { useState, useEffect, useRef, useMemo } from "react"
-import { IconSend, IconX, IconStar, IconStarFilled, IconPlus, IconDeviceFloppy, IconChevronDown, IconPencil, IconTrash } from "@tabler/icons-react"
-import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Textarea, Stack, Group, Box, Divider, useMantineColorScheme, ActionIcon, Switch, Menu, Modal } from "@mantine/core"
+import { useState, useRef } from 'react'
+import { IconSend, IconStar, IconStarFilled, IconDeviceFloppy, IconChevronDown, IconPencil, IconTrash } from '@tabler/icons-react'
+import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Stack, Group, Box, Flex, Divider, useMantineColorScheme, ActionIcon, Menu } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import type { Endpoint, Environment, SavedRequest } from "@/types"
-import { useFavorites } from "@/contexts/FavoritesContext"
-import { useGlobalHeaders } from "@/contexts/GlobalHeadersContext"
-import { useShop } from "@/contexts/ShopContext"
-import { useRequestConfig, type RequestConfig, compareConfigs } from "@/hooks/useRequestConfig"
+import type { Endpoint, SavedRequest, EditableRequestConfig } from '@/types'
+import { useFavorites } from '@/contexts/FavoritesContext'
+import { useGlobalHeaders } from '@/contexts/GlobalHeadersContext'
+import { useShop } from '@/contexts/ShopContext'
+import { getMethodColor } from '@/utils/http'
+import { PathParamsPanel } from './PathParamsPanel'
+import { HeadersPanel } from './HeadersPanel'
+import { QueryParamsPanel } from './QueryParamsPanel'
+import { BodyPanel } from './BodyPanel'
+import { DeleteConfirmModal } from './DeleteConfirmModal'
 
 interface RequestBuilderProps {
   endpoint: Endpoint | null
-  selectedSavedRequest: SavedRequest | null
+  config: EditableRequestConfig | null
   savedRequests: SavedRequest[]
-  environment: Environment
-  onSend: (config: {
-    method: string
-    path: string
-    headers: Record<string, string>
-    body: string
-  }) => void
+  onConfigChange: (config: EditableRequestConfig) => void
+  onSaveAsNew: (name: string) => void
+  onDeleteSavedRequest?: (id: number) => void
+  onSend: (config: { method: string; path: string; headers: Record<string, string>; body: string }) => void
   onCancel: () => void
-  onSaveRequest: (savedRequest: Omit<SavedRequest, 'id' | 'createdAt'>) => void
-  onUpdateRequest: (savedRequest: SavedRequest) => void
-  onDeleteRequest: (id: number) => void
-  onModifiedStateChange?: (savedRequestId: number, isModified: boolean) => void
-  onEndpointModifiedStateChange?: (endpointId: number, isModified: boolean) => void
   isLoading: boolean
   isSaving: boolean
 }
 
 export function RequestBuilder({
   endpoint,
-  selectedSavedRequest,
+  config,
   savedRequests,
-  environment: _environment,
+  onConfigChange,
+  onSaveAsNew,
+  onDeleteSavedRequest,
   onSend,
   onCancel,
-  onSaveRequest,
-  onUpdateRequest,
-  onDeleteRequest,
-  onModifiedStateChange,
-  onEndpointModifiedStateChange,
   isLoading,
   isSaving,
 }: RequestBuilderProps) {
@@ -50,400 +44,30 @@ export function RequestBuilder({
   const { getEnabledGlobalHeaders } = useGlobalHeaders()
   const { getShopHeader } = useShop()
 
-  const [headers, setHeaders] = useState<Array<{ key: string; value: string; enabled: boolean }>>([
-    { key: "Content-Type", value: "application/json", enabled: true },
-  ])
-  const [body, setBody] = useState("")
-  const [pathParams, setPathParams] = useState<Record<string, string>>({})
-  const [queryParams, setQueryParams] = useState<Array<{ key: string; value: string; enabled: boolean }>>([])
-  const [requestName, setRequestName] = useState("New Request")
   const [isEditingName, setIsEditingName] = useState(false)
+  const [editingName, setEditingName] = useState('')
   const [nameError, setNameError] = useState<string | null>(null)
   const [isHoveringName, setIsHoveringName] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [originalConfig, setOriginalConfig] = useState<RequestConfig | null>(null)
-  const [loadedEntityKey, setLoadedEntityKey] = useState<string | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
-  const currentConfig: RequestConfig = useMemo(() => ({
-    pathParams,
-    queryParams,
-    headers,
-    body,
-  }), [pathParams, queryParams, headers, body])
-
-  const currentEntityKey = selectedSavedRequest
-    ? `saved:${selectedSavedRequest.id}`
-    : endpoint
-      ? `endpoint:${endpoint.id}`
-      : null
-
-  const configId = selectedSavedRequest ? selectedSavedRequest.id : endpoint?.id || null
-
-  const { loadConfig } = useRequestConfig(
-    configId,
-    currentConfig,
-    !!selectedSavedRequest,
-    loadedEntityKey,
-    currentEntityKey
-  )
-
-  useEffect(() => {
-    if (!endpoint) return
-    if (currentEntityKey === loadedEntityKey) return
-
-    let cancelled = false
-
-    if (selectedSavedRequest) {
-      setRequestName(selectedSavedRequest.name)
-
-      const databaseConfig: RequestConfig = {
-        pathParams: {},
-        queryParams: [],
-        headers: [{ key: "Content-Type", value: "application/json", enabled: true }],
-        body: '',
-      }
-
-      try {
-        if (selectedSavedRequest.pathParamsJson) {
-          databaseConfig.pathParams = JSON.parse(selectedSavedRequest.pathParamsJson)
-        }
-      } catch (err) {
-        console.error('Failed to parse path params:', err)
-        notifications.show({
-          title: 'Failed to load path parameters',
-          message: `Could not restore path parameters for "${selectedSavedRequest.name}". The saved data may be corrupted.`,
-          color: 'red',
-          autoClose: 7000,
-        })
-      }
-
-      try {
-        if (selectedSavedRequest.queryParamsJson) {
-          databaseConfig.queryParams = JSON.parse(selectedSavedRequest.queryParamsJson)
-        }
-      } catch (err) {
-        console.error('Failed to parse query params:', err)
-        notifications.show({
-          title: 'Failed to load query parameters',
-          message: `Could not restore query parameters for "${selectedSavedRequest.name}". The saved data may be corrupted.`,
-          color: 'red',
-          autoClose: 7000,
-        })
-      }
-
-      try {
-        if (selectedSavedRequest.headersJson) {
-          databaseConfig.headers = JSON.parse(selectedSavedRequest.headersJson)
-        }
-      } catch (err) {
-        console.error('Failed to parse headers:', err)
-        notifications.show({
-          title: 'Failed to load headers',
-          message: `Could not restore headers for "${selectedSavedRequest.name}". The saved data may be corrupted.`,
-          color: 'red',
-          autoClose: 7000,
-        })
-      }
-
-      if (selectedSavedRequest.body) {
-        databaseConfig.body = selectedSavedRequest.body
-      }
-
-      const localStorageConfig = loadConfig(selectedSavedRequest.id, true)
-
-      if (cancelled) return
-
-      const configToLoad = localStorageConfig || databaseConfig
-
-      setOriginalConfig(databaseConfig)
-      setPathParams(configToLoad.pathParams)
-      setQueryParams(configToLoad.queryParams)
-      setHeaders(configToLoad.headers)
-      setBody(configToLoad.body)
-      setLoadedEntityKey(`saved:${selectedSavedRequest.id}`)
-    } else {
-      setRequestName("New Request")
-
-      const defaultConfig: RequestConfig = {
-        pathParams: {},
-        queryParams: endpoint.spec?.parameters
-          ?.filter((p) => p.in === "query")
-          .map((p) => ({ key: p.name, value: "", enabled: true })) || [],
-        headers: [{ key: "Content-Type", value: "application/json", enabled: true }],
-        body: '',
-      }
-
-      const storedConfig = loadConfig(endpoint.id, false)
-
-      if (cancelled) return
-
-      setOriginalConfig(defaultConfig)
-
-      if (storedConfig) {
-        setPathParams(storedConfig.pathParams)
-        setQueryParams(storedConfig.queryParams)
-        setHeaders(storedConfig.headers)
-        setBody(storedConfig.body)
-      } else {
-        setPathParams(defaultConfig.pathParams)
-        setQueryParams(defaultConfig.queryParams)
-        setHeaders(defaultConfig.headers)
-        setBody(defaultConfig.body)
-      }
-      setLoadedEntityKey(`endpoint:${endpoint.id}`)
-    }
-
-    return () => {
-      cancelled = true
-    }
-  }, [currentEntityKey, loadedEntityKey, selectedSavedRequest, endpoint, loadConfig])
-
-  useEffect(() => {
-    if (!endpoint || !originalConfig || !loadedEntityKey) return
-    if (currentEntityKey !== loadedEntityKey) return
-
-    const isModified = !compareConfigs(currentConfig, originalConfig)
-
-    if (selectedSavedRequest && onModifiedStateChange) {
-      onModifiedStateChange(selectedSavedRequest.id, isModified)
-    } else if (!selectedSavedRequest && onEndpointModifiedStateChange) {
-      onEndpointModifiedStateChange(endpoint.id, isModified)
-    }
-  }, [currentConfig, originalConfig, currentEntityKey, loadedEntityKey, endpoint, selectedSavedRequest, onModifiedStateChange, onEndpointModifiedStateChange])
-
-  if (!endpoint) {
+  if (!endpoint || !config) {
     return (
-      <Box style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Flex style={{ flex: 1 }} align="center" justify="center">
         <Stack align="center" gap="xs">
           <Text size="lg" c="dimmed">Select an endpoint to get started</Text>
           <Text size="sm" c="dimmed">Choose a service and endpoint from the sidebar</Text>
         </Stack>
-      </Box>
+      </Flex>
     )
   }
 
-  const getMethodColor = (method: string): string => {
-    const colors: Record<string, string> = {
-      GET: "teal",
-      POST: "blue",
-      PUT: "orange",
-      PATCH: "yellow",
-      DELETE: "red",
-    }
-    return colors[method] || "gray"
-  }
-
-  const addHeader = () => {
-    setHeaders([...headers, { key: "", value: "", enabled: true }])
-  }
-
-  const updateHeader = (index: number, field: "key" | "value" | "enabled", value: string | boolean) => {
-    const newHeaders = [...headers]
-    if (field === "enabled") {
-      newHeaders[index][field] = value as boolean
-    } else {
-      newHeaders[index][field] = value as string
-    }
-    setHeaders(newHeaders)
-  }
-
-  const removeHeader = (index: number) => {
-    setHeaders(headers.filter((_, i) => i !== index))
-  }
-
-  const addQueryParam = () => {
-    setQueryParams([...queryParams, { key: "", value: "", enabled: true }])
-  }
-
-  const updateQueryParam = (index: number, field: "key" | "value" | "enabled", value: string | boolean) => {
-    const newQueryParams = [...queryParams]
-    if (field === "enabled") {
-      newQueryParams[index][field] = value as boolean
-    } else {
-      newQueryParams[index][field] = value as string
-    }
-    setQueryParams(newQueryParams)
-  }
-
-  const removeQueryParam = (index: number) => {
-    setQueryParams(queryParams.filter((_, i) => i !== index))
-  }
-
-  const handleSaveAsNew = () => {
-    if (!endpoint) return
-
-    const trimmedName = requestName.trim()
-
-    if (!trimmedName || trimmedName === 'New Request') {
-      setNameError('Name is required')
-      setIsEditingName(true)
-      setTimeout(() => {
-        nameInputRef.current?.focus()
-      }, 0)
-      return
-    }
-
-    // Check for duplicate names under the same endpoint
-    const duplicate = savedRequests.find(
-      (sr) => sr.endpointId === endpoint.id && sr.name === trimmedName
-    )
-    if (duplicate) {
-      setNameError(`A request called "${trimmedName}" already exists`)
-      setIsEditingName(true)
-      setTimeout(() => {
-        nameInputRef.current?.focus()
-      }, 0)
-      return
-    }
-
-    const savedRequest = {
-      endpointId: endpoint.id,
-      name: trimmedName,
-      pathParamsJson: JSON.stringify(pathParams),
-      queryParamsJson: JSON.stringify(queryParams),
-      headersJson: JSON.stringify(headers),
-      body,
-    }
-
-    onSaveRequest(savedRequest)
-    setNameError(null)
-
-    if (selectedSavedRequest && originalConfig) {
-      setPathParams(originalConfig.pathParams)
-      setQueryParams(originalConfig.queryParams)
-      setHeaders(originalConfig.headers)
-      setBody(originalConfig.body)
-      setRequestName(selectedSavedRequest.name)
-    }
-  }
-
-  const handleUpdate = () => {
-    if (!endpoint || !selectedSavedRequest) return
-
-    const trimmedName = requestName.trim()
-
-    if (!trimmedName || trimmedName === 'New Request') {
-      setNameError('Name is required')
-      setIsEditingName(true)
-      setTimeout(() => {
-        nameInputRef.current?.focus()
-      }, 0)
-      return
-    }
-
-    const duplicate = savedRequests.find(
-      (sr) => sr.endpointId === endpoint.id && sr.name === trimmedName && sr.id !== selectedSavedRequest.id
-    )
-    if (duplicate) {
-      setNameError(`A request called "${trimmedName}" already exists`)
-      setIsEditingName(true)
-      setTimeout(() => {
-        nameInputRef.current?.focus()
-      }, 0)
-      return
-    }
-
-    const updatedRequest: SavedRequest = {
-      ...selectedSavedRequest,
-      name: trimmedName,
-      pathParamsJson: JSON.stringify(pathParams),
-      queryParamsJson: JSON.stringify(queryParams),
-      headersJson: JSON.stringify(headers),
-      body,
-    }
-
-    onUpdateRequest(updatedRequest)
-    setNameError(null)
-  }
-
-  const handleSend = () => {
-    const headersObj: Record<string, string> = {}
-    const shopHeader = getShopHeader()
-    Object.assign(headersObj, shopHeader)
-
-    const globalHeaders = getEnabledGlobalHeaders()
-    globalHeaders.forEach((h) => {
-      headersObj[h.key] = h.value
-    })
-
-    headers.forEach((h) => {
-      if (h.enabled && h.key && h.value) {
-        headersObj[h.key] = h.value
-      }
-    })
-
-    let finalPath = endpoint.path
-
-    const missingParams: string[] = []
-    const invalidParams: string[] = []
-
-    Object.entries(pathParams).forEach(([key, value]) => {
-      if (!value || !value.trim()) {
-        missingParams.push(key)
-        return
-      }
-
-      if (value.includes('../') || value.includes('..\\')) {
-        invalidParams.push(key)
-        console.error(`Invalid path parameter value: ${value}`)
-        return
-      }
-
-      const encodedValue = encodeURIComponent(value)
-      finalPath = finalPath.replace(`{${key}}`, encodedValue)
-    })
-
-    pathParamNames.forEach((param) => {
-      if (!pathParams[param] || !pathParams[param].trim()) {
-        if (!missingParams.includes(param)) {
-          missingParams.push(param)
-        }
-      }
-    })
-
-    if (missingParams.length > 0) {
-      notifications.show({
-        title: 'Missing path parameters',
-        message: `Required path parameters: ${missingParams.join(', ')}`,
-        color: 'red',
-        autoClose: 5000,
-      })
-      return
-    }
-
-    if (invalidParams.length > 0) {
-      notifications.show({
-        title: 'Invalid path parameters',
-        message: `Path parameters contain invalid characters (../ or ..\\): ${invalidParams.join(', ')}`,
-        color: 'red',
-        autoClose: 5000,
-      })
-      return
-    }
-
-    const queryString = queryParams
-      .filter((q) => q.enabled && q.key && q.value)
-      .map((q) => `${encodeURIComponent(q.key)}=${encodeURIComponent(q.value)}`)
-      .join("&")
-
-    if (queryString) {
-      const separator = finalPath.includes('?') ? '&' : '?'
-      finalPath += `${separator}${queryString}`
-    }
-
-    onSend({
-      method: endpoint.method,
-      path: finalPath,
-      headers: headersObj,
-      body: body,
-    })
-  }
-
-  const pathParamNames = endpoint.path.match(/\{([^}]+)\}/g)?.map((p) => p.slice(1, -1)) || []
+  const displayName = config.name ?? 'New Request'
+  const isSavedRequest = config.name !== null
+  const pathParamNames = extractPathParams(endpoint.path)
 
   return (
-    <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+    <Flex style={{ flex: 1 }} direction="column">
       <Paper
         shadow="sm"
         p="lg"
@@ -452,7 +76,7 @@ export function RequestBuilder({
         style={{
           boxShadow: isDark
             ? '0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08)'
-            : undefined
+            : undefined,
         }}
       >
         <Stack gap="md">
@@ -470,11 +94,7 @@ export function RequestBuilder({
                 <IconStar size={20} style={{ color: isDark ? '#888' : '#0C70F2' }} />
               )}
             </ActionIcon>
-            <Badge
-              color={getMethodColor(endpoint.method)}
-              size="lg"
-              variant="filled"
-            >
+            <Badge color={getMethodColor(endpoint.method)} size="lg" variant="filled">
               {endpoint.method}
             </Badge>
             <Title order={3} style={{ fontFamily: 'monospace' }}>
@@ -493,18 +113,14 @@ export function RequestBuilder({
               {isEditingName ? (
                 <TextInput
                   ref={nameInputRef}
-                  value={requestName}
+                  value={editingName}
                   onChange={(e) => {
-                    setRequestName(e.currentTarget.value)
+                    setEditingName(e.currentTarget.value)
                     setNameError(null)
                   }}
-                  onBlur={() => setIsEditingName(false)}
+                  onBlur={finishEditingName}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      setIsEditingName(false)
-                    } else if (e.key === 'Escape') {
-                      setIsEditingName(false)
-                    }
+                    if (e.key === 'Enter' || e.key === 'Escape') finishEditingName()
                   }}
                   error={nameError || undefined}
                   autoFocus
@@ -517,30 +133,23 @@ export function RequestBuilder({
                     size="md"
                     fw={500}
                     style={{ cursor: 'pointer' }}
-                    onClick={() => setIsEditingName(true)}
+                    onClick={startEditingName}
                     c={nameError ? 'red' : undefined}
                   >
-                    {requestName}
+                    {displayName}
                   </Text>
                   {isHoveringName && (
                     <>
-                      <ActionIcon
-                        size="sm"
-                        variant="subtle"
-                        onClick={() => setIsEditingName(true)}
-                        title="Rename request"
-                        aria-label="Rename request"
-                      >
+                      <ActionIcon size="sm" variant="subtle" onClick={startEditingName} title="Rename request">
                         <IconPencil size={14} />
                       </ActionIcon>
-                      {selectedSavedRequest && (
+                      {isSavedRequest && (
                         <ActionIcon
                           size="sm"
                           variant="subtle"
                           color="red"
                           onClick={() => setShowDeleteModal(true)}
                           title="Delete saved request"
-                          aria-label="Delete saved request"
                         >
                           <IconTrash size={14} />
                         </ActionIcon>
@@ -567,141 +176,39 @@ export function RequestBuilder({
             </Tabs.List>
 
             <Tabs.Panel value="params" pt="md">
-              <Stack gap="md">
-                {pathParamNames.length > 0 ? (
-                  <Stack gap="xs">
-                    {pathParamNames.map((param) => (
-                      <Group key={param} gap="sm" align="center">
-                        <Text
-                          size="sm"
-                          ff="monospace"
-                          w={128}
-                        >
-                          {param}
-                        </Text>
-                        <TextInput
-                          placeholder={`Enter ${param}`}
-                          value={pathParams[param] || ""}
-                          onChange={(e) =>
-                            setPathParams({ ...pathParams, [param]: e.currentTarget.value })
-                          }
-                          flex={1}
-                        />
-                      </Group>
-                    ))}
-                  </Stack>
-                ) : (
-                  <Text size="sm" c="dimmed">No path parameters required</Text>
-                )}
-              </Stack>
+              <PathParamsPanel
+                paramNames={pathParamNames}
+                values={config.pathParams}
+                onChange={(key, value) => updateConfig({ pathParams: { ...config.pathParams, [key]: value } })}
+              />
             </Tabs.Panel>
 
             <Tabs.Panel value="headers" pt="md">
-              <Stack gap="xs">
-                {headers.map((header, index) => (
-                  <Group key={index} gap="xs" wrap="nowrap" align="center">
-                    <TextInput
-                      placeholder="Header key"
-                      value={header.key}
-                      onChange={(e) => updateHeader(index, "key", e.currentTarget.value)}
-                      flex={1}
-                    />
-                    <TextInput
-                      placeholder="Header value"
-                      value={header.value}
-                      onChange={(e) => updateHeader(index, "value", e.currentTarget.value)}
-                      flex={1}
-                    />
-                    <Switch
-                      checked={header.enabled}
-                      onChange={(e) => updateHeader(index, "enabled", e.currentTarget.checked)}
-                      aria-label="Enable header"
-                    />
-                    <Button
-                      variant="subtle"
-                      color="red"
-                      size="sm"
-                      onClick={() => removeHeader(index)}
-                    >
-                      <IconX size={16} />
-                    </Button>
-                  </Group>
-                ))}
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={addHeader}
-                  leftSection={<IconPlus size={16} />}
-                  style={{ alignSelf: 'flex-start' }}
-                >
-                  Add
-                </Button>
-              </Stack>
+              <HeadersPanel
+                headers={config.headers}
+                onUpdate={handleUpdateHeader}
+                onAdd={() => updateConfig({ headers: [...config.headers, { key: '', value: '', enabled: true }] })}
+                onRemove={(i) => updateConfig({ headers: config.headers.filter((_, idx) => idx !== i) })}
+              />
             </Tabs.Panel>
 
             <Tabs.Panel value="query" pt="md">
-              <Stack gap="xs">
-                {queryParams.map((query, index) => (
-                  <Group key={index} gap="xs" wrap="nowrap" align="center">
-                    <TextInput
-                      placeholder="Query param key"
-                      value={query.key}
-                      onChange={(e) => updateQueryParam(index, "key", e.currentTarget.value)}
-                      flex={1}
-                    />
-                    <TextInput
-                      placeholder="Query param value"
-                      value={query.value}
-                      onChange={(e) => updateQueryParam(index, "value", e.currentTarget.value)}
-                      flex={1}
-                    />
-                    <Switch
-                      checked={query.enabled}
-                      onChange={(e) => updateQueryParam(index, "enabled", e.currentTarget.checked)}
-                      aria-label="Enable query parameter"
-                    />
-                    <Button
-                      variant="subtle"
-                      color="red"
-                      size="sm"
-                      onClick={() => removeQueryParam(index)}
-                    >
-                      <IconX size={16} />
-                    </Button>
-                  </Group>
-                ))}
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={addQueryParam}
-                  leftSection={<IconPlus size={16} />}
-                  style={{ alignSelf: 'flex-start' }}
-                >
-                  Add Query Param
-                </Button>
-              </Stack>
+              <QueryParamsPanel
+                params={config.queryParams}
+                onUpdate={handleUpdateQueryParam}
+                onAdd={() => updateConfig({ queryParams: [...config.queryParams, { key: '', value: '', enabled: true }] })}
+                onRemove={(i) => updateConfig({ queryParams: config.queryParams.filter((_, idx) => idx !== i) })}
+              />
             </Tabs.Panel>
 
             <Tabs.Panel value="body" pt="md">
-              <Textarea
-                placeholder="Request body (JSON)"
-                value={body}
-                onChange={(e) => setBody(e.currentTarget.value)}
-                minRows={12}
-                maxRows={20}
-                styles={{
-                  input: {
-                    fontFamily: 'monospace',
-                  },
-                }}
-              />
+              <BodyPanel body={config.body} onChange={(body) => updateConfig({ body })} />
             </Tabs.Panel>
           </Tabs>
 
           <Divider />
 
           <Group justify="space-between">
-            {/* Left side: Save Request menu */}
             <Menu position="top-start" withinPortal>
               <Menu.Target>
                 <Button
@@ -716,50 +223,24 @@ export function RequestBuilder({
                 </Button>
               </Menu.Target>
               <Menu.Dropdown>
-                <Menu.Item
-                  leftSection={<IconDeviceFloppy size={16} />}
-                  onClick={handleSaveAsNew}
-                >
+                <Menu.Item leftSection={<IconDeviceFloppy size={16} />} onClick={handleSaveAsNew}>
                   Save as New
                 </Menu.Item>
-                {selectedSavedRequest && (
-                  <Menu.Item
-                    leftSection={<IconDeviceFloppy size={16} />}
-                    onClick={handleUpdate}
-                  >
-                    Update
-                  </Menu.Item>
-                )}
               </Menu.Dropdown>
             </Menu>
 
-            {/* Right side: Send/Cancel buttons */}
             <Group gap="sm">
               {isLoading ? (
                 <>
-                  <Button
-                    size="md"
-                    leftSection={<IconSend size={16} />}
-                    loading
-                    disabled
-                  >
+                  <Button size="md" leftSection={<IconSend size={16} />} loading disabled>
                     Sending...
                   </Button>
-                  <Button
-                    onClick={onCancel}
-                    size="md"
-                    variant="outline"
-                    color="red"
-                  >
+                  <Button onClick={onCancel} size="md" variant="outline" color="red">
                     Cancel
                   </Button>
                 </>
               ) : (
-                <Button
-                  onClick={handleSend}
-                  size="md"
-                  leftSection={<IconSend size={16} />}
-                >
+                <Button onClick={handleSend} size="md" leftSection={<IconSend size={16} />}>
                   Send Request
                 </Button>
               )}
@@ -768,38 +249,157 @@ export function RequestBuilder({
         </Stack>
       </Paper>
 
-      {/* Delete Confirmation Modal */}
-      <Modal
+      <DeleteConfirmModal
         opened={showDeleteModal}
+        itemName={displayName}
         onClose={() => setShowDeleteModal(false)}
-        title="Delete Saved Request"
-        centered
-      >
-        <Stack gap="md">
-          <Text size="sm">
-            Are you sure you want to delete "{selectedSavedRequest?.name}"? This action cannot be undone.
-          </Text>
-          <Group justify="flex-end" gap="sm">
-            <Button
-              variant="default"
-              onClick={() => setShowDeleteModal(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              color="red"
-              onClick={() => {
-                if (selectedSavedRequest) {
-                  onDeleteRequest(selectedSavedRequest.id)
-                }
-                setShowDeleteModal(false)
-              }}
-            >
-              Delete
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </Box>
+        onConfirm={() => {
+          if (onDeleteSavedRequest && config) {
+            const savedRequestId = parseInt(config.id, 10)
+            if (!isNaN(savedRequestId)) {
+              onDeleteSavedRequest(savedRequestId)
+            }
+          }
+        }}
+      />
+    </Flex>
   )
+
+  function updateConfig(updates: Partial<EditableRequestConfig>) {
+    onConfigChange({ ...config!, ...updates })
+  }
+
+  function handleUpdateHeader(index: number, field: 'key' | 'value' | 'enabled', value: string | boolean) {
+    const newHeaders = [...config!.headers]
+    newHeaders[index] = { ...newHeaders[index], [field]: value }
+    updateConfig({ headers: newHeaders })
+  }
+
+  function handleUpdateQueryParam(index: number, field: 'key' | 'value' | 'enabled', value: string | boolean) {
+    const newParams = [...config!.queryParams]
+    newParams[index] = { ...newParams[index], [field]: value }
+    updateConfig({ queryParams: newParams })
+  }
+
+  function startEditingName() {
+    setEditingName(displayName)
+    setIsEditingName(true)
+    setNameError(null)
+    setTimeout(() => nameInputRef.current?.focus(), 0)
+  }
+
+  function finishEditingName() {
+    setIsEditingName(false)
+    setNameError(null)
+  }
+
+  function handleSaveAsNew() {
+    const trimmedName = editingName.trim() || displayName.trim()
+
+    if (!trimmedName || trimmedName === 'New Request') {
+      setNameError('Name is required')
+      startEditingName()
+      return
+    }
+
+    const duplicate = savedRequests.find((sr) => sr.endpointId === endpoint!.id && sr.name === trimmedName)
+    if (duplicate) {
+      setNameError(`A request called "${trimmedName}" already exists`)
+      startEditingName()
+      return
+    }
+
+    onSaveAsNew(trimmedName)
+    setNameError(null)
+  }
+
+  function handleSend() {
+    const headersObj = buildHeaders()
+    const validationResult = validatePathParams()
+
+    if (!validationResult.valid) {
+      showValidationError(validationResult)
+      return
+    }
+
+    const finalPath = buildFinalPath(validationResult.resolvedPath!)
+    onSend({ method: endpoint!.method, path: finalPath, headers: headersObj, body: config!.body })
+  }
+
+  function buildHeaders(): Record<string, string> {
+    const result: Record<string, string> = {}
+
+    Object.assign(result, getShopHeader())
+    getEnabledGlobalHeaders().forEach((h) => (result[h.key] = h.value))
+    config!.headers.forEach((h) => {
+      if (h.enabled && h.key && h.value) result[h.key] = h.value
+    })
+
+    return result
+  }
+
+  function validatePathParams(): { valid: boolean; missing?: string[]; invalid?: string[]; resolvedPath?: string } {
+    const missing: string[] = []
+    const invalid: string[] = []
+    let resolved = endpoint!.path
+
+    for (const [key, value] of Object.entries(config!.pathParams)) {
+      if (!value?.trim()) {
+        missing.push(key)
+        continue
+      }
+      if (value.includes('../') || value.includes('..\\')) {
+        invalid.push(key)
+        continue
+      }
+      resolved = resolved.replace(`{${key}}`, encodeURIComponent(value))
+    }
+
+    pathParamNames.forEach((param) => {
+      if (!config!.pathParams[param]?.trim() && !missing.includes(param)) {
+        missing.push(param)
+      }
+    })
+
+    if (missing.length > 0 || invalid.length > 0) {
+      return { valid: false, missing, invalid }
+    }
+
+    return { valid: true, resolvedPath: resolved }
+  }
+
+  function showValidationError(result: { missing?: string[]; invalid?: string[] }) {
+    if (result.missing && result.missing.length > 0) {
+      notifications.show({
+        title: 'Missing path parameters',
+        message: `Required path parameters: ${result.missing.join(', ')}`,
+        color: 'red',
+        autoClose: 5000,
+      })
+    }
+    if (result.invalid && result.invalid.length > 0) {
+      notifications.show({
+        title: 'Invalid path parameters',
+        message: `Path parameters contain invalid characters: ${result.invalid.join(', ')}`,
+        color: 'red',
+        autoClose: 5000,
+      })
+    }
+  }
+
+  function buildFinalPath(basePath: string): string {
+    const queryString = config!.queryParams
+      .filter((q) => q.enabled && q.key && q.value)
+      .map((q) => `${encodeURIComponent(q.key)}=${encodeURIComponent(q.value)}`)
+      .join('&')
+
+    if (!queryString) return basePath
+
+    const separator = basePath.includes('?') ? '&' : '?'
+    return `${basePath}${separator}${queryString}`
+  }
+}
+
+function extractPathParams(path: string): string[] {
+  return path.match(/\{([^}]+)\}/g)?.map((p) => p.slice(1, -1)) || []
 }

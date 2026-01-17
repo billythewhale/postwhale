@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { Box, Loader, Stack, Text, Alert } from '@mantine/core'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { Flex, Loader, Stack, Text, Alert } from '@mantine/core'
 import { Header } from '@/components/layout/Header'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { RequestBuilder } from '@/components/request/RequestBuilder'
@@ -11,463 +11,29 @@ import { GlobalHeadersProvider } from '@/contexts/GlobalHeadersContext'
 import { ShopProvider } from '@/contexts/ShopContext'
 import { ErrorHistoryProvider, useErrorHistory } from '@/contexts/ErrorHistoryContext'
 import { useIPC } from '@/hooks/useIPC'
-import type { Environment, Repository, Service, Endpoint, Response, CheckPathResult, ScanDirectoryResult, SavedRequest } from '@/types'
+import { useMap } from '@/hooks/useMap'
+import { loadAllData, summarizeErrors } from '@/services/dataLoader'
+import {
+  loadConfigFromStorage,
+  saveConfigToStorage,
+  createAnonymousConfig,
+  createConfigFromSavedRequest,
+  DEBOUNCE_MS,
+} from '@/utils/configStorage'
+import type {
+  Environment,
+  Repository,
+  Service,
+  Endpoint,
+  CheckPathResult,
+  ScanDirectoryResult,
+  SavedRequest,
+  ActiveNode,
+  EditableRequestConfig,
+  RequestResponsePair,
+} from '@/types'
 
-function AppContent() {
-  const [environment, setEnvironment] = useState<Environment>('LOCAL')
-  const [repositories, setRepositories] = useState<Repository[]>([])
-  const [services, setServices] = useState<Service[]>([])
-  const [endpoints, setEndpoints] = useState<Endpoint[]>([])
-  const [savedRequests, setSavedRequests] = useState<SavedRequest[]>([])
-  const [selectedEndpoint, setSelectedEndpoint] = useState<Endpoint | null>(null)
-  const [selectedSavedRequest, setSelectedSavedRequest] = useState<SavedRequest | null>(null)
-  const [response, setResponse] = useState<Response | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const abortControllerRef = useRef<AbortController | null>(null)
-  const [isLoadingData, setIsLoadingData] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [showAddDialog, setShowAddDialog] = useState(false)
-  const [showAutoAddDialog, setShowAutoAddDialog] = useState(false)
-  const [modifiedSavedRequests, setModifiedSavedRequests] = useState<Set<number>>(new Set())
-  const [modifiedEndpoints, setModifiedEndpoints] = useState<Set<number>>(new Set())
-
-  const { invoke } = useIPC()
-  const { addError } = useErrorHistory()
-
-  const loadData = async (showGlobalLoading = true) => {
-    const errors: string[] = []
-
-    try {
-      if (showGlobalLoading) {
-        setIsLoadingData(true)
-      }
-      setError(null)
-      const repos = await invoke<Repository[]>('getRepositories', {})
-      setRepositories(repos || [])
-
-      if (repos && repos.length > 0) {
-        const allServices: Service[] = []
-        const allEndpoints: Endpoint[] = []
-        const allSavedRequests: SavedRequest[] = []
-
-        for (const repo of repos) {
-          try {
-            const repoServices = await invoke<Service[]>('getServices', {
-              repositoryId: repo.id,
-            })
-
-            if (repoServices) {
-              allServices.push(...repoServices)
-
-              for (const service of repoServices) {
-                try {
-                  const serviceEndpoints = await invoke<Endpoint[]>('getEndpoints', {
-                    serviceId: service.id,
-                  })
-
-                  if (serviceEndpoints) {
-                    allEndpoints.push(...serviceEndpoints)
-
-                    for (const endpoint of serviceEndpoints) {
-                      try {
-                        const endpointSavedRequests = await invoke<SavedRequest[]>('getSavedRequests', {
-                          endpointId: endpoint.id,
-                        })
-
-                        if (endpointSavedRequests) {
-                          allSavedRequests.push(...endpointSavedRequests)
-                        }
-                      } catch (err) {
-                        const msg = err instanceof Error ? err.message : 'Unknown error'
-                        errors.push(`Failed to load saved requests for endpoint ${endpoint.path}: ${msg}`)
-                      }
-                    }
-                  }
-                } catch (err) {
-                  const msg = err instanceof Error ? err.message : 'Unknown error'
-                  errors.push(`Failed to load endpoints for service ${service.name}: ${msg}`)
-                }
-              }
-            }
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : 'Unknown error'
-            errors.push(`Failed to load services for repository ${repo.path}: ${msg}`)
-          }
-        }
-
-        setServices(allServices)
-        setEndpoints(allEndpoints)
-        setSavedRequests(allSavedRequests)
-      }
-
-      if (errors.length > 0) {
-        const errorSummary = `Warning: ${errors.length} item(s) failed to load. ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? `; and ${errors.length - 3} more...` : ''}`
-        setError(errorSummary)
-        addError(errorSummary)
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load data'
-      setError(errorMessage)
-      addError(errorMessage)
-    } finally {
-      if (showGlobalLoading) {
-        setIsLoadingData(false)
-      }
-    }
-  }
-
-  useEffect(() => {
-    loadData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    setResponse(null)
-  }, [selectedEndpoint])
-
-  const handleAddRepository = async (path: string) => {
-    await invoke('addRepository', { path })
-    await loadData()
-  }
-
-  const handleCheckPath = async (path: string): Promise<CheckPathResult> => {
-    return await invoke<CheckPathResult>('checkPath', { path })
-  }
-
-  const handleScanDirectory = async (path: string): Promise<ScanDirectoryResult> => {
-    return await invoke<ScanDirectoryResult>('scanDirectory', { path })
-  }
-
-  const handleAddRepositories = async (paths: string[]): Promise<{ path: string; success: boolean; error?: string }[]> => {
-    const results: { path: string; success: boolean; error?: string }[] = []
-
-    for (const path of paths) {
-      try {
-        await invoke('addRepository', { path })
-        results.push({ path, success: true })
-      } catch (err: unknown) {
-        results.push({
-          path,
-          success: false,
-          error: err instanceof Error ? err.message : String(err)
-        })
-      }
-    }
-
-    await loadData()
-
-    return results
-  }
-
-  const handleRefreshAll = async () => {
-    try {
-      setError(null)
-      for (const repo of repositories) {
-        await invoke('refreshRepository', { id: repo.id })
-      }
-      await loadData()
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to refresh repositories'
-      setError(errorMessage)
-      addError(errorMessage)
-    }
-  }
-
-  const handleRemoveRepository = async (id: number) => {
-    try {
-      setError(null)
-      if (selectedEndpoint) {
-        const service = services.find(s => s.id === selectedEndpoint.serviceId)
-        if (service && service.repoId === id) {
-          setSelectedEndpoint(null)
-        }
-      }
-      await invoke('removeRepository', { id })
-      await loadData()
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to remove repository'
-      setError(errorMessage)
-      addError(errorMessage)
-    }
-  }
-
-  const handleSelectEndpoint = (endpoint: Endpoint) => {
-    setSelectedEndpoint(endpoint)
-    setSelectedSavedRequest(null)
-  }
-
-  const handleSelectSavedRequest = (savedRequest: SavedRequest) => {
-    const endpoint = endpoints.find(e => e.id === savedRequest.endpointId)
-    if (endpoint) {
-      setSelectedEndpoint(endpoint)
-      setSelectedSavedRequest(savedRequest)
-    }
-  }
-
-  const handleSaveRequest = async (savedRequest: Omit<SavedRequest, 'id' | 'createdAt'>) => {
-    setIsSaving(true)
-    try {
-      await invoke('saveSavedRequest', savedRequest)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      setError(`Failed to save request: ${errorMessage}`)
-      setIsSaving(false)
-      return
-    }
-
-    try {
-      await loadData(false)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      setError(`Request saved successfully, but failed to reload data: ${errorMessage}`)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleUpdateSavedRequest = async (savedRequest: SavedRequest) => {
-    setIsSaving(true)
-    try {
-      await invoke('updateSavedRequest', savedRequest)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      setError(`Failed to update request: ${errorMessage}`)
-      setIsSaving(false)
-      return
-    }
-
-    try {
-      await loadData(false)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      setError(`Request updated successfully, but failed to reload data: ${errorMessage}`)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleDeleteSavedRequest = async (id: number) => {
-    setIsSaving(true)
-    try {
-      await invoke('deleteSavedRequest', { id })
-      if (selectedSavedRequest && selectedSavedRequest.id === id) {
-        setSelectedSavedRequest(null)
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      setError(`Failed to delete request: ${errorMessage}`)
-      setIsSaving(false)
-      return
-    }
-
-    try {
-      await loadData(false)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-      setError(`Request deleted successfully, but failed to reload data: ${errorMessage}`)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleSend = async (config: {
-    method: string
-    path: string
-    headers: Record<string, string>
-    body: string
-  }) => {
-    if (!selectedEndpoint) return
-
-    if (isLoading) {
-      console.warn('Request already in progress')
-      return
-    }
-
-    const requestEndpointId = selectedEndpoint.id
-
-    const controller = new AbortController()
-    abortControllerRef.current = controller
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const service = services.find((s) => s.id === selectedEndpoint.serviceId)
-      if (!service) {
-        throw new Error('Service not found for endpoint')
-      }
-
-      const result = await invoke<Response>('executeRequest', {
-        serviceId: service.serviceId,
-        port: service.port,
-        endpoint: config.path,
-        method: config.method,
-        headers: config.headers,
-        body: config.body,
-        environment: environment,
-        endpointId: selectedEndpoint.id,
-      })
-
-      if (!controller.signal.aborted && selectedEndpoint?.id === requestEndpointId) {
-        setResponse(result)
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Request failed'
-
-      if (selectedEndpoint?.id === requestEndpointId) {
-        setResponse({
-          statusCode: 0,
-          status: 'Error',
-          headers: {},
-          body: '',
-          responseTime: 0,
-          error: errorMessage,
-        })
-      }
-    } finally {
-      setIsLoading(false)
-      abortControllerRef.current = null
-    }
-  }
-
-  const handleCancel = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-  }
-
-  const handleModifiedStateChange = (savedRequestId: number, isModified: boolean) => {
-    setModifiedSavedRequests((prev) => {
-      const currentlyModified = prev.has(savedRequestId)
-      if (currentlyModified === isModified) {
-        return prev
-      }
-      const newSet = new Set(prev)
-      if (isModified) {
-        newSet.add(savedRequestId)
-      } else {
-        newSet.delete(savedRequestId)
-      }
-      return newSet
-    })
-  }
-
-  const handleEndpointModifiedStateChange = (endpointId: number, isModified: boolean) => {
-    setModifiedEndpoints((prev) => {
-      const currentlyModified = prev.has(endpointId)
-      if (currentlyModified === isModified) {
-        return prev
-      }
-      const newSet = new Set(prev)
-      if (isModified) {
-        newSet.add(endpointId)
-      } else {
-        newSet.delete(endpointId)
-      }
-      return newSet
-    })
-  }
-
-  return (
-    <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Header environment={environment} onEnvironmentChange={setEnvironment} />
-
-        {error && (
-          <Alert
-            color="red"
-            variant="light"
-            withCloseButton
-            onClose={() => setError(null)}
-            style={{
-              borderRadius: 0,
-              borderLeft: 'none',
-              borderRight: 'none',
-              borderTop: 'none',
-            }}
-          >
-            {error}
-          </Alert>
-        )}
-
-        <Box style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          {isLoadingData ? (
-            <Box style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Stack align="center" gap="md">
-                <Loader size="lg" />
-                <Text c="dimmed">Loading repositories...</Text>
-              </Stack>
-            </Box>
-          ) : (
-            <>
-              <Sidebar
-                repositories={repositories}
-                services={services}
-                endpoints={endpoints}
-                savedRequests={savedRequests}
-                modifiedSavedRequests={modifiedSavedRequests}
-                modifiedEndpoints={modifiedEndpoints}
-                selectedEndpoint={selectedEndpoint}
-                selectedSavedRequest={selectedSavedRequest}
-                onSelectEndpoint={handleSelectEndpoint}
-                onSelectSavedRequest={handleSelectSavedRequest}
-                onAddRepository={() => setShowAddDialog(true)}
-                onAutoAddRepos={() => setShowAutoAddDialog(true)}
-                onRefreshAll={handleRefreshAll}
-                onRemoveRepository={handleRemoveRepository}
-                onDeleteSavedRequest={handleDeleteSavedRequest}
-                onUpdateSavedRequest={handleUpdateSavedRequest}
-              />
-
-              <Box style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
-                <RequestBuilder
-                  endpoint={selectedEndpoint}
-                  selectedSavedRequest={selectedSavedRequest}
-                  savedRequests={savedRequests}
-                  environment={environment}
-                  onSend={handleSend}
-                  onCancel={handleCancel}
-                  onSaveRequest={handleSaveRequest}
-                  onUpdateRequest={handleUpdateSavedRequest}
-                  onDeleteRequest={handleDeleteSavedRequest}
-                  onModifiedStateChange={handleModifiedStateChange}
-                  onEndpointModifiedStateChange={handleEndpointModifiedStateChange}
-                  isLoading={isLoading}
-                  isSaving={isSaving}
-                />
-
-                <ResponseViewer response={response} />
-              </Box>
-            </>
-          )}
-        </Box>
-
-        <AddRepositoryDialog
-          open={showAddDialog}
-          onOpenChange={setShowAddDialog}
-          onAddRepository={handleAddRepository}
-        />
-
-        <AutoAddReposDialog
-          open={showAutoAddDialog}
-          onOpenChange={setShowAutoAddDialog}
-          onCheckPath={handleCheckPath}
-          onScanDirectory={handleScanDirectory}
-          onAddRepositories={handleAddRepositories}
-          existingPaths={new Set(repositories.map(r => r.path))}
-        />
-      </Box>
-  )
-}
-
-function App() {
+export default function App() {
   return (
     <ErrorHistoryProvider>
       <GlobalHeadersProvider>
@@ -481,4 +47,336 @@ function App() {
   )
 }
 
-export default App
+function AppContent() {
+  const [environment, setEnvironment] = useState<Environment>('LOCAL')
+  const [repositories, setRepositories] = useState<Repository[]>([])
+  const [services, setServices] = useState<Service[]>([])
+  const [endpoints, setEndpoints] = useState<Endpoint[]>([])
+  const [savedRequests, setSavedRequests] = useState<SavedRequest[]>([])
+  const [activeNode, setActiveNode] = useState<ActiveNode>(null)
+  const [isLoadingData, setIsLoadingData] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showAutoAddDialog, setShowAutoAddDialog] = useState(false)
+
+  const requestConfigs = useMap<string, EditableRequestConfig>()
+  const requestResponses = useMap<string, RequestResponsePair>()
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const { invoke } = useIPC()
+  const { addError } = useErrorHistory()
+
+  const activeConfigId = useMemo(() => {
+    if (!activeNode) return null
+    return activeNode.type === 'endpoint' ? `temp_${activeNode.endpointId}` : String(activeNode.savedRequestId)
+  }, [activeNode])
+
+  const activeConfig = useMemo(() => {
+    if (!activeConfigId) return null
+    return requestConfigs.get(activeConfigId) ?? null
+  }, [activeConfigId, requestConfigs])
+
+  const activeEndpoint = useMemo(() => {
+    if (!activeNode) return null
+    return endpoints.find((e) => e.id === activeNode.endpointId) ?? null
+  }, [activeNode, endpoints])
+
+  const activeRequestResponse = useMemo(() => {
+    if (!activeConfigId) return null
+    return requestResponses.get(activeConfigId) ?? null
+  }, [activeConfigId, requestResponses])
+
+  const isLoading = activeRequestResponse?.isLoading ?? false
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  useEffect(() => {
+    return () => abortControllerRef.current?.abort()
+  }, [])
+
+  const loadData = async (showGlobalLoading = true) => {
+    if (showGlobalLoading) setIsLoadingData(true)
+    setError(null)
+
+    const data = await loadAllData(invoke)
+    setRepositories(data.repositories)
+    setServices(data.services)
+    setEndpoints(data.endpoints)
+    setSavedRequests(data.savedRequests)
+
+    const errorSummary = summarizeErrors(data.errors)
+    if (errorSummary) {
+      setError(errorSummary)
+      addError(errorSummary)
+    }
+
+    if (showGlobalLoading) setIsLoadingData(false)
+  }
+
+  function getOrCreateConfig(id: string, createDefault: () => EditableRequestConfig): EditableRequestConfig {
+    const existing = requestConfigs.get(id)
+    if (existing) return existing
+
+    const stored = loadConfigFromStorage(id)
+    const defaultConfig = createDefault()
+    return stored ? { ...defaultConfig, ...stored, id, endpointId: defaultConfig.endpointId } : defaultConfig
+  }
+
+  const handleSelectEndpoint = useCallback((endpoint: Endpoint) => {
+    const config = getOrCreateConfig(`temp_${endpoint.id}`, () => createAnonymousConfig(endpoint))
+    requestConfigs.set(config.id, config)
+    setActiveNode({ type: 'endpoint', endpointId: endpoint.id })
+  }, [requestConfigs])
+
+  const handleSelectSavedRequest = useCallback((savedRequest: SavedRequest) => {
+    const config = getOrCreateConfig(String(savedRequest.id), () => createConfigFromSavedRequest(savedRequest))
+    requestConfigs.set(config.id, config)
+    setActiveNode({ type: 'savedRequest', savedRequestId: savedRequest.id, endpointId: savedRequest.endpointId })
+  }, [requestConfigs])
+
+  const handleConfigChange = useCallback((config: EditableRequestConfig) => {
+    requestConfigs.set(config.id, config)
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
+    saveTimeoutRef.current = setTimeout(() => saveConfigToStorage(config), DEBOUNCE_MS)
+  }, [requestConfigs])
+
+  const handleSaveAsNew = useCallback(async (name: string) => {
+    if (!activeConfig || !activeEndpoint) return
+
+    setIsSaving(true)
+    try {
+      await invoke('saveSavedRequest', {
+        endpointId: activeConfig.endpointId,
+        name,
+        pathParamsJson: JSON.stringify(activeConfig.pathParams),
+        queryParamsJson: JSON.stringify(activeConfig.queryParams),
+        headersJson: JSON.stringify(activeConfig.headers),
+        body: activeConfig.body,
+      })
+      await loadData(false)
+    } catch (err) {
+      setError(`Failed to save request: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setIsSaving(false)
+    }
+  }, [activeConfig, activeEndpoint, invoke])
+
+  const handleDeleteSavedRequest = useCallback(async (id: number) => {
+    setIsSaving(true)
+    try {
+      await invoke('deleteSavedRequest', { id })
+      if (activeNode?.type === 'savedRequest' && activeNode.savedRequestId === id) {
+        setActiveNode(null)
+      }
+      requestConfigs.delete(String(id))
+      requestResponses.delete(String(id))
+      await loadData(false)
+    } catch (err) {
+      setError(`Failed to delete request: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setIsSaving(false)
+    }
+  }, [activeNode, invoke, requestConfigs, requestResponses])
+
+  const handleUpdateSavedRequest = useCallback(async (savedRequest: SavedRequest) => {
+    setIsSaving(true)
+    try {
+      await invoke('updateSavedRequest', savedRequest)
+      await loadData(false)
+    } catch (err) {
+      setError(`Failed to update request: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setIsSaving(false)
+    }
+  }, [invoke])
+
+  const handleSend = useCallback(async (config: { method: string; path: string; headers: Record<string, string>; body: string }) => {
+    if (!activeConfigId || !activeEndpoint || isLoading) return
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
+    requestResponses.set(activeConfigId, {
+      request: { ...config, sentAt: Date.now() },
+      response: null,
+      isLoading: true,
+    })
+    setError(null)
+
+    try {
+      const service = services.find((s) => s.id === activeEndpoint.serviceId)
+      if (!service) throw new Error('Service not found for endpoint')
+
+      const result = await invoke<{
+        statusCode: number
+        status: string
+        headers: Record<string, string[]>
+        body: string
+        responseTime: number
+        error?: string
+      }>('executeRequest', {
+        serviceId: service.serviceId,
+        port: service.port,
+        endpoint: config.path,
+        method: config.method,
+        headers: config.headers,
+        body: config.body,
+        environment,
+        endpointId: activeEndpoint.id,
+      })
+
+      if (!controller.signal.aborted) {
+        const current = requestResponses.get(activeConfigId)
+        requestResponses.set(activeConfigId, { request: current?.request ?? null, response: result, isLoading: false })
+      }
+    } catch (err) {
+      const current = requestResponses.get(activeConfigId)
+      requestResponses.set(activeConfigId, {
+        request: current?.request ?? null,
+        response: {
+          statusCode: 0,
+          status: 'Error',
+          headers: {},
+          body: '',
+          responseTime: 0,
+          error: err instanceof Error ? err.message : 'Request failed',
+        },
+        isLoading: false,
+      })
+    } finally {
+      abortControllerRef.current = null
+    }
+  }, [activeConfigId, activeEndpoint, isLoading, services, environment, invoke, requestResponses])
+
+  const handleCancel = useCallback(() => {
+    abortControllerRef.current?.abort()
+    if (activeConfigId) {
+      const current = requestResponses.get(activeConfigId)
+      if (current) requestResponses.set(activeConfigId, { ...current, isLoading: false })
+    }
+  }, [activeConfigId, requestResponses])
+
+  const handleRefreshAll = async () => {
+    try {
+      setError(null)
+      for (const repo of repositories) {
+        await invoke('refreshRepository', { id: repo.id })
+      }
+      await loadData()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to refresh repositories'
+      setError(msg)
+      addError(msg)
+    }
+  }
+
+  const handleRemoveRepository = async (id: number) => {
+    try {
+      setError(null)
+      const endpoint = activeNode ? endpoints.find((e) => e.id === activeNode.endpointId) : null
+      const service = endpoint ? services.find((s) => s.id === endpoint.serviceId) : null
+      if (service?.repoId === id) setActiveNode(null)
+
+      await invoke('removeRepository', { id })
+      await loadData()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to remove repository'
+      setError(msg)
+      addError(msg)
+    }
+  }
+
+  const handleAddRepository = async (path: string) => {
+    await invoke('addRepository', { path })
+    await loadData()
+  }
+
+  const handleCheckPath = (path: string) => invoke<CheckPathResult>('checkPath', { path })
+  const handleScanDirectory = (path: string) => invoke<ScanDirectoryResult>('scanDirectory', { path })
+
+  const handleAddRepositories = async (paths: string[]) => {
+    const results = await Promise.all(
+      paths.map(async (path) => {
+        try {
+          await invoke('addRepository', { path })
+          return { path, success: true }
+        } catch (err) {
+          return { path, success: false, error: err instanceof Error ? err.message : String(err) }
+        }
+      })
+    )
+    await loadData()
+    return results
+  }
+
+  return (
+    <Flex style={{ height: '100vh' }} direction="column">
+      <Header environment={environment} onEnvironmentChange={setEnvironment} />
+
+      {error && (
+        <Alert color="red" variant="light" withCloseButton onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      <Flex style={{ flex: 1, overflow: 'hidden' }}>
+        {isLoadingData ? (
+          <Flex style={{ flex: 1 }} align="center" justify="center">
+            <Stack align="center" gap="md">
+              <Loader size="lg" />
+              <Text c="dimmed">Loading repositories...</Text>
+            </Stack>
+          </Flex>
+        ) : (
+          <>
+            <Sidebar
+              repositories={repositories}
+              services={services}
+              endpoints={endpoints}
+              savedRequests={savedRequests}
+              activeNode={activeNode}
+              onSelectEndpoint={handleSelectEndpoint}
+              onSelectSavedRequest={handleSelectSavedRequest}
+              onAddRepository={() => setShowAddDialog(true)}
+              onAutoAddRepos={() => setShowAutoAddDialog(true)}
+              onRefreshAll={handleRefreshAll}
+              onRemoveRepository={handleRemoveRepository}
+              onDeleteSavedRequest={handleDeleteSavedRequest}
+              onUpdateSavedRequest={handleUpdateSavedRequest}
+            />
+
+            <Flex style={{ flex: 1, overflow: 'auto' }} direction="column">
+              <RequestBuilder
+                endpoint={activeEndpoint}
+                config={activeConfig}
+                savedRequests={savedRequests}
+                onConfigChange={handleConfigChange}
+                onSaveAsNew={handleSaveAsNew}
+                onDeleteSavedRequest={handleDeleteSavedRequest}
+                onSend={handleSend}
+                onCancel={handleCancel}
+                isLoading={isLoading}
+                isSaving={isSaving}
+              />
+              <ResponseViewer requestResponse={activeRequestResponse} />
+            </Flex>
+          </>
+        )}
+      </Flex>
+
+      <AddRepositoryDialog open={showAddDialog} onOpenChange={setShowAddDialog} onAddRepository={handleAddRepository} />
+      <AutoAddReposDialog
+        open={showAutoAddDialog}
+        onOpenChange={setShowAutoAddDialog}
+        onCheckPath={handleCheckPath}
+        onScanDirectory={handleScanDirectory}
+        onAddRepositories={handleAddRepositories}
+        existingPaths={new Set(repositories.map((r) => r.path))}
+      />
+    </Flex>
+  )
+}
