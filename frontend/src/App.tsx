@@ -24,7 +24,6 @@ function AppContent() {
   const [response, setResponse] = useState<Response | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
-  const isRequestInFlightRef = useRef(false)
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -288,7 +287,7 @@ function AppContent() {
   }) => {
     if (!selectedEndpoint) return
 
-    if (isRequestInFlightRef.current) {
+    if (isLoading) {
       console.warn('Request already in progress')
       return
     }
@@ -297,7 +296,6 @@ function AppContent() {
 
     const controller = new AbortController()
     abortControllerRef.current = controller
-    isRequestInFlightRef.current = true
     setIsLoading(true)
     setError(null)
 
@@ -337,7 +335,6 @@ function AppContent() {
     } finally {
       setIsLoading(false)
       abortControllerRef.current = null
-      isRequestInFlightRef.current = false
     }
   }
 

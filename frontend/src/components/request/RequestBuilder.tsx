@@ -61,10 +61,9 @@ export function RequestBuilder({
   const [nameError, setNameError] = useState<string | null>(null)
   const [isHoveringName, setIsHoveringName] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [originalConfig, setOriginalConfig] = useState<RequestConfig | null>(null)
+  const [loadedEntityKey, setLoadedEntityKey] = useState<string | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
-  const originalSavedRequestConfigRef = useRef<RequestConfig | null>(null)
-  const prevEndpointIdRef = useRef<number | null>(null)
-  const prevSavedRequestIdRef = useRef<number | null>(null)
 
   const currentConfig: RequestConfig = useMemo(() => ({
     pathParams,
@@ -73,44 +72,27 @@ export function RequestBuilder({
     body,
   }), [pathParams, queryParams, headers, body])
 
+  const currentEntityKey = selectedSavedRequest
+    ? `saved:${selectedSavedRequest.id}`
+    : endpoint
+      ? `endpoint:${endpoint.id}`
+      : null
+
   const configId = selectedSavedRequest ? selectedSavedRequest.id : endpoint?.id || null
 
   const { loadConfig } = useRequestConfig(
     configId,
     currentConfig,
-    !!selectedSavedRequest
+    !!selectedSavedRequest,
+    loadedEntityKey,
+    currentEntityKey
   )
 
   useEffect(() => {
     if (!endpoint) return
+    if (currentEntityKey === loadedEntityKey) return
 
-    const currentEndpointId = endpoint.id
-    const currentSavedRequestId = selectedSavedRequest?.id || null
-    const prevEndpointId = prevEndpointIdRef.current
-    const prevSavedRequestId = prevSavedRequestIdRef.current
-
-    const selectionChanged = prevEndpointId !== currentEndpointId || prevSavedRequestId !== currentSavedRequestId
-
-    if (selectionChanged && prevEndpointId !== null) {
-      if (prevSavedRequestId !== null && originalSavedRequestConfigRef.current && onModifiedStateChange) {
-        const wasModified = !compareConfigs(currentConfig, originalSavedRequestConfigRef.current)
-        onModifiedStateChange(prevSavedRequestId, wasModified)
-      } else if (prevSavedRequestId === null && onEndpointModifiedStateChange) {
-        const defaultConfig: RequestConfig = {
-          pathParams: {},
-          queryParams: [],
-          headers: [{ key: "Content-Type", value: "application/json", enabled: true }],
-          body: '',
-        }
-        const wasModified = !compareConfigs(currentConfig, defaultConfig)
-        onEndpointModifiedStateChange(prevEndpointId, wasModified)
-      }
-    }
-
-    prevEndpointIdRef.current = currentEndpointId
-    prevSavedRequestIdRef.current = currentSavedRequestId
-
-    let isCurrentLoad = true
+    let cancelled = false
 
     if (selectedSavedRequest) {
       setRequestName(selectedSavedRequest.name)
@@ -168,67 +150,21 @@ export function RequestBuilder({
         databaseConfig.body = selectedSavedRequest.body
       }
 
-      originalSavedRequestConfigRef.current = databaseConfig
-
       const localStorageConfig = loadConfig(selectedSavedRequest.id, true)
 
-      if (!isCurrentLoad) return
+      if (cancelled) return
 
       const configToLoad = localStorageConfig || databaseConfig
 
+      setOriginalConfig(databaseConfig)
       setPathParams(configToLoad.pathParams)
       setQueryParams(configToLoad.queryParams)
       setHeaders(configToLoad.headers)
       setBody(configToLoad.body)
+      setLoadedEntityKey(`saved:${selectedSavedRequest.id}`)
     } else {
       setRequestName("New Request")
-      originalSavedRequestConfigRef.current = null
 
-      const storedConfig = loadConfig(endpoint.id, false)
-
-      if (!isCurrentLoad) return
-
-      if (storedConfig) {
-        setPathParams(storedConfig.pathParams)
-        setQueryParams(storedConfig.queryParams)
-        setHeaders(storedConfig.headers)
-        setBody(storedConfig.body)
-      } else {
-        const defaultConfig: RequestConfig = {
-          pathParams: {},
-          queryParams: endpoint.spec?.parameters
-            ?.filter((p) => p.in === "query")
-            .map((p) => ({ key: p.name, value: "", enabled: true })) || [],
-          headers: [{ key: "Content-Type", value: "application/json", enabled: true }],
-          body: '',
-        }
-        setPathParams(defaultConfig.pathParams)
-        setQueryParams(defaultConfig.queryParams)
-        setHeaders(defaultConfig.headers)
-        setBody(defaultConfig.body)
-      }
-    }
-
-    return () => {
-      isCurrentLoad = false
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSavedRequest, endpoint, loadConfig])
-
-  useEffect(() => {
-    if (!endpoint) return
-
-    const currentEndpointId = endpoint.id
-    const currentSavedRequestId = selectedSavedRequest?.id || null
-
-    if (prevEndpointIdRef.current !== currentEndpointId || prevSavedRequestIdRef.current !== currentSavedRequestId) {
-      return
-    }
-
-    if (selectedSavedRequest && originalSavedRequestConfigRef.current && onModifiedStateChange) {
-      const isModified = !compareConfigs(currentConfig, originalSavedRequestConfigRef.current)
-      onModifiedStateChange(selectedSavedRequest.id, isModified)
-    } else if (!selectedSavedRequest && onEndpointModifiedStateChange) {
       const defaultConfig: RequestConfig = {
         pathParams: {},
         queryParams: endpoint.spec?.parameters
@@ -237,10 +173,44 @@ export function RequestBuilder({
         headers: [{ key: "Content-Type", value: "application/json", enabled: true }],
         body: '',
       }
-      const isModified = !compareConfigs(currentConfig, defaultConfig)
+
+      const storedConfig = loadConfig(endpoint.id, false)
+
+      if (cancelled) return
+
+      setOriginalConfig(defaultConfig)
+
+      if (storedConfig) {
+        setPathParams(storedConfig.pathParams)
+        setQueryParams(storedConfig.queryParams)
+        setHeaders(storedConfig.headers)
+        setBody(storedConfig.body)
+      } else {
+        setPathParams(defaultConfig.pathParams)
+        setQueryParams(defaultConfig.queryParams)
+        setHeaders(defaultConfig.headers)
+        setBody(defaultConfig.body)
+      }
+      setLoadedEntityKey(`endpoint:${endpoint.id}`)
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentEntityKey, loadedEntityKey, selectedSavedRequest, endpoint, loadConfig])
+
+  useEffect(() => {
+    if (!endpoint || !originalConfig || !loadedEntityKey) return
+    if (currentEntityKey !== loadedEntityKey) return
+
+    const isModified = !compareConfigs(currentConfig, originalConfig)
+
+    if (selectedSavedRequest && onModifiedStateChange) {
+      onModifiedStateChange(selectedSavedRequest.id, isModified)
+    } else if (!selectedSavedRequest && onEndpointModifiedStateChange) {
       onEndpointModifiedStateChange(endpoint.id, isModified)
     }
-  }, [currentConfig, selectedSavedRequest, endpoint, onModifiedStateChange, onEndpointModifiedStateChange])
+  }, [currentConfig, originalConfig, currentEntityKey, loadedEntityKey, endpoint, selectedSavedRequest, onModifiedStateChange, onEndpointModifiedStateChange])
 
   if (!endpoint) {
     return (
@@ -339,11 +309,11 @@ export function RequestBuilder({
     onSaveRequest(savedRequest)
     setNameError(null)
 
-    if (selectedSavedRequest && originalSavedRequestConfigRef.current) {
-      setPathParams(originalSavedRequestConfigRef.current.pathParams)
-      setQueryParams(originalSavedRequestConfigRef.current.queryParams)
-      setHeaders(originalSavedRequestConfigRef.current.headers)
-      setBody(originalSavedRequestConfigRef.current.body)
+    if (selectedSavedRequest && originalConfig) {
+      setPathParams(originalConfig.pathParams)
+      setQueryParams(originalConfig.queryParams)
+      setHeaders(originalConfig.headers)
+      setBody(originalConfig.body)
       setRequestName(selectedSavedRequest.name)
     }
   }

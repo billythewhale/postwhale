@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { notifications } from '@mantine/notifications'
 
 type FavoriteType = 'repos' | 'services' | 'endpoints'
@@ -64,18 +64,16 @@ export function useFavorites() {
     endpoints: loadFavoritesFromStorage('endpoints'),
   }))
 
-  // Track pending toggles to prevent race conditions
-  const pendingToggles = useRef<Set<string>>(new Set())
+  const [pendingToggles, setPendingToggles] = useState<Set<string>>(() => new Set())
 
   const toggleFavorite = useCallback((type: FavoriteType, id: number) => {
     const toggleKey = `${type}-${id}`
 
-    // Prevent rapid duplicate toggles (race condition)
-    if (pendingToggles.current.has(toggleKey)) {
+    if (pendingToggles.has(toggleKey)) {
       return
     }
 
-    pendingToggles.current.add(toggleKey)
+    setPendingToggles(prev => new Set([...prev, toggleKey]))
 
     setFavorites((prev) => {
       const newFavorites = { ...prev }
@@ -90,14 +88,17 @@ export function useFavorites() {
       newFavorites[type] = set
       saveFavoritesToStorage(type, set)
 
-      // Clear pending flag after state update
       setTimeout(() => {
-        pendingToggles.current.delete(toggleKey)
+        setPendingToggles(prev => {
+          const next = new Set(prev)
+          next.delete(toggleKey)
+          return next
+        })
       }, 0)
 
       return newFavorites
     })
-  }, [])
+  }, [pendingToggles])
 
   // PERFORMANCE FIX: Remove useCallback - these are stable functions without deps
   const isFavorite = (type: FavoriteType, id: number): boolean => {

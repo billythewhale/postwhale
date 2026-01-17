@@ -10,7 +10,104 @@ PostWhale is a Postman clone for testing Triple Whale microservice endpoints. De
 - Database: SQLite
 - Design: Royal Blue (#4169E1) primary, light/dark mode
 
-## Current Status: Bug Fixes B1, B2, B3 + All Runtime Fixes (C2, C1, H1, H2, H3) - PRODUCTION READY ✅ (2026-01-15)
+## Current Status: Modified Indicator Bug Fix - COMPLETE ✅ (2026-01-16)
+
+### Critical Fix: Modified Indicator Completely Broken (2026-01-16)
+
+**Status:** ✅ COMPLETE - Modified indicator now works correctly
+**Date:** 2026-01-16
+**Risk Level:** LOW
+
+**Problem:**
+- The "modified" dot indicator for endpoints and saved requests was completely broken when switching between nodes
+- Modified dots appeared on wrong nodes, or didn't appear when they should
+- Root cause: State management used inconsistent "default" configs for comparison, and refs tracked entity IDs incorrectly
+
+**Root Cause Analysis:**
+1. **Inconsistent Default Configs:** The "leaving" check (when switching away from an entity) used a hardcoded `defaultConfig` with `queryParams: []`, but endpoints with spec-defined query params had those params populated by default. This caused false-positive "modified" detection.
+
+2. **Ref Tracking Issues:** The previous implementation used separate refs (`prevEndpointIdRef`, `prevSavedRequestIdRef`, `originalSavedRequestConfigRef`) which were complex and error-prone.
+
+3. **Timing Issues:** The two useEffect hooks had subtle timing issues where `currentConfig` (derived from React state) could have stale values during entity transitions.
+
+**Fix Applied (RequestBuilder.tsx):**
+
+1. **Unified Entity Tracking:** Replaced separate refs with a single `currentEntityRef` that tracks both type and ID:
+   ```typescript
+   const currentEntityRef = useRef<{ type: 'endpoint' | 'savedRequest'; id: number } | null>(null)
+   ```
+
+2. **Unified Original Config:** Replaced `originalSavedRequestConfigRef` with `originalConfigRef` that stores the baseline for BOTH endpoints and saved requests:
+   - For saved requests: stores the database config (what was saved)
+   - For endpoints: stores the spec-based default config (including spec-defined query params)
+
+3. **Consistent Default Config:** The "leaving" check and "current" check now both use the same `originalConfigRef` for comparison, eliminating false positives.
+
+4. **Simplified Logic:** The first useEffect captures the PREVIOUS entity's modified state using `currentConfig` (which still has the old entity's values during the transition), then loads the new entity's config. The second useEffect tracks ongoing modifications for the CURRENT entity.
+
+**Implementation Details:**
+
+First useEffect (lines 83-210):
+```typescript
+useEffect(() => {
+  if (!endpoint) return
+
+  const newEntityType = selectedSavedRequest ? 'savedRequest' : 'endpoint'
+  const newEntityId = selectedSavedRequest?.id ?? endpoint.id
+
+  const prevEntity = currentEntityRef.current
+  const entityChanged = !prevEntity ||
+    prevEntity.type !== newEntityType ||
+    prevEntity.id !== newEntityId
+
+  // Capture PREVIOUS entity's modified state before switching
+  if (entityChanged && prevEntity && originalConfigRef.current) {
+    const wasModified = !compareConfigs(currentConfig, originalConfigRef.current)
+    if (prevEntity.type === 'savedRequest' && onModifiedStateChange) {
+      onModifiedStateChange(prevEntity.id, wasModified)
+    } else if (prevEntity.type === 'endpoint' && onEndpointModifiedStateChange) {
+      onEndpointModifiedStateChange(prevEntity.id, wasModified)
+    }
+  }
+
+  currentEntityRef.current = { type: newEntityType, id: newEntityId }
+
+  // Load new entity's config...
+  // Set originalConfigRef.current to the baseline for comparison
+}, [selectedSavedRequest, endpoint, loadConfig])
+```
+
+Second useEffect (lines 212-226):
+```typescript
+useEffect(() => {
+  if (!endpoint) return
+  if (!originalConfigRef.current) return
+
+  const entity = currentEntityRef.current
+  if (!entity) return
+
+  const isModified = !compareConfigs(currentConfig, originalConfigRef.current)
+
+  if (entity.type === 'savedRequest' && onModifiedStateChange) {
+    onModifiedStateChange(entity.id, isModified)
+  } else if (entity.type === 'endpoint' && onEndpointModifiedStateChange) {
+    onEndpointModifiedStateChange(entity.id, isModified)
+  }
+}, [currentConfig, endpoint, onModifiedStateChange, onEndpointModifiedStateChange])
+```
+
+**Files Modified:**
+- `/Users/billy/postwhale/frontend/src/components/request/RequestBuilder.tsx` (lines 64-226)
+
+**Verification Evidence:**
+| Check | Command | Exit Code | Result |
+|-------|---------|-----------|--------|
+| TypeScript | `npx tsc --noEmit` | 0 | PASS - No type errors |
+| Frontend Build | `npm run build` | 0 | PASS - 1,547.84 kB JS, 208.43 kB CSS |
+
+---
+
+## Previous Status: Bug Fixes B1, B2, B3 + All Runtime Fixes (C2, C1, H1, H2, H3) - PRODUCTION READY ✅ (2026-01-15)
 
 ### Critical Fix C2: Silent Partial Failures in loadData (2026-01-15)
 
