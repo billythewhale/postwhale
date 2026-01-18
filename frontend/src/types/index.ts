@@ -121,6 +121,14 @@ export type ActiveNode =
   | { type: 'savedRequest'; savedRequestId: number; endpointId: number }
   | null
 
+export interface ConfigSnapshot {
+  name: string | null
+  pathParams: Record<string, string>
+  queryParams: Array<{ key: string; value: string; enabled: boolean }>
+  headers: Array<{ key: string; value: string; enabled: boolean }>
+  body: string
+}
+
 export interface EditableRequestConfig {
   id: string
   endpointId: number
@@ -129,6 +137,7 @@ export interface EditableRequestConfig {
   queryParams: Array<{ key: string; value: string; enabled: boolean }>
   headers: Array<{ key: string; value: string; enabled: boolean }>
   body: string
+  _originalSnapshot?: ConfigSnapshot
 }
 
 export interface RequestResponsePair {

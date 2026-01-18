@@ -11,18 +11,25 @@ interface ServiceNodeProps {
   endpoints: Endpoint[]
   savedRequests: SavedRequest[]
   isExpanded: boolean
+  expandedEndpoints: Set<number>
   isFavorite: boolean
   isDark: boolean
   searchQuery: string
   selectedEndpointId: number | null
   selectedSavedRequestId: number | null
+  dirtyConfigIds: Set<string>
   isFavoriteEndpoint: (id: number) => boolean
   onToggle: () => void
+  onToggleEndpoint: (id: number) => void
   onToggleFavorite: () => void
   onSelectEndpoint: (endpoint: Endpoint) => void
   onToggleEndpointFavorite: (id: number) => void
   onSelectSavedRequest: (sr: SavedRequest) => void
-  onRenameSavedRequest: (sr: SavedRequest) => void
+  onUpdateSavedRequest: (id: number) => void
+  onSaveAsNew: (name: string) => void
+  onUndoConfig: (configId: string) => void
+  onCreateNewRequest: (endpointId: number) => void
+  onCloneSavedRequest: (id: number) => void
   onDeleteSavedRequest: (id: number) => void
 }
 
@@ -31,18 +38,25 @@ export function ServiceNode({
   endpoints,
   savedRequests,
   isExpanded,
+  expandedEndpoints,
   isFavorite,
   isDark,
   searchQuery,
   selectedEndpointId,
   selectedSavedRequestId,
+  dirtyConfigIds,
   isFavoriteEndpoint,
   onToggle,
+  onToggleEndpoint,
   onToggleFavorite,
   onSelectEndpoint,
   onToggleEndpointFavorite,
   onSelectSavedRequest,
-  onRenameSavedRequest,
+  onUpdateSavedRequest,
+  onSaveAsNew,
+  onUndoConfig,
+  onCreateNewRequest,
+  onCloneSavedRequest,
   onDeleteSavedRequest,
 }: ServiceNodeProps) {
   const [isHovered, setIsHovered] = useState(false)
@@ -95,23 +109,38 @@ export function ServiceNode({
       {isExpanded && (
         <Box ml={24} mt={2}>
           <Stack gap={2}>
-            {endpoints.map((endpoint) => (
-              <EndpointNode
-                key={endpoint.id}
-                endpoint={endpoint}
-                savedRequests={savedRequests.filter((sr) => sr.endpointId === endpoint.id)}
-                isSelected={selectedEndpointId === endpoint.id}
-                isFavorite={isFavoriteEndpoint(endpoint.id)}
-                isDark={isDark}
-                searchQuery={searchQuery}
-                selectedSavedRequestId={selectedSavedRequestId}
-                onSelect={() => onSelectEndpoint(endpoint)}
-                onToggleFavorite={() => onToggleEndpointFavorite(endpoint.id)}
-                onSelectSavedRequest={onSelectSavedRequest}
-                onRenameSavedRequest={onRenameSavedRequest}
-                onDeleteSavedRequest={onDeleteSavedRequest}
-              />
-            ))}
+            {endpoints.map((endpoint) => {
+              const endpointSavedRequests = savedRequests.filter((sr) => sr.endpointId === endpoint.id)
+              const isEndpointActive = selectedEndpointId === endpoint.id && selectedSavedRequestId === null
+              const hasActiveChild = endpointSavedRequests.some((sr) => sr.id === selectedSavedRequestId)
+              const isActiveOrHasActiveChild = isEndpointActive || hasActiveChild
+
+              return (
+                <EndpointNode
+                  key={endpoint.id}
+                  endpoint={endpoint}
+                  savedRequests={endpointSavedRequests}
+                  isSelected={selectedEndpointId === endpoint.id}
+                  isExpanded={expandedEndpoints.has(endpoint.id)}
+                  isActiveOrHasActiveChild={isActiveOrHasActiveChild}
+                  isFavorite={isFavoriteEndpoint(endpoint.id)}
+                  isDark={isDark}
+                  searchQuery={searchQuery}
+                  selectedSavedRequestId={selectedSavedRequestId}
+                  dirtyConfigIds={dirtyConfigIds}
+                  onSelect={() => onSelectEndpoint(endpoint)}
+                  onToggleExpand={() => onToggleEndpoint(endpoint.id)}
+                  onToggleFavorite={() => onToggleEndpointFavorite(endpoint.id)}
+                  onSelectSavedRequest={onSelectSavedRequest}
+                  onUpdateSavedRequest={onUpdateSavedRequest}
+                  onSaveAsNew={onSaveAsNew}
+                  onUndoConfig={onUndoConfig}
+                  onCreateNewRequest={() => onCreateNewRequest(endpoint.id)}
+                  onCloneSavedRequest={onCloneSavedRequest}
+                  onDeleteSavedRequest={onDeleteSavedRequest}
+                />
+              )
+            })}
           </Stack>
         </Box>
       )}

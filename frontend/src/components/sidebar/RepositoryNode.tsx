@@ -13,21 +13,28 @@ interface RepositoryNodeProps {
   savedRequests: SavedRequest[]
   isExpanded: boolean
   expandedServices: Set<number>
+  expandedEndpoints: Set<number>
   isFavorite: boolean
   isDark: boolean
   searchQuery: string
   selectedEndpointId: number | null
   selectedSavedRequestId: number | null
+  dirtyConfigIds: Set<string>
   isFavoriteService: (id: number) => boolean
   isFavoriteEndpoint: (id: number) => boolean
   onToggle: () => void
   onToggleFavorite: () => void
   onToggleService: (id: number) => void
+  onToggleEndpoint: (id: number) => void
   onToggleServiceFavorite: (id: number) => void
   onToggleEndpointFavorite: (id: number) => void
   onSelectEndpoint: (endpoint: Endpoint) => void
   onSelectSavedRequest: (sr: SavedRequest) => void
-  onRenameSavedRequest: (sr: SavedRequest) => void
+  onUpdateSavedRequest: (id: number) => void
+  onSaveAsNew: (name: string) => void
+  onUndoConfig: (configId: string) => void
+  onCreateNewRequest: (endpointId: number) => void
+  onCloneSavedRequest: (id: number) => void
   onDeleteSavedRequest: (id: number) => void
 }
 
@@ -38,21 +45,28 @@ export function RepositoryNode({
   savedRequests,
   isExpanded,
   expandedServices,
+  expandedEndpoints,
   isFavorite,
   isDark,
   searchQuery,
   selectedEndpointId,
   selectedSavedRequestId,
+  dirtyConfigIds,
   isFavoriteService,
   isFavoriteEndpoint,
   onToggle,
   onToggleFavorite,
   onToggleService,
+  onToggleEndpoint,
   onToggleServiceFavorite,
   onToggleEndpointFavorite,
   onSelectEndpoint,
   onSelectSavedRequest,
-  onRenameSavedRequest,
+  onUpdateSavedRequest,
+  onSaveAsNew,
+  onUndoConfig,
+  onCreateNewRequest,
+  onCloneSavedRequest,
   onDeleteSavedRequest,
 }: RepositoryNodeProps) {
   const [isHovered, setIsHovered] = useState(false)
@@ -114,18 +128,25 @@ export function RepositoryNode({
                   endpoints={serviceEndpoints}
                   savedRequests={savedRequests}
                   isExpanded={expandedServices.has(service.id)}
+                  expandedEndpoints={expandedEndpoints}
                   isFavorite={isFavoriteService(service.id)}
                   isDark={isDark}
                   searchQuery={searchQuery}
                   selectedEndpointId={selectedEndpointId}
                   selectedSavedRequestId={selectedSavedRequestId}
+                  dirtyConfigIds={dirtyConfigIds}
                   isFavoriteEndpoint={isFavoriteEndpoint}
                   onToggle={() => onToggleService(service.id)}
+                  onToggleEndpoint={onToggleEndpoint}
                   onToggleFavorite={() => onToggleServiceFavorite(service.id)}
                   onSelectEndpoint={onSelectEndpoint}
                   onToggleEndpointFavorite={onToggleEndpointFavorite}
                   onSelectSavedRequest={onSelectSavedRequest}
-                  onRenameSavedRequest={onRenameSavedRequest}
+                  onUpdateSavedRequest={onUpdateSavedRequest}
+                  onSaveAsNew={onSaveAsNew}
+                  onUndoConfig={onUndoConfig}
+                  onCreateNewRequest={onCreateNewRequest}
+                  onCloneSavedRequest={onCloneSavedRequest}
                   onDeleteSavedRequest={onDeleteSavedRequest}
                 />
               )

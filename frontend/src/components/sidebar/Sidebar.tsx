@@ -8,6 +8,7 @@ import { ViewSelector } from './ViewSelector'
 import { SearchInput } from './SearchInput'
 import { RepositoryNode } from './RepositoryNode'
 import { SidebarActions } from './SidebarActions'
+import { DeleteConfirmModal } from '@/components/request/DeleteConfirmModal'
 
 interface SidebarProps {
   repositories: Repository[]
@@ -15,14 +16,19 @@ interface SidebarProps {
   endpoints: Endpoint[]
   savedRequests: SavedRequest[]
   activeNode: ActiveNode
+  dirtyConfigIds: Set<string>
   onSelectEndpoint: (endpoint: Endpoint) => void
   onSelectSavedRequest: (savedRequest: SavedRequest) => void
   onAddRepository: () => void
   onAutoAddRepos: () => void
   onRefreshAll: () => void
   onRemoveRepository: (id: number) => void
+  onUpdateSavedRequest: (id: number) => void
+  onSaveAsNew: (name: string) => void
+  onUndoConfig: (configId: string) => void
+  onCreateNewRequest: (endpointId: number) => void
+  onCloneSavedRequest: (id: number) => void
   onDeleteSavedRequest: (id: number) => void
-  onUpdateSavedRequest: (savedRequest: SavedRequest) => void
 }
 
 export function Sidebar({
@@ -31,13 +37,18 @@ export function Sidebar({
   endpoints,
   savedRequests,
   activeNode,
+  dirtyConfigIds,
   onSelectEndpoint,
   onSelectSavedRequest,
   onAddRepository,
   onAutoAddRepos,
   onRefreshAll,
-  onDeleteSavedRequest,
   onUpdateSavedRequest,
+  onSaveAsNew,
+  onUndoConfig,
+  onCreateNewRequest,
+  onCloneSavedRequest,
+  onDeleteSavedRequest,
 }: SidebarProps) {
   const { colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
@@ -47,7 +58,9 @@ export function Sidebar({
 
   const [manualExpandedRepos, setManualExpandedRepos] = useState<Set<number>>(new Set())
   const [manualExpandedServices, setManualExpandedServices] = useState<Set<number>>(new Set())
+  const [manualExpandedEndpoints, setManualExpandedEndpoints] = useState<Set<number>>(new Set())
   const [userHasInteracted, setUserHasInteracted] = useState(false)
+  const [deleteConfirmRequest, setDeleteConfirmRequest] = useState<SavedRequest | null>(null)
 
   const filteredTree = useMemo(
     () => filterTree(repositories, services, endpoints, currentView, searchQuery, filterState, favorites),
@@ -56,6 +69,7 @@ export function Sidebar({
 
   const expandedRepos = userHasInteracted ? manualExpandedRepos : filteredTree.expandedRepos
   const expandedServices = userHasInteracted ? manualExpandedServices : filteredTree.expandedServices
+  const expandedEndpoints = manualExpandedEndpoints
 
   const selectedEndpointId = activeNode?.type === 'endpoint' ? activeNode.endpointId : null
   const selectedSavedRequestId = activeNode?.type === 'savedRequest' ? activeNode.savedRequestId : null
@@ -113,22 +127,29 @@ export function Sidebar({
                   savedRequests={savedRequests}
                   isExpanded={expandedRepos.has(repo.id)}
                   expandedServices={expandedServices}
+                  expandedEndpoints={expandedEndpoints}
                   isFavorite={isFavorite('repos', repo.id)}
                   isDark={isDark}
                   searchQuery={searchQuery}
                   selectedEndpointId={selectedEndpointId}
                   selectedSavedRequestId={selectedSavedRequestId}
+                  dirtyConfigIds={dirtyConfigIds}
                   isFavoriteService={(id) => isFavorite('services', id)}
                   isFavoriteEndpoint={(id) => isFavorite('endpoints', id)}
                   onToggle={() => handleToggleRepo(repo.id)}
                   onToggleFavorite={() => toggleFavorite('repos', repo.id)}
                   onToggleService={handleToggleService}
+                  onToggleEndpoint={handleToggleEndpoint}
                   onToggleServiceFavorite={(id) => toggleFavorite('services', id)}
                   onToggleEndpointFavorite={(id) => toggleFavorite('endpoints', id)}
                   onSelectEndpoint={handleSelectEndpoint}
                   onSelectSavedRequest={handleSelectSavedRequest}
-                  onRenameSavedRequest={handleRenameSavedRequest}
-                  onDeleteSavedRequest={onDeleteSavedRequest}
+                  onUpdateSavedRequest={onUpdateSavedRequest}
+                  onSaveAsNew={onSaveAsNew}
+                  onUndoConfig={onUndoConfig}
+                  onCreateNewRequest={onCreateNewRequest}
+                  onCloneSavedRequest={onCloneSavedRequest}
+                  onDeleteSavedRequest={handleDeleteSavedRequest}
                 />
               )
             })}
@@ -144,6 +165,17 @@ export function Sidebar({
         onAutoAddRepos={onAutoAddRepos}
         onRefreshAll={onRefreshAll}
         onClearFavorites={clearAllFavorites}
+      />
+
+      <DeleteConfirmModal
+        opened={deleteConfirmRequest !== null}
+        itemName={deleteConfirmRequest?.name ?? ''}
+        onClose={() => setDeleteConfirmRequest(null)}
+        onConfirm={() => {
+          if (deleteConfirmRequest) {
+            onDeleteSavedRequest(deleteConfirmRequest.id)
+          }
+        }}
       />
     </Box>
   )
@@ -181,6 +213,25 @@ export function Sidebar({
     setUserHasInteracted(true)
   }
 
+  function handleToggleEndpoint(endpointId: number) {
+    setManualExpandedEndpoints((prev) => {
+      const next = new Set(prev)
+      if (next.has(endpointId)) {
+        next.delete(endpointId)
+      } else {
+        next.add(endpointId)
+      }
+      return next
+    })
+  }
+
+  function handleDeleteSavedRequest(id: number) {
+    const sr = savedRequests.find((r) => r.id === id)
+    if (sr) {
+      setDeleteConfirmRequest(sr)
+    }
+  }
+
   function handleSearchChange(value: string) {
     setSearchQuery(value)
     if (value.trim()) {
@@ -205,13 +256,6 @@ export function Sidebar({
   function handleSelectSavedRequest(savedRequest: SavedRequest) {
     handleClearSearch()
     onSelectSavedRequest(savedRequest)
-  }
-
-  function handleRenameSavedRequest(savedRequest: SavedRequest) {
-    const newName = prompt('Enter new name for saved request:', savedRequest.name)
-    if (newName && newName.trim() !== '' && newName !== savedRequest.name) {
-      onUpdateSavedRequest({ ...savedRequest, name: newName.trim() })
-    }
   }
 
   function getEmptyStateMessage(): string {

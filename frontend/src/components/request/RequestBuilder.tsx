@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { IconSend, IconStar, IconStarFilled, IconDeviceFloppy, IconChevronDown, IconPencil, IconTrash } from '@tabler/icons-react'
+import { IconSend, IconStar, IconStarFilled, IconDeviceFloppy, IconChevronDown, IconPencil, IconTrash, IconPlus, IconArrowBackUp } from '@tabler/icons-react'
 import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Stack, Group, Flex, Divider, useMantineColorScheme, ActionIcon, Menu } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import type { Endpoint, SavedRequest, EditableRequestConfig } from '@/types'
@@ -17,9 +17,12 @@ interface RequestBuilderProps {
   endpoint: Endpoint | null
   config: EditableRequestConfig | null
   savedRequests: SavedRequest[]
+  isDirty: boolean
   onConfigChange: (config: EditableRequestConfig) => void
   onSaveAsNew: (name: string) => void
+  onUpdateSavedRequest?: (id: number, nameOverride?: string) => void
   onDeleteSavedRequest?: (id: number) => void
+  onUndo?: () => void
   onSend: (config: { method: string; path: string; headers: Record<string, string>; body: string }) => void
   onCancel: () => void
   isLoading: boolean
@@ -30,9 +33,12 @@ export function RequestBuilder({
   endpoint,
   config,
   savedRequests,
+  isDirty,
   onConfigChange,
   onSaveAsNew,
+  onUpdateSavedRequest,
   onDeleteSavedRequest,
+  onUndo,
   onSend,
   onCancel,
   isLoading,
@@ -45,6 +51,7 @@ export function RequestBuilder({
   const { getShopHeader } = useShop()
 
   const [isEditingName, setIsEditingName] = useState(false)
+  const [isSaveAsNewMode, setIsSaveAsNewMode] = useState(false)
   const [editingName, setEditingName] = useState('')
   const [nameError, setNameError] = useState<string | null>(null)
   const [isHoveringName, setIsHoveringName] = useState(false)
@@ -114,13 +121,15 @@ export function RequestBuilder({
                 <TextInput
                   ref={nameInputRef}
                   value={editingName}
+                  placeholder={isSaveAsNewMode ? 'New Request' : undefined}
                   onChange={(e) => {
                     setEditingName(e.currentTarget.value)
                     setNameError(null)
                   }}
-                  onBlur={finishEditingName}
+                  onBlur={handleFinishEditing}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === 'Escape') finishEditingName()
+                    if (e.key === 'Enter') handleFinishEditing()
+                    if (e.key === 'Escape') cancelEditing()
                   }}
                   error={nameError || undefined}
                   autoFocus
@@ -129,20 +138,50 @@ export function RequestBuilder({
                 />
               ) : (
                 <>
-                  <Text
-                    size="md"
-                    fw={500}
-                    style={{ cursor: 'pointer' }}
-                    onClick={startEditingName}
-                    c={nameError ? 'red' : undefined}
-                  >
-                    {displayName}
-                  </Text>
+                  {(isSavedRequest || isDirty) && (
+                    <Text
+                      size="md"
+                      fw={500}
+                      style={{ cursor: isSavedRequest ? 'pointer' : 'default' }}
+                      onClick={isSavedRequest ? startEditingName : undefined}
+                      c={nameError ? 'red' : !isSavedRequest ? 'dimmed' : undefined}
+                    >
+                      {displayName}
+                    </Text>
+                  )}
+                  {isDirty && (
+                    <div
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        backgroundColor: 'var(--mantine-color-yellow-5)',
+                      }}
+                      title="Unsaved changes"
+                    />
+                  )}
                   {isHoveringName && (
                     <>
-                      <ActionIcon size="sm" variant="subtle" onClick={startEditingName} title="Rename request">
-                        <IconPencil size={14} />
-                      </ActionIcon>
+                      {isSavedRequest && (
+                        <ActionIcon size="sm" variant="subtle" onClick={startEditingName} title="Rename request">
+                          <IconPencil size={14} />
+                        </ActionIcon>
+                      )}
+                      {isDirty && isSavedRequest && (
+                        <ActionIcon size="sm" variant="subtle" onClick={handleUpdate} title="Save">
+                          <IconDeviceFloppy size={14} />
+                        </ActionIcon>
+                      )}
+                      {isDirty && (
+                        <ActionIcon size="sm" variant="subtle" onClick={handleSaveAsNew} title="Save as New">
+                          <IconPlus size={14} />
+                        </ActionIcon>
+                      )}
+                      {isDirty && onUndo && (
+                        <ActionIcon size="sm" variant="subtle" onClick={onUndo} title="Discard changes">
+                          <IconArrowBackUp size={14} />
+                        </ActionIcon>
+                      )}
                       {isSavedRequest && (
                         <ActionIcon
                           size="sm"
@@ -209,25 +248,44 @@ export function RequestBuilder({
           <Divider />
 
           <Group justify="space-between">
-            <Menu position="top-start" withinPortal>
-              <Menu.Target>
+            <Group gap="sm">
+              <Menu position="top-start" withinPortal>
+                <Menu.Target>
+                  <Button
+                    variant="default"
+                    size="md"
+                    leftSection={<IconDeviceFloppy size={16} />}
+                    rightSection={<IconChevronDown size={16} />}
+                    disabled={isLoading || isSaving}
+                    loading={isSaving}
+                  >
+                    Save
+                  </Button>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  {isSavedRequest && (
+                    <Menu.Item leftSection={<IconDeviceFloppy size={16} />} onClick={handleUpdate}>
+                      Save
+                    </Menu.Item>
+                  )}
+                  <Menu.Item leftSection={<IconPlus size={16} />} onClick={handleSaveAsNew}>
+                    Save as New
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+
+              {isDirty && onUndo && (
                 <Button
-                  variant="default"
+                  variant="subtle"
                   size="md"
-                  leftSection={<IconDeviceFloppy size={16} />}
-                  rightSection={<IconChevronDown size={16} />}
+                  leftSection={<IconArrowBackUp size={16} />}
+                  onClick={onUndo}
                   disabled={isLoading || isSaving}
-                  loading={isSaving}
                 >
-                  Save
+                  Discard changes
                 </Button>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Item leftSection={<IconDeviceFloppy size={16} />} onClick={handleSaveAsNew}>
-                  Save as New
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
+              )}
+            </Group>
 
             <Group gap="sm">
               {isLoading ? (
@@ -283,32 +341,85 @@ export function RequestBuilder({
 
   function startEditingName() {
     setEditingName(displayName)
+    setIsSaveAsNewMode(false)
     setIsEditingName(true)
     setNameError(null)
     setTimeout(() => nameInputRef.current?.focus(), 0)
   }
 
-  function finishEditingName() {
+  function startSaveAsNew() {
+    setEditingName('')
+    setIsSaveAsNewMode(true)
+    setIsEditingName(true)
+    setNameError(null)
+    setTimeout(() => nameInputRef.current?.focus(), 0)
+  }
+
+  function cancelEditing() {
     setIsEditingName(false)
+    setIsSaveAsNewMode(false)
     setNameError(null)
   }
 
-  function handleSaveAsNew() {
-    const trimmedName = editingName.trim() || displayName.trim()
+  function handleFinishEditing() {
+    const trimmedName = editingName.trim()
 
-    if (!trimmedName || trimmedName === 'New Request') {
-      setNameError('Name is required')
-      startEditingName()
+    if (isSaveAsNewMode) {
+      if (!trimmedName) {
+        cancelEditing()
+        return
+      }
+      const duplicate = savedRequests.find((sr) => sr.endpointId === endpoint!.id && sr.name === trimmedName)
+      if (duplicate) {
+        setNameError(`A request called "${trimmedName}" already exists`)
+        return
+      }
+      onSaveAsNew(trimmedName)
+      cancelEditing()
+    } else {
+      if (!trimmedName) {
+        setNameError('Name is required')
+        return
+      }
+      if (trimmedName === config!.name) {
+        cancelEditing()
+        return
+      }
+      const duplicate = savedRequests.find(
+        (sr) => sr.endpointId === endpoint!.id && sr.name === trimmedName && sr.id !== parseInt(config!.id, 10)
+      )
+      if (duplicate) {
+        setNameError(`A request called "${trimmedName}" already exists`)
+        return
+      }
+      const savedRequestId = parseInt(config!.id, 10)
+      if (!isNaN(savedRequestId) && onUpdateSavedRequest) {
+        onUpdateSavedRequest(savedRequestId, trimmedName)
+      }
+      cancelEditing()
+    }
+  }
+
+  function handleUpdate() {
+    if (!onUpdateSavedRequest || !config) return
+    const savedRequestId = parseInt(config.id, 10)
+    if (!isNaN(savedRequestId)) {
+      onUpdateSavedRequest(savedRequestId)
+    }
+  }
+
+  function handleSaveAsNew() {
+    if (!isSavedRequest) {
+      startSaveAsNew()
       return
     }
-
+    const trimmedName = editingName.trim() || displayName.trim()
     const duplicate = savedRequests.find((sr) => sr.endpointId === endpoint!.id && sr.name === trimmedName)
     if (duplicate) {
       setNameError(`A request called "${trimmedName}" already exists`)
-      startEditingName()
+      startSaveAsNew()
       return
     }
-
     onSaveAsNew(trimmedName)
     setNameError(null)
   }
