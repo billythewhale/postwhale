@@ -1,23 +1,34 @@
-import { useState } from 'react'
-import { Box, Group, Badge, Stack } from '@mantine/core'
+import { useState, type MouseEvent } from 'react'
+import { Box, Flex, Group, Badge, Stack } from '@mantine/core'
+import { IconPlus, IconChevronRight, IconChevronDown } from '@tabler/icons-react'
 import type { Endpoint, SavedRequest } from '@/types'
 import { getMethodColor } from '@/utils/http'
 import { HighlightMatch } from '@/utils/textHighlight'
 import { FavoriteToggle } from './FavoriteToggle'
+import { DirtyIndicator } from './DirtyIndicator'
 import { SavedRequestNode } from './SavedRequestNode'
+import { ContextMenu, ContextMenuItem } from './ContextMenu'
 
 interface EndpointNodeProps {
   endpoint: Endpoint
   savedRequests: SavedRequest[]
   isSelected: boolean
+  isExpanded: boolean
+  isActiveOrHasActiveChild: boolean
   isFavorite: boolean
   isDark: boolean
   searchQuery: string
   selectedSavedRequestId: number | null
+  dirtyConfigIds: Set<string>
   onSelect: () => void
+  onToggleExpand: () => void
   onToggleFavorite: () => void
   onSelectSavedRequest: (sr: SavedRequest) => void
-  onRenameSavedRequest: (sr: SavedRequest) => void
+  onUpdateSavedRequest: (id: number) => void
+  onSaveAsNew: (name: string) => void
+  onUndoConfig: (configId: string) => void
+  onCreateNewRequest: () => void
+  onCloneSavedRequest: (id: number) => void
   onDeleteSavedRequest: (id: number) => void
 }
 
@@ -25,17 +36,50 @@ export function EndpointNode({
   endpoint,
   savedRequests,
   isSelected,
+  isExpanded,
+  isActiveOrHasActiveChild,
   isFavorite,
   isDark,
   searchQuery,
   selectedSavedRequestId,
+  dirtyConfigIds,
   onSelect,
+  onToggleExpand,
   onToggleFavorite,
   onSelectSavedRequest,
-  onRenameSavedRequest,
+  onUpdateSavedRequest,
+  onSaveAsNew,
+  onUndoConfig,
+  onCreateNewRequest,
+  onCloneSavedRequest,
   onDeleteSavedRequest,
 }: EndpointNodeProps) {
   const [isHovered, setIsHovered] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{ opened: boolean; position: { x: number; y: number } }>({
+    opened: false,
+    position: { x: 0, y: 0 },
+  })
+
+  const tempConfigId = `temp_${endpoint.id}`
+  const isTempDirty = dirtyConfigIds.has(tempConfigId)
+
+  const handleContextMenu = (e: MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({ opened: true, position: { x: e.clientX, y: e.clientY } })
+  }
+
+  const handleNewRequest = () => {
+    setContextMenu((prev) => ({ ...prev, opened: false }))
+    onCreateNewRequest()
+  }
+
+  const handleSelect = () => {
+    onSelect()
+    if (!isExpanded) {
+      onToggleExpand()
+    }
+  }
 
   return (
     <Box>
@@ -59,8 +103,27 @@ export function EndpointNode({
           ariaLabel={isFavorite ? 'Unfavorite endpoint' : 'Favorite endpoint'}
         />
 
+        {savedRequests.length > 0 && (
+          <Flex
+            onClick={(e) => {
+              e.stopPropagation()
+              if (!isActiveOrHasActiveChild) {
+                onToggleExpand()
+              }
+            }}
+            style={{
+              cursor: isActiveOrHasActiveChild ? 'default' : 'pointer',
+              opacity: isActiveOrHasActiveChild ? 0.3 : 1,
+            }}
+            align="center"
+          >
+            {isExpanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+          </Flex>
+        )}
+
         <Box
-          onClick={onSelect}
+          onClick={handleSelect}
+          onContextMenu={handleContextMenu}
           className="sidebar-nav-item"
           style={(theme) => ({
             flex: 1,
@@ -95,19 +158,40 @@ export function EndpointNode({
             }}
           />
         </Box>
+        <DirtyIndicator
+          isDirty={isTempDirty}
+          isSavedRequest={false}
+          onSaveAsNew={() => onSaveAsNew(`${endpoint.method} ${endpoint.path}`)}
+          onUndo={() => onUndoConfig(tempConfigId)}
+        />
       </Group>
 
-      {savedRequests.length > 0 && (
-        <Box ml={32} mt={2}>
+      {contextMenu.opened && (
+        <ContextMenu
+          position={contextMenu.position}
+          onClose={() => setContextMenu((prev) => ({ ...prev, opened: false }))}
+        >
+          <ContextMenuItem leftSection={<IconPlus size={14} />} onClick={handleNewRequest}>
+            New Request
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
+
+      {isExpanded && savedRequests.length > 0 && (
+        <Box ml={48} mt={2}>
           <Stack gap={2}>
             {savedRequests.map((sr) => (
               <SavedRequestNode
                 key={sr.id}
                 savedRequest={sr}
                 isSelected={selectedSavedRequestId === sr.id}
+                isDirty={dirtyConfigIds.has(String(sr.id))}
                 isDark={isDark}
                 onSelect={() => onSelectSavedRequest(sr)}
-                onRename={() => onRenameSavedRequest(sr)}
+                onUpdate={() => onUpdateSavedRequest(sr.id)}
+                onSaveAsNew={() => onSaveAsNew(sr.name)}
+                onUndo={() => onUndoConfig(String(sr.id))}
+                onClone={() => onCloneSavedRequest(sr.id)}
                 onDelete={() => onDeleteSavedRequest(sr.id)}
               />
             ))}

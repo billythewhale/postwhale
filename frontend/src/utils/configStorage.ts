@@ -1,4 +1,4 @@
-import type { Endpoint, SavedRequest, EditableRequestConfig } from '@/types'
+import type { Endpoint, SavedRequest, EditableRequestConfig, ConfigSnapshot } from '@/types'
 import { safeParseJSON } from './json'
 
 const STORAGE_KEY_PREFIX = 'postwhale_config_'
@@ -21,12 +21,28 @@ export function saveConfigToStorage(config: EditableRequestConfig): void {
   }
 }
 
+export function extractSnapshot(config: EditableRequestConfig): ConfigSnapshot {
+  return {
+    name: config.name,
+    pathParams: config.pathParams,
+    queryParams: config.queryParams,
+    headers: config.headers,
+    body: config.body,
+  }
+}
+
+export function isDirtyConfig(config: EditableRequestConfig): boolean {
+  if (!config._originalSnapshot) return false
+  const current = extractSnapshot(config)
+  return JSON.stringify(current) !== JSON.stringify(config._originalSnapshot)
+}
+
 export function createAnonymousConfig(endpoint: Endpoint): EditableRequestConfig {
   const defaultQueryParams = endpoint.spec?.parameters
     ?.filter((p) => p.in === 'query')
     .map((p) => ({ key: p.name, value: '', enabled: true })) || []
 
-  return {
+  const config: EditableRequestConfig = {
     id: `temp_${endpoint.id}`,
     endpointId: endpoint.id,
     name: null,
@@ -35,10 +51,12 @@ export function createAnonymousConfig(endpoint: Endpoint): EditableRequestConfig
     headers: [{ key: 'Content-Type', value: 'application/json', enabled: true }],
     body: '',
   }
+  config._originalSnapshot = extractSnapshot(config)
+  return config
 }
 
 export function createConfigFromSavedRequest(savedRequest: SavedRequest): EditableRequestConfig {
-  return {
+  const config: EditableRequestConfig = {
     id: String(savedRequest.id),
     endpointId: savedRequest.endpointId,
     name: savedRequest.name,
@@ -47,4 +65,6 @@ export function createConfigFromSavedRequest(savedRequest: SavedRequest): Editab
     headers: safeParseJSON(savedRequest.headersJson, [{ key: 'Content-Type', value: 'application/json', enabled: true }]),
     body: savedRequest.body || '',
   }
+  config._originalSnapshot = extractSnapshot(config)
+  return config
 }

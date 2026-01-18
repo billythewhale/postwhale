@@ -18,6 +18,8 @@ import {
   saveConfigToStorage,
   createAnonymousConfig,
   createConfigFromSavedRequest,
+  isDirtyConfig,
+  extractSnapshot,
   DEBOUNCE_MS,
 } from '@/utils/configStorage'
 import type {
@@ -90,6 +92,14 @@ function AppContent() {
 
   const isLoading = activeRequestResponse?.isLoading ?? false
 
+  const dirtyConfigIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const [id, config] of requestConfigs.entries()) {
+      if (isDirtyConfig(config)) ids.add(id)
+    }
+    return ids
+  }, [requestConfigs])
+
   useEffect(() => {
     loadData()
   }, [])
@@ -144,6 +154,18 @@ function AppContent() {
     saveTimeoutRef.current = setTimeout(() => saveConfigToStorage(config), DEBOUNCE_MS)
   }, [requestConfigs])
 
+  const handleUndoConfig = useCallback((configId: string) => {
+    const config = requestConfigs.get(configId)
+    if (!config?._originalSnapshot) return
+
+    const restoredConfig: EditableRequestConfig = {
+      ...config,
+      ...config._originalSnapshot,
+    }
+    requestConfigs.set(configId, restoredConfig)
+    saveConfigToStorage(restoredConfig)
+  }, [requestConfigs])
+
   const handleSaveAsNew = useCallback(async (name: string) => {
     if (!activeConfig || !activeEndpoint) return
 
@@ -157,13 +179,18 @@ function AppContent() {
         headersJson: JSON.stringify(activeConfig.headers),
         body: activeConfig.body,
       })
+      if (activeConfig.id.startsWith('temp_')) {
+        const freshConfig = createAnonymousConfig(activeEndpoint)
+        requestConfigs.set(freshConfig.id, freshConfig)
+        saveConfigToStorage(freshConfig)
+      }
       await loadData(false)
     } catch (err) {
       setError(`Failed to save request: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setIsSaving(false)
     }
-  }, [activeConfig, activeEndpoint, invoke])
+  }, [activeConfig, activeEndpoint, invoke, requestConfigs])
 
   const handleDeleteSavedRequest = useCallback(async (id: number) => {
     setIsSaving(true)
@@ -182,17 +209,88 @@ function AppContent() {
     }
   }, [activeNode, invoke, requestConfigs, requestResponses])
 
-  const handleUpdateSavedRequest = useCallback(async (savedRequest: SavedRequest) => {
+  const handleCloneSavedRequest = useCallback(async (id: number) => {
+    const sr = savedRequests.find((r) => r.id === id)
+    if (!sr) return
+
     setIsSaving(true)
     try {
-      await invoke('updateSavedRequest', savedRequest)
+      await invoke('saveSavedRequest', {
+        endpointId: sr.endpointId,
+        name: `${sr.name} Copy`,
+        pathParamsJson: sr.pathParamsJson,
+        queryParamsJson: sr.queryParamsJson,
+        headersJson: sr.headersJson,
+        body: sr.body,
+      })
+      await loadData(false)
+    } catch (err) {
+      setError(`Failed to clone request: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setIsSaving(false)
+    }
+  }, [savedRequests, invoke])
+
+  const handleCreateNewRequest = useCallback(async (endpointId: number) => {
+    const existingNames = savedRequests
+      .filter((sr) => sr.endpointId === endpointId)
+      .map((sr) => sr.name)
+
+    const generateName = (names: string[]): string => {
+      if (!names.includes('New Request')) return 'New Request'
+      let n = 2
+      while (names.includes(`New Request ${n}`)) n++
+      return `New Request ${n}`
+    }
+
+    const name = generateName(existingNames)
+
+    setIsSaving(true)
+    try {
+      await invoke('saveSavedRequest', {
+        endpointId,
+        name,
+        pathParamsJson: '{}',
+        queryParamsJson: '{}',
+        headersJson: '{}',
+        body: '',
+      })
+      await loadData(false)
+    } catch (err) {
+      setError(`Failed to create request: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setIsSaving(false)
+    }
+  }, [savedRequests, invoke])
+
+  const handleUpdateSavedRequestFromConfig = useCallback(async (savedRequestId: number, nameOverride?: string) => {
+    if (!activeConfig) return
+    const existing = savedRequests.find((sr) => sr.id === savedRequestId)
+    if (!existing) return
+
+    const finalName = nameOverride ?? activeConfig.name ?? existing.name
+
+    setIsSaving(true)
+    try {
+      const updated: SavedRequest = {
+        ...existing,
+        name: finalName,
+        pathParamsJson: JSON.stringify(activeConfig.pathParams),
+        queryParamsJson: JSON.stringify(activeConfig.queryParams),
+        headersJson: JSON.stringify(activeConfig.headers),
+        body: activeConfig.body,
+      }
+      await invoke('updateSavedRequest', updated)
+      const updatedConfig = { ...activeConfig, name: finalName, _originalSnapshot: extractSnapshot({ ...activeConfig, name: finalName }) }
+      requestConfigs.set(activeConfig.id, updatedConfig)
+      saveConfigToStorage(updatedConfig)
       await loadData(false)
     } catch (err) {
       setError(`Failed to update request: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setIsSaving(false)
     }
-  }, [invoke])
+  }, [activeConfig, savedRequests, invoke, requestConfigs])
 
   const handleSend = useCallback(async (config: { method: string; path: string; headers: Record<string, string>; body: string }) => {
     if (!activeConfigId || !activeEndpoint || isLoading) return
@@ -339,14 +437,19 @@ function AppContent() {
               endpoints={endpoints}
               savedRequests={savedRequests}
               activeNode={activeNode}
+              dirtyConfigIds={dirtyConfigIds}
               onSelectEndpoint={handleSelectEndpoint}
               onSelectSavedRequest={handleSelectSavedRequest}
               onAddRepository={() => setShowAddDialog(true)}
               onAutoAddRepos={() => setShowAutoAddDialog(true)}
               onRefreshAll={handleRefreshAll}
               onRemoveRepository={handleRemoveRepository}
+              onUpdateSavedRequest={handleUpdateSavedRequestFromConfig}
+              onSaveAsNew={handleSaveAsNew}
+              onUndoConfig={handleUndoConfig}
+              onCreateNewRequest={handleCreateNewRequest}
+              onCloneSavedRequest={handleCloneSavedRequest}
               onDeleteSavedRequest={handleDeleteSavedRequest}
-              onUpdateSavedRequest={handleUpdateSavedRequest}
             />
 
             <Flex style={{ flex: 1, overflow: 'auto' }} direction="column">
@@ -354,9 +457,12 @@ function AppContent() {
                 endpoint={activeEndpoint}
                 config={activeConfig}
                 savedRequests={savedRequests}
+                isDirty={activeConfigId ? dirtyConfigIds.has(activeConfigId) : false}
                 onConfigChange={handleConfigChange}
                 onSaveAsNew={handleSaveAsNew}
+                onUpdateSavedRequest={handleUpdateSavedRequestFromConfig}
                 onDeleteSavedRequest={handleDeleteSavedRequest}
+                onUndo={activeConfigId ? () => handleUndoConfig(activeConfigId) : undefined}
                 onSend={handleSend}
                 onCancel={handleCancel}
                 isLoading={isLoading}
