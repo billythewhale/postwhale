@@ -2,8 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Flex, Loader, Stack, Text, Alert } from '@mantine/core'
 import { Header } from '@/components/layout/Header'
 import { Sidebar } from '@/components/sidebar/Sidebar'
-import { RequestBuilder } from '@/components/request/RequestBuilder'
-import { ResponseViewer } from '@/components/response/ResponseViewer'
+import { MainContentArea } from '@/components/layout/MainContentArea'
 import { AddRepositoryDialog } from '@/components/sidebar/AddRepositoryDialog'
 import { AutoAddReposDialog } from '@/components/sidebar/AutoAddReposDialog'
 import { FavoritesProvider } from '@/contexts/FavoritesContext'
@@ -38,6 +37,22 @@ import type {
   ExportResult,
   ImportResult,
 } from '@/types'
+
+function buildFullUrl(serviceId: string, endpoint: string, env: Environment, authEnabled: boolean): string {
+  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+  if (authEnabled) {
+    switch (env) {
+      case 'LOCAL': return `http://localhost/api/v2/${serviceId}${path}`
+      case 'STAGING': return `https://staging.api.triplewhale.com/api/v2/${serviceId}${path}`
+      case 'PRODUCTION': return `https://api.triplewhale.com/api/v2/${serviceId}${path}`
+    }
+  }
+  switch (env) {
+    case 'LOCAL': return `http://localhost/${serviceId}${path}`
+    case 'STAGING': return `http://stg.${serviceId}.srv.whale3.io${path}`
+    case 'PRODUCTION': return `http://${serviceId}.srv.whale3.io${path}`
+  }
+}
 
 export default function App() {
   return (
@@ -262,8 +277,8 @@ function AppContent() {
         endpointId,
         name,
         pathParamsJson: '{}',
-        queryParamsJson: '{}',
-        headersJson: '{}',
+        queryParamsJson: '[]',
+        headersJson: '[]',
         body: '',
       })
       await loadData(false)
@@ -303,29 +318,54 @@ function AppContent() {
     }
   }, [activeConfig, savedRequests, invoke, requestConfigs])
 
-  const handleSend = useCallback(async (config: { method: string; path: string; headers: Record<string, string>; body: string; authEnabled: boolean }) => {
+  const handleSend = useCallback(async (config: {
+    method: string
+    path: string
+    resolvedPath: string
+    pathParams: Record<string, string>
+    queryParams: Array<{ key: string; value: string }>
+    headers: Record<string, string>
+    body: string
+    authEnabled: boolean
+  }) => {
     if (!activeConfigId || !activeEndpoint || isLoading) return
 
     const controller = new AbortController()
     abortControllerRef.current = controller
 
+    const service = services.find((s) => s.id === activeEndpoint.serviceId)
+    if (!service) {
+      setError('Service not found for endpoint')
+      return
+    }
+
+    const fullUrl = buildFullUrl(service.serviceId, config.path, environment, config.authEnabled)
+
     requestResponses.set(activeConfigId, {
-      request: { ...config, sentAt: Date.now() },
+      request: {
+        method: config.method,
+        path: config.path,
+        url: fullUrl,
+        resolvedPath: config.resolvedPath,
+        pathParams: config.pathParams,
+        queryParams: config.queryParams,
+        headers: config.headers,
+        body: config.body,
+        sentAt: Date.now(),
+      },
       response: null,
       isLoading: true,
     })
     setError(null)
 
     try {
-      const service = services.find((s) => s.id === activeEndpoint.serviceId)
-      if (!service) throw new Error('Service not found for endpoint')
-
       const result = await invoke<{
         statusCode: number
         status: string
         headers: Record<string, string[]>
         body: string
         responseTime: number
+        remoteAddress?: string
         error?: string
       }>('executeRequest', {
         serviceId: service.serviceId,
@@ -535,24 +575,22 @@ function AppContent() {
             {settingsOpen ? (
               <GlobalSettingsPanel onClose={() => setSettingsOpen(false)} />
             ) : (
-              <Flex style={{ flex: 1, overflow: 'auto' }} direction="column">
-                <RequestBuilder
-                  endpoint={activeEndpoint}
-                  config={activeConfig}
-                  savedRequests={savedRequests}
-                  isDirty={activeConfigId ? dirtyConfigIds.has(activeConfigId) : false}
-                  onConfigChange={handleConfigChange}
-                  onSaveAsNew={handleSaveAsNew}
-                  onUpdateSavedRequest={handleUpdateSavedRequestFromConfig}
-                  onDeleteSavedRequest={handleDeleteSavedRequest}
-                  onUndo={activeConfigId ? () => handleUndoConfig(activeConfigId) : undefined}
-                  onSend={handleSend}
-                  onCancel={handleCancel}
-                  isLoading={isLoading}
-                  isSaving={isSaving}
-                />
-                <ResponseViewer requestResponse={activeRequestResponse} />
-              </Flex>
+              <MainContentArea
+                endpoint={activeEndpoint}
+                config={activeConfig}
+                savedRequests={savedRequests}
+                isDirty={activeConfigId ? dirtyConfigIds.has(activeConfigId) : false}
+                requestResponse={activeRequestResponse}
+                isLoading={isLoading}
+                isSaving={isSaving}
+                onConfigChange={handleConfigChange}
+                onSaveAsNew={handleSaveAsNew}
+                onUpdateSavedRequest={handleUpdateSavedRequestFromConfig}
+                onDeleteSavedRequest={handleDeleteSavedRequest}
+                onUndo={activeConfigId ? () => handleUndoConfig(activeConfigId) : undefined}
+                onSend={handleSend}
+                onCancel={handleCancel}
+              />
             )}
           </>
         )}

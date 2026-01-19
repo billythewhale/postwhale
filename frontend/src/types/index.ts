@@ -154,6 +154,10 @@ export interface RequestResponsePair {
   request: {
     method: string
     path: string
+    url: string
+    resolvedPath: string
+    pathParams: Record<string, string>
+    queryParams: Array<{ key: string; value: string }>
     headers: Record<string, string>
     body: string
     sentAt: number
@@ -164,6 +168,7 @@ export interface RequestResponsePair {
     headers: Record<string, string[]>
     body: string
     responseTime: number
+    remoteAddress?: string
     error?: string
   } | null
   isLoading: boolean

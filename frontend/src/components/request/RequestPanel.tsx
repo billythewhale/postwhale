@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { IconSend, IconStar, IconStarFilled, IconDeviceFloppy, IconChevronDown, IconPencil, IconTrash, IconPlus, IconArrowBackUp } from '@tabler/icons-react'
-import { Button, Paper, Title, Badge, Text, Tabs, TextInput, Stack, Group, Flex, Divider, useMantineColorScheme, ActionIcon, Menu } from '@mantine/core'
+import { Button, Badge, Text, TextInput, Stack, Group, Flex, Divider, useMantineColorScheme, ActionIcon, Menu, Box, Loader } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import type { Endpoint, SavedRequest, EditableRequestConfig } from '@/types'
 import { useFavorites } from '@/contexts/FavoritesContext'
@@ -14,8 +14,10 @@ import { QueryParamsPanel } from './QueryParamsPanel'
 import { BodyPanel } from './BodyPanel'
 import { RequestAuthTab } from './RequestAuthTab'
 import { DeleteConfirmModal } from './DeleteConfirmModal'
+import { RequestNavRail } from './RequestNavRail'
+import type { RequestNav } from './RequestNavRail'
 
-interface RequestBuilderProps {
+interface RequestPanelProps {
   endpoint: Endpoint | null
   config: EditableRequestConfig | null
   savedRequests: SavedRequest[]
@@ -38,11 +40,9 @@ interface RequestBuilderProps {
   onCancel: () => void
   isLoading: boolean
   isSaving: boolean
-  isExpanded: boolean
-  onExpand: () => void
 }
 
-export function RequestBuilder({
+export function RequestPanel({
   endpoint,
   config,
   savedRequests,
@@ -56,9 +56,7 @@ export function RequestBuilder({
   onCancel,
   isLoading,
   isSaving,
-  isExpanded,
-  onExpand,
-}: RequestBuilderProps) {
+}: RequestPanelProps) {
   const { colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
   const { toggleFavorite, isFavorite } = useFavorites()
@@ -66,6 +64,7 @@ export function RequestBuilder({
   const { getShopHeader } = useShop()
   const { getAuthHeader, ensureValidToken } = useAuth()
 
+  const [activeNav, setActiveNav] = useState<RequestNav>('params')
   const [isEditingName, setIsEditingName] = useState(false)
   const [isSaveAsNewMode, setIsSaveAsNewMode] = useState(false)
   const [editingName, setEditingName] = useState('')
@@ -76,7 +75,7 @@ export function RequestBuilder({
 
   if (!endpoint || !config) {
     return (
-      <Flex style={{ flex: 1 }} align="center" justify="center">
+      <Flex style={{ height: '100%', borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}` }} align="center" justify="center">
         <Stack align="center" gap="xs">
           <Text size="lg" c="dimmed">Select an endpoint to get started</Text>
           <Text size="sm" c="dimmed">Choose a service and endpoint from the sidebar</Text>
@@ -90,33 +89,11 @@ export function RequestBuilder({
   const pathParamNames = extractPathParams(endpoint.path)
 
   return (
-    <Flex
-      direction="column"
-      style={{
-        flex: isExpanded ? 1 : 'none',
-        minHeight: isExpanded ? 0 : 'auto',
-        transition: 'flex 0.2s ease-in-out',
-        overflow: 'hidden',
-      }}
-    >
-      <Paper
-        shadow="md"
-        p={isExpanded ? 'lg' : 'sm'}
-        m="md"
-        mb={0}
-        style={{
-          boxShadow: isDark
-            ? '0 4px 20px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1)'
-            : '0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08)',
-          cursor: isExpanded ? 'default' : 'pointer',
-          flex: isExpanded ? 1 : 'none',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-        onClick={isExpanded ? undefined : onExpand}
-      >
-        <Stack gap="md" style={{ flex: 1, overflow: isExpanded ? 'auto' : 'hidden' }}>
+    <Flex style={{ height: '100%', overflow: 'hidden', borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}` }}>
+      <RequestNavRail activeNav={activeNav} onNavChange={setActiveNav} />
+
+      <Flex direction="column" style={{ flex: 1, overflow: 'hidden' }}>
+        <Stack gap="md" style={{ flex: 1, overflow: 'hidden' }} p="md">
           <Group gap="md" align="center">
             <ActionIcon
               variant="subtle"
@@ -134,9 +111,9 @@ export function RequestBuilder({
             <Badge color={getMethodColor(endpoint.method)} size="lg" variant="filled">
               {endpoint.method}
             </Badge>
-            <Title order={3} style={{ fontFamily: 'monospace' }}>
+            <Text size="lg" fw={600} style={{ fontFamily: 'monospace' }}>
               {endpoint.path}
-            </Title>
+            </Text>
 
             <Divider orientation="vertical" />
 
@@ -228,140 +205,122 @@ export function RequestBuilder({
                 </>
               )}
             </Group>
+
+            <Group gap="sm">
+              {isLoading ? (
+                <>
+                  <Loader size="sm" />
+                  <Button onClick={onCancel} size="sm" variant="outline" color="red">
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={handleSend} size="sm" leftSection={<IconSend size={16} />}>
+                  Send
+                </Button>
+              )}
+            </Group>
           </Group>
 
-          {isExpanded && (
-            <>
-              {endpoint.spec?.summary && (
-                <Text size="sm" c="dimmed">
-                  {endpoint.spec.summary}
-                </Text>
-              )}
-
-              <Tabs defaultValue="params">
-                <Tabs.List>
-                  <Tabs.Tab value="params">Params</Tabs.Tab>
-                  <Tabs.Tab value="headers">Headers</Tabs.Tab>
-                  <Tabs.Tab value="query">Query</Tabs.Tab>
-                  <Tabs.Tab value="body">Body</Tabs.Tab>
-                  <Tabs.Tab value="auth">Auth</Tabs.Tab>
-                </Tabs.List>
-
-                <Tabs.Panel value="params" pt="md">
-                  <PathParamsPanel
-                    paramNames={pathParamNames}
-                    values={config.pathParams}
-                    onChange={(key, value) => updateConfig({ pathParams: { ...config.pathParams, [key]: value } })}
-                  />
-                </Tabs.Panel>
-
-                <Tabs.Panel value="headers" pt="md">
-                  <HeadersPanel
-                    headers={config.headers}
-                    onUpdate={handleUpdateHeader}
-                    onAdd={() => updateConfig({ headers: [...config.headers, { key: '', value: '', enabled: true }] })}
-                    onRemove={(i) => updateConfig({ headers: config.headers.filter((_, idx) => idx !== i) })}
-                  />
-                </Tabs.Panel>
-
-                <Tabs.Panel value="query" pt="md">
-                  <QueryParamsPanel
-                    params={config.queryParams}
-                    onUpdate={handleUpdateQueryParam}
-                    onAdd={() => updateConfig({ queryParams: [...config.queryParams, { key: '', value: '', enabled: true }] })}
-                    onRemove={(i) => updateConfig({ queryParams: config.queryParams.filter((_, idx) => idx !== i) })}
-                  />
-                </Tabs.Panel>
-
-                <Tabs.Panel value="body" pt="md">
-                  <BodyPanel body={config.body} onChange={(body) => updateConfig({ body })} />
-                </Tabs.Panel>
-
-                <Tabs.Panel value="auth" pt="md">
-                  <RequestAuthTab
-                    auth={config.auth}
-                    onChange={(auth) => updateConfig({ auth })}
-                  />
-                </Tabs.Panel>
-              </Tabs>
-
-              <Divider />
-
-              <Group justify="space-between">
-                <Group gap="sm">
-                  <Menu position="top-start" withinPortal>
-                    <Menu.Target>
-                      <Button
-                        variant="default"
-                        size="md"
-                        leftSection={<IconDeviceFloppy size={16} />}
-                        rightSection={<IconChevronDown size={16} />}
-                        disabled={isLoading || isSaving}
-                        loading={isSaving}
-                      >
-                        Save
-                      </Button>
-                    </Menu.Target>
-                    <Menu.Dropdown>
-                      {isSavedRequest && (
-                        <Menu.Item leftSection={<IconDeviceFloppy size={16} />} onClick={handleUpdate}>
-                          Save
-                        </Menu.Item>
-                      )}
-                      <Menu.Item leftSection={<IconPlus size={16} />} onClick={handleSaveAsNew}>
-                        Save as New
-                      </Menu.Item>
-                    </Menu.Dropdown>
-                  </Menu>
-
-                  {isDirty && onUndo && (
-                    <Button
-                      variant="subtle"
-                      size="md"
-                      leftSection={<IconArrowBackUp size={16} />}
-                      onClick={onUndo}
-                      disabled={isLoading || isSaving}
-                    >
-                      Discard changes
-                    </Button>
-                  )}
-                </Group>
-
-                <Group gap="sm">
-                  {isLoading ? (
-                    <>
-                      <Button size="md" leftSection={<IconSend size={16} />} loading disabled>
-                        Sending...
-                      </Button>
-                      <Button onClick={onCancel} size="md" variant="outline" color="red">
-                        Cancel
-                      </Button>
-                    </>
-                  ) : (
-                    <Button onClick={handleSend} size="md" leftSection={<IconSend size={16} />}>
-                      Send Request
-                    </Button>
-                  )}
-                </Group>
-              </Group>
-            </>
+          {endpoint.spec?.summary && (
+            <Text size="sm" c="dimmed">
+              {endpoint.spec.summary}
+            </Text>
           )}
-        </Stack>
-      </Paper>
 
-      <DeleteConfirmModal
-        opened={showDeleteModal}
-        itemName={displayName}
-        onClose={() => setShowDeleteModal(false)}
-        onConfirm={() => {
-          if (onDeleteSavedRequest && config) {
-            const savedRequestId = parseInt(config.id, 10)
-            if (!isNaN(savedRequestId)) {
-              onDeleteSavedRequest(savedRequestId)
+          <Box style={{ flex: 1, overflow: 'auto' }}>
+            {activeNav === 'params' && (
+              <PathParamsPanel
+                paramNames={pathParamNames}
+                values={config.pathParams}
+                onChange={(key, value) => updateConfig({ pathParams: { ...config.pathParams, [key]: value } })}
+              />
+            )}
+            {activeNav === 'headers' && (
+              <HeadersPanel
+                headers={config.headers}
+                onUpdate={handleUpdateHeader}
+                onAdd={() => updateConfig({ headers: [...config.headers, { key: '', value: '', enabled: true }] })}
+                onRemove={(i) => updateConfig({ headers: config.headers.filter((_, idx) => idx !== i) })}
+              />
+            )}
+            {activeNav === 'query' && (
+              <QueryParamsPanel
+                params={config.queryParams}
+                onUpdate={handleUpdateQueryParam}
+                onAdd={() => updateConfig({ queryParams: [...config.queryParams, { key: '', value: '', enabled: true }] })}
+                onRemove={(i) => updateConfig({ queryParams: config.queryParams.filter((_, idx) => idx !== i) })}
+              />
+            )}
+            {activeNav === 'body' && (
+              <BodyPanel body={config.body} onChange={(body) => updateConfig({ body })} />
+            )}
+            {activeNav === 'auth' && (
+              <RequestAuthTab
+                auth={config.auth}
+                onChange={(auth) => updateConfig({ auth })}
+              />
+            )}
+          </Box>
+
+          <Divider />
+
+          <Group justify="space-between">
+            <Group gap="sm">
+              <Menu position="top-start" withinPortal>
+                <Menu.Target>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    leftSection={<IconDeviceFloppy size={16} />}
+                    rightSection={<IconChevronDown size={16} />}
+                    disabled={isLoading || isSaving}
+                    loading={isSaving}
+                  >
+                    Save
+                  </Button>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  {isSavedRequest && (
+                    <Menu.Item leftSection={<IconDeviceFloppy size={16} />} onClick={handleUpdate}>
+                      Save
+                    </Menu.Item>
+                  )}
+                  <Menu.Item leftSection={<IconPlus size={16} />} onClick={handleSaveAsNew}>
+                    Save as New
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+
+              {isDirty && onUndo && (
+                <Button
+                  variant="subtle"
+                  size="sm"
+                  leftSection={<IconArrowBackUp size={16} />}
+                  onClick={onUndo}
+                  disabled={isLoading || isSaving}
+                >
+                  Discard
+                </Button>
+              )}
+            </Group>
+          </Group>
+        </Stack>
+
+        <DeleteConfirmModal
+          opened={showDeleteModal}
+          itemName={displayName}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={() => {
+            if (onDeleteSavedRequest && config) {
+              const savedRequestId = parseInt(config.id, 10)
+              if (!isNaN(savedRequestId)) {
+                onDeleteSavedRequest(savedRequestId)
+              }
             }
-          }
-        }}
-      />
+          }}
+        />
+      </Flex>
     </Flex>
   )
 

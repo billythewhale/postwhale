@@ -2,9 +2,12 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/http/httptrace"
 	"strings"
 	"time"
 )
@@ -33,12 +36,13 @@ type RequestConfig struct {
 
 // Response contains the HTTP response data
 type Response struct {
-	StatusCode   int
-	Status       string
-	Headers      map[string][]string
-	Body         string
-	ResponseTime time.Duration
-	Error        string
+	StatusCode    int
+	Status        string
+	Headers       map[string][]string
+	Body          string
+	ResponseTime  time.Duration
+	RemoteAddress string
+	Error         string
 }
 
 // buildURL constructs the full URL based on environment and config
@@ -83,17 +87,33 @@ func ExecuteRequest(config RequestConfig) Response {
 func executeRequestWithURL(url string, config RequestConfig) Response {
 	start := time.Now()
 
-	// Set default timeout if not specified
 	timeout := config.Timeout
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
 
-	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// Create HTTP request
+	var remoteAddr string
+	trace := &httptrace.ClientTrace{
+		GotConn: func(info httptrace.GotConnInfo) {
+			if info.Conn != nil {
+				remoteAddr = info.Conn.RemoteAddr().String()
+			}
+		},
+		TLSHandshakeDone: func(_ tls.ConnectionState, _ error) {},
+		ConnectDone: func(network, addr string, _ error) {
+			if remoteAddr == "" {
+				remoteAddr = addr
+			}
+		},
+		DNSDone: func(_ httptrace.DNSDoneInfo) {},
+		GetConn: func(_ string) {},
+		GotFirstResponseByte: func() {},
+	}
+	ctx = httptrace.WithClientTrace(ctx, trace)
+
 	var bodyReader io.Reader
 	if config.Body != "" {
 		bodyReader = strings.NewReader(config.Body)
@@ -107,39 +127,46 @@ func executeRequestWithURL(url string, config RequestConfig) Response {
 		}
 	}
 
-	// Set headers
 	for key, value := range config.Headers {
 		req.Header.Set(key, value)
 	}
 
-	// Execute request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			return Response{
+				Error:         fmt.Sprintf("request timed out: %v", err),
+				ResponseTime:  time.Since(start),
+				RemoteAddress: remoteAddr,
+			}
+		}
 		return Response{
-			Error:        fmt.Sprintf("request failed: %v", err),
-			ResponseTime: time.Since(start),
+			Error:         fmt.Sprintf("request failed: %v", err),
+			ResponseTime:  time.Since(start),
+			RemoteAddress: remoteAddr,
 		}
 	}
 	defer resp.Body.Close()
 
-	// Read response body
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return Response{
-			StatusCode:   resp.StatusCode,
-			Status:       resp.Status,
-			Headers:      resp.Header,
-			Error:        fmt.Sprintf("failed to read response body: %v", err),
-			ResponseTime: time.Since(start),
+			StatusCode:    resp.StatusCode,
+			Status:        resp.Status,
+			Headers:       resp.Header,
+			Error:         fmt.Sprintf("failed to read response body: %v", err),
+			ResponseTime:  time.Since(start),
+			RemoteAddress: remoteAddr,
 		}
 	}
 
 	return Response{
-		StatusCode:   resp.StatusCode,
-		Status:       resp.Status,
-		Headers:      resp.Header,
-		Body:         string(bodyBytes),
-		ResponseTime: time.Since(start),
+		StatusCode:    resp.StatusCode,
+		Status:        resp.Status,
+		Headers:       resp.Header,
+		Body:          string(bodyBytes),
+		ResponseTime:  time.Since(start),
+		RemoteAddress: remoteAddr,
 	}
 }

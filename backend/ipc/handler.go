@@ -443,16 +443,15 @@ func (h *Handler) handleExecuteRequest(data json.RawMessage) IPCResponse {
 	// Execute the HTTP request
 	response := client.ExecuteRequest(config)
 
-	// Convert response to map for JSON serialization
 	result := map[string]interface{}{
-		"statusCode":   response.StatusCode,
-		"status":       response.Status,
-		"headers":      response.Headers,
-		"body":         response.Body,
-		"responseTime": response.ResponseTime.Milliseconds(),
+		"statusCode":    response.StatusCode,
+		"status":        response.Status,
+		"headers":       response.Headers,
+		"body":          response.Body,
+		"responseTime":  response.ResponseTime.Milliseconds(),
+		"remoteAddress": response.RemoteAddress,
 	}
 
-	// Include error if present
 	if response.Error != "" {
 		result["error"] = response.Error
 	}
