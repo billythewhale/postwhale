@@ -55,7 +55,7 @@ func buildURL(config RequestConfig) string {
 		case EnvLocal:
 			return fmt.Sprintf("http://localhost/api/v2/%s%s", config.ServiceID, endpoint)
 		case EnvStaging:
-			return fmt.Sprintf("https://stg.api.triplewhale.com/api/v2/%s%s", config.ServiceID, endpoint)
+			return fmt.Sprintf("https://staging.api.triplewhale.com/api/v2/%s%s", config.ServiceID, endpoint)
 		case EnvProduction:
 			return fmt.Sprintf("https://api.triplewhale.com/api/v2/%s%s", config.ServiceID, endpoint)
 		}
