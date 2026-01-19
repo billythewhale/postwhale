@@ -60,6 +60,7 @@ Terminology: The main app window is broken up like so:
 - [x] T2: When hovering the request name, show pencil and trash icons. Clicking pencil starts rename (same as just clicking name). Clicking trash deletes after confirmation modal. (01/15/2026)
 - [x] T3: When clicking the already-selected shop in the dropdown, that shop should remain the selected shop, rather than de-selecting it (01/15/2026)
 - [x] T4: When editing the Name of a request, the text input should be flex={1} i.e. take up all the horizontal space available to it (01/16/2026)
+- [ ] T5: We need to add some kind of indeterminate progress indication when the request is in progress, like a shimmer bar
 
 ## TECH DEBT (Deferred from code review 01/19/2026)
 
@@ -93,8 +94,8 @@ P3 - Lowest
 - [x] Headers can be turned on/off, not just added/deleted
   - [x] User can toggle a switch next to the header to turn it off, without deleting the value
 
-- [ ] Headers can be adjusted Globally
-  - [ ] User can set header(s) and turn them on/off in the global scope, as well as specify headers in the scope of each request, as they do now.
+- [x] Headers can be adjusted Globally
+  - [x] User can set header(s) and turn them on/off in the global scope, as well as specify headers in the scope of each request, as they do now.
 
 ### F4: Global shop selector (P1)
 
@@ -117,26 +118,27 @@ P3 - Lowest
   - [x] in case user clicks "Save Request" without having added a name, highlight the name field (error message: Name is required) and force user to add a name -- THIS SHOULD HAPPEN WHEN the name is "New Request" (01/15/2026)
   - [x] When trying to save a request and a request with that name already exists under that endpoint: highlight the name field (error message: A request called <Name> already exists) and force user to add a different name (01/15/2026)
   - [x] Drop "Request Name" modal altogether it shouldn't be needed (01/15/2026)
-  - [/] User can choose to add these requests to the .yml file where the endpoint is described. (FUTURE -- do not implement)
+  - [c] User can choose to add these requests to the .yml file where the endpoint is described. (FUTURE -- do not implement)
 
 ### F6: More request/response info (P2)
 
-- [ ] Inspect Request/Response once sent/received, similar to the view in Chrome DevTools when a Request is highlighted in the network tab.
-  - [ ] The REQ/RES section has tabs, all info is read-only and reflects only this speific request that was sent, doesn't change when CONFIG above is changed, reset to blank when a new request is sent:
-    - [ ] Info: Request URL, Request Method, Status Code, Status Message, Remote Address, Referrer Policy
-    - [ ] Headers: Subsections (accordion-style): Request, Response -- both show headers in table style
-    - [ ] Payload: Subsections (accordion-style): Params (table), Query (table), Body (JSON viewer)
-    - [ ] Response: JSON viewer if response was application/json or else raw response (THIS IS THE DEFAULT ACTIVE VIEW WHEN RESPONSE IS RECEIVED)
-    - [ ] Raw: Raw response, in case Response tab shows interactive JSON; if Response tab is already raw, hide this
-    - [ ] Timing
+- [x] Inspect Request/Response once sent/received, similar to the view in Chrome DevTools when a Request is highlighted in the network tab. (01/19/2026)
+  - [x] The REQ/RES section has tabs, all info is read-only and reflects only this speific request that was sent, doesn't change when CONFIG above is changed, reset to blank when a new request is sent:
+    - [x] Info: Request URL, Request Method, Status Code, Status Message, Remote Address, Referrer Policy
+    - [x] Headers: Subsections (accordion-style): Request, Response -- both show headers in table style
+    - [x] Payload: Subsections (accordion-style): Params (table), Query (table), Body (JSON viewer)
+    - [x] Response: JSON viewer if response was application/json or else raw response (THIS IS THE DEFAULT ACTIVE VIEW WHEN RESPONSE IS RECEIVED)
+    - [x] Raw: Raw response, in case Response tab shows interactive JSON; if Response tab is already raw, hide this
+    - [x] Timing
 
-### F7: New Endpoints and Requests (P2)
+### F7: New Requests (P2)
 
-- [ ] User can create new Endpoints and Requests on the sidebar
-  - [ ] Action item in sidebar context menu "Add Request"
-    - [ ] First, opens a modal: Users chooses (existing) repo, chooses existing service in that repo, chooses or adds an endpoint. Checkbox/toggle for `internal` or `public`.
-    - [ ] This adds the endpoint to local state first, user configures and sends requests as normal
-    - [ ] When user chooses "Save Request", new endpoint info is written to openapi.yml (if public) or openapi.internal.yml (if internal) in the repo.
+- [ ] When User clicks "+ New Request" in Endpoint context menu on sidebar, the new request is created and immediately becomes the active node
+- [ ] A user can import a Request copied from Chrome DevTools
+  - [ ] We need to figure out what's best ... probably curl
+  - [ ] A user clicks "Copy as CURL" (or fetch, or fetch (Node)) in Chrome DevTools, the user can paste that request into a new or existing RequestConfig.
+  - [ ] We need to discuss UX as well... do we just allow Cmd+V anywhere in the app and try to treat it as a curl and if it's not then bail? This seems lousy. Probably need a place to paste the curl and a button on the RequestConfig view that initiates the process.
+
 
 ### F8: Endpoint info (P3)
 
@@ -144,6 +146,7 @@ P3 - Lowest
   - [ ] Add a Tab called "Info" to the Config section, before "Params"
   - [ ] Read documentation data from the openapi yml
   - [ ] When the user double-clicks on the info, she can edit it and then save
+  - [ ] Info gets exported to the correct openapi.yml 
 
 ### F9: Body JSON editing improvements (P2)
 
@@ -154,4 +157,5 @@ P3 - Lowest
 - [ ] while editing auto-close wrapper-like chars
   - [ ] example, when I type `"`, the second `"` should appear automatically and the cursor should be between them
   - [ ] same for `{` and `[` ... others??
-- [ ] syntax highlighting would be nice: at least: colored brackets, green for strings, blue for numbers, purple for booleans
+- [ ] syntax highlighting would be nice: at least: colored brackets, green for strings, blue for numbers, orange for booleans (or some cool theme like atomonedark)
+
