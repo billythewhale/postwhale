@@ -103,23 +103,23 @@ export function EndpointNode({
           ariaLabel={isFavorite ? 'Unfavorite endpoint' : 'Favorite endpoint'}
         />
 
-        {savedRequests.length > 0 && (
-          <Flex
-            onClick={(e) => {
-              e.stopPropagation()
-              if (!isActiveOrHasActiveChild) {
-                onToggleExpand()
-              }
-            }}
-            style={{
-              cursor: isActiveOrHasActiveChild ? 'default' : 'pointer',
-              opacity: isActiveOrHasActiveChild ? 0.3 : 1,
-            }}
-            align="center"
-          >
-            {isExpanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
-          </Flex>
-        )}
+        <Flex
+          onClick={(e) => {
+            e.stopPropagation()
+            if (savedRequests.length > 0 && !isActiveOrHasActiveChild) {
+              onToggleExpand()
+            }
+          }}
+          style={{
+            cursor: savedRequests.length > 0 && !isActiveOrHasActiveChild ? 'pointer' : 'default',
+            opacity: savedRequests.length > 0 ? (isActiveOrHasActiveChild ? 0.3 : 1) : 0,
+            width: 16,
+            flexShrink: 0,
+          }}
+          align="center"
+        >
+          {isExpanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+        </Flex>
 
         <Box
           onClick={handleSelect}

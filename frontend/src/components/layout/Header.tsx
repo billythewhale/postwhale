@@ -81,22 +81,22 @@ export function Header({ environment, onEnvironmentChange }: HeaderProps) {
           />
 
           <Select
-            value={selectedShop}
+            value={selectedShop ?? 'None'}
             onChange={(v) => {
-              // Prevent de-selection when clicking already-selected shop
-              // Only update state if value actually changed
-              if (v !== selectedShop) {
-                selectShop(v)
+              if (v !== null) {
+                selectShop(v === 'None' ? null : v)
               }
             }}
             data={[
               { value: 'None', label: 'None (no shop)' },
-              ...shopHistory.map((shop) => ({ value: shop, label: shop })),
+              ...['madisonbraids.myshopify.com', 'acct_1GPwMuAQRPl2PkoW', ...shopHistory]
+                .filter((shop, idx, arr) => arr.indexOf(shop) === idx)
+                .sort((a, b) => a.localeCompare(b))
+                .map((shop) => ({ value: shop, label: shop })),
             ]}
             placeholder="Select Shop"
             searchable
             w={280}
-            clearable
             nothingFoundMessage="Type shop ID and press Enter"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {

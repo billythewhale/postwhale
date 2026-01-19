@@ -11,6 +11,7 @@ import (
 
 	"github.com/triplewhale/postwhale/client"
 	"github.com/triplewhale/postwhale/db"
+	"github.com/triplewhale/postwhale/portability"
 	"github.com/triplewhale/postwhale/scanner"
 )
 
@@ -91,6 +92,14 @@ func (h *Handler) HandleRequest(request IPCRequest) IPCResponse {
 		response = h.handleUpdateSavedRequest(request.Data)
 	case "deleteSavedRequest":
 		response = h.handleDeleteSavedRequest(request.Data)
+	case "exportSavedRequests":
+		response = h.handleExportSavedRequests(request.Data)
+	case "importSavedRequests":
+		response = h.handleImportSavedRequests(request.Data)
+	case "exportRepoSavedRequests":
+		response = h.handleExportRepoSavedRequests(request.Data)
+	case "importRepoSavedRequests":
+		response = h.handleImportRepoSavedRequests(request.Data)
 	default:
 		response = IPCResponse{
 			Success: false,
@@ -978,6 +987,140 @@ func (h *Handler) handleDeleteSavedRequest(data json.RawMessage) IPCResponse {
 		Success: true,
 		Data: map[string]interface{}{
 			"deleted": true,
+		},
+	}
+}
+
+func (h *Handler) handleExportSavedRequests(data json.RawMessage) IPCResponse {
+	var input struct {
+		ServiceID int64 `json:"serviceId"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	result, err := portability.ExportServiceSavedRequests(h.database, input.ServiceID)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to export saved requests: %v", err),
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"filePath": result.FilePath,
+			"count":    result.Count,
+		},
+	}
+}
+
+func (h *Handler) handleImportSavedRequests(data json.RawMessage) IPCResponse {
+	var input struct {
+		ServiceID int64 `json:"serviceId"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	result, err := portability.ImportServiceSavedRequests(h.database, input.ServiceID)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to import saved requests: %v", err),
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"added":    result.Added,
+			"replaced": result.Replaced,
+			"skipped":  result.Skipped,
+			"errors":   result.Errors,
+		},
+	}
+}
+
+func (h *Handler) handleExportRepoSavedRequests(data json.RawMessage) IPCResponse {
+	var input struct {
+		RepoID int64 `json:"repoId"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	results, err := portability.ExportRepoSavedRequests(h.database, input.RepoID)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to export repo saved requests: %v", err),
+		}
+	}
+
+	exported := make([]map[string]interface{}, len(results))
+	for i, r := range results {
+		exported[i] = map[string]interface{}{
+			"filePath": r.FilePath,
+			"count":    r.Count,
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"results": exported,
+		},
+	}
+}
+
+func (h *Handler) handleImportRepoSavedRequests(data json.RawMessage) IPCResponse {
+	var input struct {
+		RepoID int64 `json:"repoId"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	results, err := portability.ImportRepoSavedRequests(h.database, input.RepoID)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to import repo saved requests: %v", err),
+		}
+	}
+
+	imported := make(map[string]interface{})
+	for serviceID, r := range results {
+		imported[serviceID] = map[string]interface{}{
+			"added":    r.Added,
+			"replaced": r.Replaced,
+			"skipped":  r.Skipped,
+			"errors":   r.Errors,
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"results": imported,
 		},
 	}
 }

@@ -17,6 +17,7 @@ export function FavoriteToggle({ isFavorite, isHovered, onToggle, ariaLabel }: F
         onClick={onToggle}
         title="Remove from favorites"
         aria-label={ariaLabel}
+        style={{ flexShrink: 0 }}
       >
         <IconStarFilled size={14} style={{ color: 'var(--mantine-color-yellow-5)' }} />
       </ActionIcon>
@@ -31,11 +32,12 @@ export function FavoriteToggle({ isFavorite, isHovered, onToggle, ariaLabel }: F
         onClick={onToggle}
         title="Add to Favorites"
         aria-label={ariaLabel}
+        style={{ flexShrink: 0 }}
       >
         <IconStar size={14} style={{ color: 'var(--mantine-color-blue-5)' }} />
       </ActionIcon>
     )
   }
 
-  return <Box style={{ width: 28, height: 28, pointerEvents: 'none' }} />
+  return <Box style={{ width: 22, height: 22, flexShrink: 0 }} />
 }
