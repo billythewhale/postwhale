@@ -28,6 +28,7 @@ export function extractSnapshot(config: EditableRequestConfig): ConfigSnapshot {
     queryParams: config.queryParams,
     headers: config.headers,
     body: config.body,
+    auth: config.auth,
   }
 }
 

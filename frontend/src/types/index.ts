@@ -121,12 +121,21 @@ export type ActiveNode =
   | { type: 'savedRequest'; savedRequestId: number; endpointId: number }
   | null
 
+export interface RequestAuthConfig {
+  override: boolean
+  mode: 'auto' | 'manual'
+  enabled: boolean
+  auto: { token: string | null; expiresAt: number | null; autoRenew: boolean }
+  manual: { authType: 'bearer' | 'api-key' | 'oauth2'; token: string; apiKeyValue: string }
+}
+
 export interface ConfigSnapshot {
   name: string | null
   pathParams: Record<string, string>
   queryParams: Array<{ key: string; value: string; enabled: boolean }>
   headers: Array<{ key: string; value: string; enabled: boolean }>
   body: string
+  auth?: RequestAuthConfig
 }
 
 export interface EditableRequestConfig {
@@ -137,6 +146,7 @@ export interface EditableRequestConfig {
   queryParams: Array<{ key: string; value: string; enabled: boolean }>
   headers: Array<{ key: string; value: string; enabled: boolean }>
   body: string
+  auth?: RequestAuthConfig
   _originalSnapshot?: ConfigSnapshot
 }
 

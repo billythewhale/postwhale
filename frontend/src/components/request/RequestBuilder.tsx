@@ -6,11 +6,13 @@ import type { Endpoint, SavedRequest, EditableRequestConfig } from '@/types'
 import { useFavorites } from '@/contexts/FavoritesContext'
 import { useGlobalHeaders } from '@/contexts/GlobalHeadersContext'
 import { useShop } from '@/contexts/ShopContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { getMethodColor } from '@/utils/http'
 import { PathParamsPanel } from './PathParamsPanel'
 import { HeadersPanel } from './HeadersPanel'
 import { QueryParamsPanel } from './QueryParamsPanel'
 import { BodyPanel } from './BodyPanel'
+import { RequestAuthTab } from './RequestAuthTab'
 import { DeleteConfirmModal } from './DeleteConfirmModal'
 
 interface RequestBuilderProps {
@@ -23,7 +25,7 @@ interface RequestBuilderProps {
   onUpdateSavedRequest?: (id: number, nameOverride?: string) => void
   onDeleteSavedRequest?: (id: number) => void
   onUndo?: () => void
-  onSend: (config: { method: string; path: string; headers: Record<string, string>; body: string }) => void
+  onSend: (config: { method: string; path: string; headers: Record<string, string>; body: string; authEnabled: boolean }) => void
   onCancel: () => void
   isLoading: boolean
   isSaving: boolean
@@ -49,6 +51,7 @@ export function RequestBuilder({
   const { toggleFavorite, isFavorite } = useFavorites()
   const { getEnabledGlobalHeaders } = useGlobalHeaders()
   const { getShopHeader } = useShop()
+  const { getAuthHeader, ensureValidToken } = useAuth()
 
   const [isEditingName, setIsEditingName] = useState(false)
   const [isSaveAsNewMode, setIsSaveAsNewMode] = useState(false)
@@ -212,6 +215,7 @@ export function RequestBuilder({
               <Tabs.Tab value="headers">Headers</Tabs.Tab>
               <Tabs.Tab value="query">Query</Tabs.Tab>
               <Tabs.Tab value="body">Body</Tabs.Tab>
+              <Tabs.Tab value="auth">Auth</Tabs.Tab>
             </Tabs.List>
 
             <Tabs.Panel value="params" pt="md">
@@ -242,6 +246,13 @@ export function RequestBuilder({
 
             <Tabs.Panel value="body" pt="md">
               <BodyPanel body={config.body} onChange={(body) => updateConfig({ body })} />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="auth" pt="md">
+              <RequestAuthTab
+                auth={config.auth}
+                onChange={(auth) => updateConfig({ auth })}
+              />
             </Tabs.Panel>
           </Tabs>
 
@@ -424,7 +435,8 @@ export function RequestBuilder({
     setNameError(null)
   }
 
-  function handleSend() {
+  async function handleSend() {
+    await ensureValidToken()
     const headersObj = buildHeaders()
     const validationResult = validatePathParams()
 
@@ -433,20 +445,52 @@ export function RequestBuilder({
       return
     }
 
+    const authEnabled = 'Authorization' in headersObj || 'x-tw-api-key' in headersObj
     const finalPath = buildFinalPath(validationResult.resolvedPath!)
-    onSend({ method: endpoint!.method, path: finalPath, headers: headersObj, body: config!.body })
+    onSend({ method: endpoint!.method, path: finalPath, headers: headersObj, body: config!.body, authEnabled })
   }
 
   function buildHeaders(): Record<string, string> {
     const result: Record<string, string> = {}
 
     Object.assign(result, getShopHeader())
+
+    if (config!.auth?.override) {
+      Object.assign(result, getRequestAuthHeader())
+    } else {
+      Object.assign(result, getAuthHeader())
+    }
+
     getEnabledGlobalHeaders().forEach((h) => (result[h.key] = h.value))
     config!.headers.forEach((h) => {
       if (h.enabled && h.key && h.value) result[h.key] = h.value
     })
 
     return result
+  }
+
+  function getRequestAuthHeader(): Record<string, string> {
+    const auth = config!.auth
+    if (!auth?.enabled) return {}
+
+    if (auth.mode === 'auto') {
+      if (!auth.auto.token) return {}
+      const isExpired = !auth.auto.expiresAt || Date.now() >= auth.auto.expiresAt
+      if (isExpired) return {}
+      return { Authorization: `Bearer ${auth.auto.token}` }
+    }
+
+    const { authType, token, apiKeyValue } = auth.manual
+    switch (authType) {
+      case 'bearer':
+        return token ? { Authorization: `Bearer ${token}` } : {}
+      case 'api-key':
+        return apiKeyValue ? { 'x-tw-api-key': apiKeyValue } : {}
+      case 'oauth2':
+        return token ? { Authorization: `Bearer ${token}` } : {}
+      default:
+        return {}
+    }
   }
 
   function validatePathParams(): { valid: boolean; missing?: string[]; invalid?: string[]; resolvedPath?: string } {

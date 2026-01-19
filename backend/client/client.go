@@ -28,6 +28,7 @@ type RequestConfig struct {
 	Body        string
 	Environment Environment
 	Timeout     time.Duration
+	AuthEnabled bool
 }
 
 // Response contains the HTTP response data
@@ -41,13 +42,23 @@ type Response struct {
 }
 
 // buildURL constructs the full URL based on environment and config
-// LOCAL uses http://localhost/<service_id>/<endpoint> (local proxy on port 80 routes to services)
-// STAGING/PRODUCTION use DNS records with service_id in subdomain
+// When AuthEnabled, routes through api.triplewhale.com API gateway
+// Otherwise, LOCAL uses local proxy and STAGING/PRODUCTION use DNS records
 func buildURL(config RequestConfig) string {
-	// Ensure endpoint starts with /
 	endpoint := config.Endpoint
 	if !strings.HasPrefix(endpoint, "/") {
 		endpoint = "/" + endpoint
+	}
+
+	if config.AuthEnabled {
+		switch config.Environment {
+		case EnvLocal:
+			return fmt.Sprintf("http://localhost/api/v2/%s%s", config.ServiceID, endpoint)
+		case EnvStaging:
+			return fmt.Sprintf("https://stg.api.triplewhale.com/api/v2/%s%s", config.ServiceID, endpoint)
+		case EnvProduction:
+			return fmt.Sprintf("https://api.triplewhale.com/api/v2/%s%s", config.ServiceID, endpoint)
+		}
 	}
 
 	switch config.Environment {

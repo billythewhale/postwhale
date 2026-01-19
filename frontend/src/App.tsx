@@ -9,7 +9,9 @@ import { AutoAddReposDialog } from '@/components/sidebar/AutoAddReposDialog'
 import { FavoritesProvider } from '@/contexts/FavoritesContext'
 import { GlobalHeadersProvider } from '@/contexts/GlobalHeadersContext'
 import { ShopProvider } from '@/contexts/ShopContext'
+import { AuthProvider } from '@/contexts/AuthContext'
 import { ErrorHistoryProvider, useErrorHistory } from '@/contexts/ErrorHistoryContext'
+import { GlobalSettingsPanel } from '@/components/settings/GlobalSettingsPanel'
 import { useIPC } from '@/hooks/useIPC'
 import { useMap } from '@/hooks/useMap'
 import { loadAllData, summarizeErrors } from '@/services/dataLoader'
@@ -42,9 +44,11 @@ export default function App() {
     <ErrorHistoryProvider>
       <GlobalHeadersProvider>
         <ShopProvider>
-          <FavoritesProvider>
-            <AppContent />
-          </FavoritesProvider>
+          <AuthProvider>
+            <FavoritesProvider>
+              <AppContent />
+            </FavoritesProvider>
+          </AuthProvider>
         </ShopProvider>
       </GlobalHeadersProvider>
     </ErrorHistoryProvider>
@@ -63,6 +67,7 @@ function AppContent() {
   const [error, setError] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showAutoAddDialog, setShowAutoAddDialog] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const requestConfigs = useMap<string, EditableRequestConfig>()
   const requestResponses = useMap<string, RequestResponsePair>()
@@ -142,12 +147,14 @@ function AppContent() {
     const config = getOrCreateConfig(`temp_${endpoint.id}`, () => createAnonymousConfig(endpoint))
     requestConfigs.set(config.id, config)
     setActiveNode({ type: 'endpoint', endpointId: endpoint.id })
+    setSettingsOpen(false)
   }, [requestConfigs])
 
   const handleSelectSavedRequest = useCallback((savedRequest: SavedRequest) => {
     const config = getOrCreateConfig(String(savedRequest.id), () => createConfigFromSavedRequest(savedRequest))
     requestConfigs.set(config.id, config)
     setActiveNode({ type: 'savedRequest', savedRequestId: savedRequest.id, endpointId: savedRequest.endpointId })
+    setSettingsOpen(false)
   }, [requestConfigs])
 
   const handleConfigChange = useCallback((config: EditableRequestConfig) => {
@@ -294,7 +301,7 @@ function AppContent() {
     }
   }, [activeConfig, savedRequests, invoke, requestConfigs])
 
-  const handleSend = useCallback(async (config: { method: string; path: string; headers: Record<string, string>; body: string }) => {
+  const handleSend = useCallback(async (config: { method: string; path: string; headers: Record<string, string>; body: string; authEnabled: boolean }) => {
     if (!activeConfigId || !activeEndpoint || isLoading) return
 
     const controller = new AbortController()
@@ -327,6 +334,7 @@ function AppContent() {
         body: config.body,
         environment,
         endpointId: activeEndpoint.id,
+        authEnabled: config.authEnabled,
       })
 
       if (!controller.signal.aborted) {
@@ -467,7 +475,7 @@ function AppContent() {
 
   return (
     <Flex style={{ height: '100vh' }} direction="column">
-      <Header environment={environment} onEnvironmentChange={setEnvironment} />
+      <Header environment={environment} onEnvironmentChange={setEnvironment} onSettingsClick={() => setSettingsOpen(true)} />
 
       {error && (
         <Alert color="red" variant="light" withCloseButton onClose={() => setError(null)}>
@@ -510,24 +518,28 @@ function AppContent() {
               onImportRepoSavedRequests={handleImportRepoSavedRequests}
             />
 
-            <Flex style={{ flex: 1, overflow: 'auto' }} direction="column">
-              <RequestBuilder
-                endpoint={activeEndpoint}
-                config={activeConfig}
-                savedRequests={savedRequests}
-                isDirty={activeConfigId ? dirtyConfigIds.has(activeConfigId) : false}
-                onConfigChange={handleConfigChange}
-                onSaveAsNew={handleSaveAsNew}
-                onUpdateSavedRequest={handleUpdateSavedRequestFromConfig}
-                onDeleteSavedRequest={handleDeleteSavedRequest}
-                onUndo={activeConfigId ? () => handleUndoConfig(activeConfigId) : undefined}
-                onSend={handleSend}
-                onCancel={handleCancel}
-                isLoading={isLoading}
-                isSaving={isSaving}
-              />
-              <ResponseViewer requestResponse={activeRequestResponse} />
-            </Flex>
+            {settingsOpen ? (
+              <GlobalSettingsPanel onClose={() => setSettingsOpen(false)} />
+            ) : (
+              <Flex style={{ flex: 1, overflow: 'auto' }} direction="column">
+                <RequestBuilder
+                  endpoint={activeEndpoint}
+                  config={activeConfig}
+                  savedRequests={savedRequests}
+                  isDirty={activeConfigId ? dirtyConfigIds.has(activeConfigId) : false}
+                  onConfigChange={handleConfigChange}
+                  onSaveAsNew={handleSaveAsNew}
+                  onUpdateSavedRequest={handleUpdateSavedRequestFromConfig}
+                  onDeleteSavedRequest={handleDeleteSavedRequest}
+                  onUndo={activeConfigId ? () => handleUndoConfig(activeConfigId) : undefined}
+                  onSend={handleSend}
+                  onCancel={handleCancel}
+                  isLoading={isLoading}
+                  isSaving={isSaving}
+                />
+                <ResponseViewer requestResponse={activeRequestResponse} />
+              </Flex>
+            )}
           </>
         )}
       </Flex>
