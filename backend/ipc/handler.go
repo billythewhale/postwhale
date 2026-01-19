@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -100,6 +101,8 @@ func (h *Handler) HandleRequest(request IPCRequest) IPCResponse {
 		response = h.handleExportRepoSavedRequests(request.Data)
 	case "importRepoSavedRequests":
 		response = h.handleImportRepoSavedRequests(request.Data)
+	case "runShellCommand":
+		response = h.handleRunShellCommand(request.Data)
 	default:
 		response = IPCResponse{
 			Success: false,
@@ -414,6 +417,7 @@ func (h *Handler) handleExecuteRequest(data json.RawMessage) IPCResponse {
 		Headers     map[string]string `json:"headers"`
 		Body        string            `json:"body"`
 		EndpointID  int64             `json:"endpointId,omitempty"`
+		AuthEnabled bool              `json:"authEnabled"`
 	}
 
 	if err := json.Unmarshal(data, &input); err != nil {
@@ -433,6 +437,7 @@ func (h *Handler) handleExecuteRequest(data json.RawMessage) IPCResponse {
 		Headers:     input.Headers,
 		Body:        input.Body,
 		Timeout:     30 * time.Second,
+		AuthEnabled: input.AuthEnabled,
 	}
 
 	// Execute the HTTP request
@@ -1121,6 +1126,53 @@ func (h *Handler) handleImportRepoSavedRequests(data json.RawMessage) IPCRespons
 		Success: true,
 		Data: map[string]interface{}{
 			"results": imported,
+		},
+	}
+}
+
+var allowedCommands = map[string]bool{
+	"tw": true,
+}
+
+func (h *Handler) handleRunShellCommand(data json.RawMessage) IPCResponse {
+	var input struct {
+		Command string   `json:"command"`
+		Args    []string `json:"args"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	if !allowedCommands[input.Command] {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("command not allowed: %s", input.Command),
+		}
+	}
+
+	cmd := exec.Command(input.Command, input.Args...)
+	output, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return IPCResponse{
+				Success: false,
+				Error:   fmt.Sprintf("command failed: %s", string(exitErr.Stderr)),
+			}
+		}
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("command failed: %v", err),
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"output": strings.TrimSpace(string(output)),
 		},
 	}
 }

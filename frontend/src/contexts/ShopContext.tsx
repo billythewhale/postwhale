@@ -3,8 +3,10 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 interface ShopContextType {
   selectedShop: string | null
   shopHistory: string[]
+  shopHeaderEnabled: boolean
   selectShop: (shop: string | null) => void
   addShopToHistory: (shop: string) => void
+  setShopHeaderEnabled: (enabled: boolean) => void
   getShopHeader: () => Record<string, string>
 }
 
@@ -12,6 +14,7 @@ const ShopContext = createContext<ShopContextType | undefined>(undefined)
 
 const SELECTED_SHOP_KEY = 'postwhale_selected_shop'
 const SHOP_HISTORY_KEY = 'postwhale_shop_history'
+const SHOP_HEADER_ENABLED_KEY = 'postwhale_shop_header_enabled'
 
 function loadSelectedShopFromStorage(): string | null {
   try {
@@ -58,12 +61,32 @@ function saveShopHistoryToStorage(history: string[]): void {
   }
 }
 
+function loadShopHeaderEnabledFromStorage(): boolean {
+  try {
+    const stored = localStorage.getItem(SHOP_HEADER_ENABLED_KEY)
+    return stored === null ? true : stored === 'true'
+  } catch {
+    return true
+  }
+}
+
+function saveShopHeaderEnabledToStorage(enabled: boolean): void {
+  try {
+    localStorage.setItem(SHOP_HEADER_ENABLED_KEY, String(enabled))
+  } catch (error) {
+    console.error('Failed to save shop header enabled to localStorage:', error)
+  }
+}
+
 export function ShopProvider({ children }: { children: ReactNode }) {
   const [selectedShop, setSelectedShop] = useState<string | null>(() =>
     loadSelectedShopFromStorage()
   )
   const [shopHistory, setShopHistory] = useState<string[]>(() =>
     loadShopHistoryFromStorage()
+  )
+  const [shopHeaderEnabled, setShopHeaderEnabledState] = useState<boolean>(() =>
+    loadShopHeaderEnabledFromStorage()
   )
 
   const selectShop = useCallback((shop: string | null) => {
@@ -75,7 +98,6 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     if (!shop.trim()) return
 
     setShopHistory((prev) => {
-      // Add to history if not already present
       if (prev.includes(shop)) {
         return prev
       }
@@ -85,21 +107,27 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const setShopHeaderEnabled = useCallback((enabled: boolean) => {
+    setShopHeaderEnabledState(enabled)
+    saveShopHeaderEnabledToStorage(enabled)
+  }, [])
+
   const getShopHeader = useCallback((): Record<string, string> => {
-    // Return empty object if no shop selected or "None" is selected
-    if (!selectedShop || selectedShop === 'None') {
+    if (!shopHeaderEnabled || !selectedShop || selectedShop === 'None') {
       return {}
     }
     return { 'x-tw-shop-id': selectedShop }
-  }, [selectedShop])
+  }, [shopHeaderEnabled, selectedShop])
 
   return (
     <ShopContext.Provider
       value={{
         selectedShop,
         shopHistory,
+        shopHeaderEnabled,
         selectShop,
         addShopToHistory,
+        setShopHeaderEnabled,
         getShopHeader,
       }}
     >

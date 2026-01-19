@@ -1,23 +1,24 @@
 import { IconMoon, IconSun, IconSettings, IconAlertCircle, IconX, IconTrash } from "@tabler/icons-react"
-import { Group, ActionIcon, Select, Box, Text, useMantineColorScheme, Indicator, Modal, Stack, ScrollArea, Paper, Badge } from "@mantine/core"
+import { Group, ActionIcon, Select, Box, Text, useMantineColorScheme, Indicator, Modal, Stack, ScrollArea, Paper, Badge, Switch } from "@mantine/core"
 import { useState } from "react"
 import type { Environment } from "@/types"
-import { GlobalHeadersModal } from "./GlobalHeadersModal"
 import { useShop } from "@/contexts/ShopContext"
 import { useErrorHistory } from "@/contexts/ErrorHistoryContext"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface HeaderProps {
   environment: Environment
   onEnvironmentChange: (env: Environment) => void
+  onSettingsClick: () => void
 }
 
-export function Header({ environment, onEnvironmentChange }: HeaderProps) {
+export function Header({ environment, onEnvironmentChange, onSettingsClick }: HeaderProps) {
   const { setColorScheme, colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
-  const [globalHeadersModalOpened, setGlobalHeadersModalOpened] = useState(false)
   const [errorHistoryModalOpened, setErrorHistoryModalOpened] = useState(false)
   const { selectedShop, shopHistory, selectShop, addShopToHistory } = useShop()
   const { errors, clearErrors, removeError } = useErrorHistory()
+  const { config: authConfig, setEnabled: setAuthEnabled } = useAuth()
 
   const toggleTheme = () => {
     setColorScheme(colorScheme === "dark" ? "light" : "dark")
@@ -110,12 +111,19 @@ export function Header({ environment, onEnvironmentChange }: HeaderProps) {
             }}
           />
 
+          <Switch
+            label="Auth"
+            checked={authConfig.enabled}
+            onChange={(e) => setAuthEnabled(e.currentTarget.checked)}
+            size="sm"
+          />
+
           <ActionIcon
             variant="subtle"
-            onClick={() => setGlobalHeadersModalOpened(true)}
-            aria-label="Global Headers"
+            onClick={onSettingsClick}
+            aria-label="Global Settings"
             size="lg"
-            title="Global Headers"
+            title="Global Settings"
           >
             <IconSettings size={20} />
           </ActionIcon>
@@ -149,11 +157,6 @@ export function Header({ environment, onEnvironmentChange }: HeaderProps) {
           </ActionIcon>
         </Group>
       </Group>
-
-      <GlobalHeadersModal
-        opened={globalHeadersModalOpened}
-        onClose={() => setGlobalHeadersModalOpened(false)}
-      />
 
       <Modal
         opened={errorHistoryModalOpened}
