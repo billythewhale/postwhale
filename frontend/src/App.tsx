@@ -64,6 +64,8 @@ function AppContent() {
   const [activeNode, setActiveNode] = useState<ActiveNode>(null)
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [_isExporting, setIsExporting] = useState(false)
+  const [_isImporting, setIsImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showAutoAddDialog, setShowAutoAddDialog] = useState(false)
@@ -404,6 +406,7 @@ function AppContent() {
   }
 
   const handleExportSavedRequests = async (serviceId: number) => {
+    setIsExporting(true)
     try {
       setError(null)
       const result = await invoke<ExportResult>('exportSavedRequests', { serviceId })
@@ -414,10 +417,13 @@ function AppContent() {
       const msg = err instanceof Error ? err.message : 'Failed to export saved requests'
       setError(msg)
       addError(msg)
+    } finally {
+      setIsExporting(false)
     }
   }
 
   const handleImportSavedRequests = async (serviceId: number) => {
+    setIsImporting(true)
     try {
       setError(null)
       const result = await invoke<ImportResult>('importSavedRequests', { serviceId })
@@ -429,10 +435,13 @@ function AppContent() {
       const msg = err instanceof Error ? err.message : 'Failed to import saved requests'
       setError(msg)
       addError(msg)
+    } finally {
+      setIsImporting(false)
     }
   }
 
   const handleExportRepoSavedRequests = async (repoId: number) => {
+    setIsExporting(true)
     try {
       setError(null)
       await invoke<{ results: ExportResult[] }>('exportRepoSavedRequests', { repoId })
@@ -440,10 +449,13 @@ function AppContent() {
       const msg = err instanceof Error ? err.message : 'Failed to export repository saved requests'
       setError(msg)
       addError(msg)
+    } finally {
+      setIsExporting(false)
     }
   }
 
   const handleImportRepoSavedRequests = async (repoId: number) => {
+    setIsImporting(true)
     try {
       setError(null)
       await invoke<{ results: Record<string, ImportResult> }>('importRepoSavedRequests', { repoId })
@@ -452,6 +464,8 @@ function AppContent() {
       const msg = err instanceof Error ? err.message : 'Failed to import repository saved requests'
       setError(msg)
       addError(msg)
+    } finally {
+      setIsImporting(false)
     }
   }
 
