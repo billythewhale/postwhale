@@ -1,11 +1,12 @@
 import { useState, type MouseEvent } from 'react'
 import { Box, Flex, Group, Text, Stack } from '@mantine/core'
-import { IconChevronRight, IconChevronDown, IconDownload, IconUpload } from '@tabler/icons-react'
+import { IconChevronRight, IconChevronDown, IconDownload, IconUpload, IconTrash } from '@tabler/icons-react'
 import type { Repository, Service, Endpoint, SavedRequest } from '@/types'
 import { HighlightMatch } from '@/utils/textHighlight'
 import { FavoriteToggle } from './FavoriteToggle'
 import { ServiceNode } from './ServiceNode'
 import { ContextMenu, ContextMenuItem } from './ContextMenu'
+import { DeleteConfirmModal } from '@/components/request/DeleteConfirmModal'
 
 interface RepositoryNodeProps {
   repo: Repository
@@ -31,6 +32,7 @@ interface RepositoryNodeProps {
   onToggleEndpointFavorite: (id: number) => void
   onSelectEndpoint: (endpoint: Endpoint) => void
   onSelectSavedRequest: (sr: SavedRequest) => void
+  onRemoveRepository: (id: number) => void
   onUpdateSavedRequest: (id: number) => void
   onSaveAsNew: (name: string) => void
   onUndoConfig: (configId: string) => void
@@ -67,6 +69,7 @@ export function RepositoryNode({
   onToggleEndpointFavorite,
   onSelectEndpoint,
   onSelectSavedRequest,
+  onRemoveRepository,
   onUpdateSavedRequest,
   onSaveAsNew,
   onUndoConfig,
@@ -79,6 +82,7 @@ export function RepositoryNode({
   onImportRepoSavedRequests,
 }: RepositoryNodeProps) {
   const [isHovered, setIsHovered] = useState(false)
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ opened: boolean; position: { x: number; y: number } }>({
     opened: false,
     position: { x: 0, y: 0 },
@@ -159,8 +163,25 @@ export function RepositoryNode({
           >
             Import All Saved Requests
           </ContextMenuItem>
+          <ContextMenuItem
+            leftSection={<IconTrash size={14} />}
+            color="red"
+            onClick={() => {
+              setContextMenu((prev) => ({ ...prev, opened: false }))
+              setShowRemoveConfirm(true)
+            }}
+          >
+            Remove Repository
+          </ContextMenuItem>
         </ContextMenu>
       )}
+
+      <DeleteConfirmModal
+        opened={showRemoveConfirm}
+        itemName={repo.name}
+        onClose={() => setShowRemoveConfirm(false)}
+        onConfirm={() => onRemoveRepository(repo.id)}
+      />
 
       {isExpanded && (
         <Box ml={24} mt={4}>

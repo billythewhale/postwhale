@@ -61,6 +61,12 @@ Terminology: The main app window is broken up like so:
 - [x] T3: When clicking the already-selected shop in the dropdown, that shop should remain the selected shop, rather than de-selecting it (01/15/2026)
 - [x] T4: When editing the Name of a request, the text input should be flex={1} i.e. take up all the horizontal space available to it (01/16/2026)
 
+## TECH DEBT (Deferred from code review 01/19/2026)
+
+- [ ] TD1: Refactor App.tsx state management - File is getting large, consider extracting state into custom hooks or context (01/19/2026)
+- [ ] TD2: N+1 query optimization in backend - Not a real problem at current scale, revisit if performance degrades (01/19/2026)
+- [ ] TD3: Deduplicate JSON unmarshaling in handler.go - Multiple handlers have similar input struct unmarshaling patterns (01/19/2026)
+
 
 ## FEATURES
 

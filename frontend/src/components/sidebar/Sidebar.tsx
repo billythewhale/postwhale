@@ -47,6 +47,7 @@ export function Sidebar({
   onAddRepository,
   onAutoAddRepos,
   onRefreshAll,
+  onRemoveRepository,
   onUpdateSavedRequest,
   onSaveAsNew,
   onUndoConfig,
@@ -152,6 +153,7 @@ export function Sidebar({
                   onToggleEndpointFavorite={(id) => toggleFavorite('endpoints', id)}
                   onSelectEndpoint={handleSelectEndpoint}
                   onSelectSavedRequest={handleSelectSavedRequest}
+                  onRemoveRepository={onRemoveRepository}
                   onUpdateSavedRequest={onUpdateSavedRequest}
                   onSaveAsNew={onSaveAsNew}
                   onUndoConfig={onUndoConfig}

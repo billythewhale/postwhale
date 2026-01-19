@@ -533,11 +533,6 @@ func (h *Handler) handleScanDirectory(data json.RawMessage) IPCResponse {
 		return IPCResponse{Success: false, Error: fmt.Sprintf("invalid request data: %v", err)}
 	}
 
-	// Check for path traversal BEFORE any processing
-	if strings.Contains(input.Path, "..") {
-		return IPCResponse{Success: false, Error: "invalid path: path traversal not allowed"}
-	}
-
 	// Expand ~ to home directory
 	path := input.Path
 	if path == "" || path == "~" {
@@ -554,8 +549,11 @@ func (h *Handler) handleScanDirectory(data json.RawMessage) IPCResponse {
 		path = filepath.Join(home, path[2:])
 	}
 
-	// Clean the path
+	// Clean the path first, then check for traversal
 	path = filepath.Clean(path)
+	if strings.HasPrefix(path, "..") || strings.Contains(path, "/../") || strings.HasSuffix(path, "/..") {
+		return IPCResponse{Success: false, Error: "invalid path: path traversal not allowed"}
+	}
 
 	// Check if path exists
 	info, err := os.Stat(path)
@@ -608,11 +606,6 @@ func (h *Handler) handleCheckPath(data json.RawMessage) IPCResponse {
 		return IPCResponse{Success: false, Error: fmt.Sprintf("invalid request data: %v", err)}
 	}
 
-	// Check for path traversal BEFORE any processing
-	if strings.Contains(input.Path, "..") {
-		return IPCResponse{Success: false, Error: "invalid path: path traversal not allowed"}
-	}
-
 	// Expand ~ to home directory
 	path := input.Path
 	if strings.HasPrefix(path, "~/") {
@@ -629,8 +622,11 @@ func (h *Handler) handleCheckPath(data json.RawMessage) IPCResponse {
 		path = home
 	}
 
-	// Clean the path
+	// Clean the path first, then check for traversal
 	path = filepath.Clean(path)
+	if strings.HasPrefix(path, "..") || strings.Contains(path, "/../") || strings.HasSuffix(path, "/..") {
+		return IPCResponse{Success: false, Error: "invalid path: path traversal not allowed"}
+	}
 
 	info, err := os.Stat(path)
 	exists := err == nil
