@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { Box, Flex, Group, Text, Stack } from '@mantine/core'
-import { IconChevronRight, IconChevronDown } from '@tabler/icons-react'
+import { IconChevronRight, IconChevronDown, IconDownload, IconUpload } from '@tabler/icons-react'
 import type { Service, Endpoint, SavedRequest } from '@/types'
 import { HighlightMatch } from '@/utils/textHighlight'
 import { FavoriteToggle } from './FavoriteToggle'
 import { EndpointNode } from './EndpointNode'
+import { ContextMenu, ContextMenuItem } from './ContextMenu'
 
 interface ServiceNodeProps {
   service: Service
@@ -31,6 +32,8 @@ interface ServiceNodeProps {
   onCreateNewRequest: (endpointId: number) => void
   onCloneSavedRequest: (id: number) => void
   onDeleteSavedRequest: (id: number) => void
+  onExportSavedRequests: (serviceId: number) => void
+  onImportSavedRequests: (serviceId: number) => void
 }
 
 export function ServiceNode({
@@ -58,8 +61,20 @@ export function ServiceNode({
   onCreateNewRequest,
   onCloneSavedRequest,
   onDeleteSavedRequest,
+  onExportSavedRequests,
+  onImportSavedRequests,
 }: ServiceNodeProps) {
   const [isHovered, setIsHovered] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{ opened: boolean; position: { x: number; y: number } }>({
+    opened: false,
+    position: { x: 0, y: 0 },
+  })
+
+  const handleContextMenu = (e: MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({ opened: true, position: { x: e.clientX, y: e.clientY } })
+  }
 
   return (
     <Box>
@@ -89,6 +104,7 @@ export function ServiceNode({
 
         <Box
           onClick={onToggle}
+          onContextMenu={handleContextMenu}
           className="sidebar-nav-item"
           style={(theme) => ({
             flex: 1,
@@ -105,6 +121,32 @@ export function ServiceNode({
           <Text size="xs" c="dimmed">{endpoints.length}</Text>
         </Box>
       </Group>
+
+      {contextMenu.opened && (
+        <ContextMenu
+          position={contextMenu.position}
+          onClose={() => setContextMenu((prev) => ({ ...prev, opened: false }))}
+        >
+          <ContextMenuItem
+            leftSection={<IconUpload size={14} />}
+            onClick={() => {
+              setContextMenu((prev) => ({ ...prev, opened: false }))
+              onExportSavedRequests(service.id)
+            }}
+          >
+            Export Saved Requests
+          </ContextMenuItem>
+          <ContextMenuItem
+            leftSection={<IconDownload size={14} />}
+            onClick={() => {
+              setContextMenu((prev) => ({ ...prev, opened: false }))
+              onImportSavedRequests(service.id)
+            }}
+          >
+            Import Saved Requests
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
 
       {isExpanded && (
         <Box ml={24} mt={2}>

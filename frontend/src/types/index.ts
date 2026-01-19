@@ -158,3 +158,15 @@ export interface RequestResponsePair {
   } | null
   isLoading: boolean
 }
+
+export interface ExportResult {
+  filePath: string
+  count: number
+}
+
+export interface ImportResult {
+  added: number
+  replaced: number
+  skipped: number
+  errors: string[]
+}

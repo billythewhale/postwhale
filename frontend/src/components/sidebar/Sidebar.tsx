@@ -29,6 +29,10 @@ interface SidebarProps {
   onCreateNewRequest: (endpointId: number) => void
   onCloneSavedRequest: (id: number) => void
   onDeleteSavedRequest: (id: number) => void
+  onExportSavedRequests: (serviceId: number) => void
+  onImportSavedRequests: (serviceId: number) => void
+  onExportRepoSavedRequests: (repoId: number) => void
+  onImportRepoSavedRequests: (repoId: number) => void
 }
 
 export function Sidebar({
@@ -49,6 +53,10 @@ export function Sidebar({
   onCreateNewRequest,
   onCloneSavedRequest,
   onDeleteSavedRequest,
+  onExportSavedRequests,
+  onImportSavedRequests,
+  onExportRepoSavedRequests,
+  onImportRepoSavedRequests,
 }: SidebarProps) {
   const { colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
@@ -150,6 +158,10 @@ export function Sidebar({
                   onCreateNewRequest={onCreateNewRequest}
                   onCloneSavedRequest={onCloneSavedRequest}
                   onDeleteSavedRequest={handleDeleteSavedRequest}
+                  onExportSavedRequests={onExportSavedRequests}
+                  onImportSavedRequests={onImportSavedRequests}
+                  onExportRepoSavedRequests={onExportRepoSavedRequests}
+                  onImportRepoSavedRequests={onImportRepoSavedRequests}
                 />
               )
             })}
@@ -181,6 +193,8 @@ export function Sidebar({
   )
 
   function handleToggleRepo(repoId: number) {
+    const isCurrentlyExpanded = expandedRepos.has(repoId)
+
     setManualExpandedRepos((prev) => {
       const base = userHasInteracted ? prev : filteredTree.expandedRepos
       const next = new Set(base)
@@ -192,11 +206,24 @@ export function Sidebar({
       return next
     })
 
-    setManualExpandedServices((prev) => (userHasInteracted ? prev : new Set(filteredTree.expandedServices)))
+    if (!isCurrentlyExpanded) {
+      const repoServiceIds = new Set(services.filter((s) => s.repoId === repoId).map((s) => s.id))
+      setManualExpandedServices((prev) => {
+        const base = userHasInteracted ? prev : filteredTree.expandedServices
+        const next = new Set(base)
+        repoServiceIds.forEach((id) => next.delete(id))
+        return next
+      })
+    } else {
+      setManualExpandedServices((prev) => (userHasInteracted ? prev : new Set(filteredTree.expandedServices)))
+    }
+
     setUserHasInteracted(true)
   }
 
   function handleToggleService(serviceId: number) {
+    const isCurrentlyExpanded = expandedServices.has(serviceId)
+
     setManualExpandedRepos((prev) => (userHasInteracted ? prev : new Set(filteredTree.expandedRepos)))
 
     setManualExpandedServices((prev) => {
@@ -209,6 +236,15 @@ export function Sidebar({
       }
       return next
     })
+
+    if (!isCurrentlyExpanded) {
+      const serviceEndpointIds = new Set(endpoints.filter((e) => e.serviceId === serviceId).map((e) => e.id))
+      setManualExpandedEndpoints((prev) => {
+        const next = new Set(prev)
+        serviceEndpointIds.forEach((id) => next.delete(id))
+        return next
+      })
+    }
 
     setUserHasInteracted(true)
   }

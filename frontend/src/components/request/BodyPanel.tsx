@@ -9,7 +9,7 @@ export function BodyPanel({ body, onChange }: BodyPanelProps) {
   return (
     <Textarea
       placeholder="Request body (JSON)"
-      value={body}
+      value={body ?? ''}
       onChange={(e) => onChange(e.currentTarget.value)}
       minRows={12}
       maxRows={20}

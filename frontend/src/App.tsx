@@ -33,6 +33,8 @@ import type {
   ActiveNode,
   EditableRequestConfig,
   RequestResponsePair,
+  ExportResult,
+  ImportResult,
 } from '@/types'
 
 export default function App() {
@@ -393,6 +395,58 @@ function AppContent() {
     await loadData()
   }
 
+  const handleExportSavedRequests = async (serviceId: number) => {
+    try {
+      setError(null)
+      const result = await invoke<ExportResult>('exportSavedRequests', { serviceId })
+      if (result.count === 0) {
+        setError('No saved requests to export')
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to export saved requests'
+      setError(msg)
+      addError(msg)
+    }
+  }
+
+  const handleImportSavedRequests = async (serviceId: number) => {
+    try {
+      setError(null)
+      const result = await invoke<ImportResult>('importSavedRequests', { serviceId })
+      if (result.errors.length > 0) {
+        setError(`Import completed with warnings: ${result.errors.join(', ')}`)
+      }
+      await loadData(false)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to import saved requests'
+      setError(msg)
+      addError(msg)
+    }
+  }
+
+  const handleExportRepoSavedRequests = async (repoId: number) => {
+    try {
+      setError(null)
+      await invoke<{ results: ExportResult[] }>('exportRepoSavedRequests', { repoId })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to export repository saved requests'
+      setError(msg)
+      addError(msg)
+    }
+  }
+
+  const handleImportRepoSavedRequests = async (repoId: number) => {
+    try {
+      setError(null)
+      await invoke<{ results: Record<string, ImportResult> }>('importRepoSavedRequests', { repoId })
+      await loadData(false)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to import repository saved requests'
+      setError(msg)
+      addError(msg)
+    }
+  }
+
   const handleCheckPath = (path: string) => invoke<CheckPathResult>('checkPath', { path })
   const handleScanDirectory = (path: string) => invoke<ScanDirectoryResult>('scanDirectory', { path })
 
@@ -450,6 +504,10 @@ function AppContent() {
               onCreateNewRequest={handleCreateNewRequest}
               onCloneSavedRequest={handleCloneSavedRequest}
               onDeleteSavedRequest={handleDeleteSavedRequest}
+              onExportSavedRequests={handleExportSavedRequests}
+              onImportSavedRequests={handleImportSavedRequests}
+              onExportRepoSavedRequests={handleExportRepoSavedRequests}
+              onImportRepoSavedRequests={handleImportRepoSavedRequests}
             />
 
             <Flex style={{ flex: 1, overflow: 'auto' }} direction="column">

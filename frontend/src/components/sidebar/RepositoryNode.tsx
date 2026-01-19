@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { Box, Flex, Group, Text, Stack } from '@mantine/core'
-import { IconChevronRight, IconChevronDown } from '@tabler/icons-react'
+import { IconChevronRight, IconChevronDown, IconDownload, IconUpload } from '@tabler/icons-react'
 import type { Repository, Service, Endpoint, SavedRequest } from '@/types'
 import { HighlightMatch } from '@/utils/textHighlight'
 import { FavoriteToggle } from './FavoriteToggle'
 import { ServiceNode } from './ServiceNode'
+import { ContextMenu, ContextMenuItem } from './ContextMenu'
 
 interface RepositoryNodeProps {
   repo: Repository
@@ -36,6 +37,10 @@ interface RepositoryNodeProps {
   onCreateNewRequest: (endpointId: number) => void
   onCloneSavedRequest: (id: number) => void
   onDeleteSavedRequest: (id: number) => void
+  onExportSavedRequests: (serviceId: number) => void
+  onImportSavedRequests: (serviceId: number) => void
+  onExportRepoSavedRequests: (repoId: number) => void
+  onImportRepoSavedRequests: (repoId: number) => void
 }
 
 export function RepositoryNode({
@@ -68,8 +73,22 @@ export function RepositoryNode({
   onCreateNewRequest,
   onCloneSavedRequest,
   onDeleteSavedRequest,
+  onExportSavedRequests,
+  onImportSavedRequests,
+  onExportRepoSavedRequests,
+  onImportRepoSavedRequests,
 }: RepositoryNodeProps) {
   const [isHovered, setIsHovered] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{ opened: boolean; position: { x: number; y: number } }>({
+    opened: false,
+    position: { x: 0, y: 0 },
+  })
+
+  const handleContextMenu = (e: MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({ opened: true, position: { x: e.clientX, y: e.clientY } })
+  }
 
   return (
     <Box>
@@ -99,6 +118,7 @@ export function RepositoryNode({
 
         <Box
           onClick={onToggle}
+          onContextMenu={handleContextMenu}
           className="sidebar-nav-item"
           style={(theme) => ({
             flex: 1,
@@ -115,6 +135,32 @@ export function RepositoryNode({
           <Text size="xs" c="dimmed">{services.length}</Text>
         </Box>
       </Group>
+
+      {contextMenu.opened && (
+        <ContextMenu
+          position={contextMenu.position}
+          onClose={() => setContextMenu((prev) => ({ ...prev, opened: false }))}
+        >
+          <ContextMenuItem
+            leftSection={<IconUpload size={14} />}
+            onClick={() => {
+              setContextMenu((prev) => ({ ...prev, opened: false }))
+              onExportRepoSavedRequests(repo.id)
+            }}
+          >
+            Export All Saved Requests
+          </ContextMenuItem>
+          <ContextMenuItem
+            leftSection={<IconDownload size={14} />}
+            onClick={() => {
+              setContextMenu((prev) => ({ ...prev, opened: false }))
+              onImportRepoSavedRequests(repo.id)
+            }}
+          >
+            Import All Saved Requests
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
 
       {isExpanded && (
         <Box ml={24} mt={4}>
@@ -148,6 +194,8 @@ export function RepositoryNode({
                   onCreateNewRequest={onCreateNewRequest}
                   onCloneSavedRequest={onCloneSavedRequest}
                   onDeleteSavedRequest={onDeleteSavedRequest}
+                  onExportSavedRequests={onExportSavedRequests}
+                  onImportSavedRequests={onImportSavedRequests}
                 />
               )
             })}

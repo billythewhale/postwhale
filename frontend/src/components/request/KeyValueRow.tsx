@@ -28,18 +28,18 @@ export function KeyValueRow({
     <Group gap="xs" wrap="nowrap" align="center">
       <TextInput
         placeholder={keyPlaceholder}
-        value={keyValue}
+        value={keyValue ?? ''}
         onChange={(e) => onKeyChange(e.currentTarget.value)}
         flex={1}
       />
       <TextInput
         placeholder={valuePlaceholder}
-        value={value}
+        value={value ?? ''}
         onChange={(e) => onValueChange(e.currentTarget.value)}
         flex={1}
       />
       <Switch
-        checked={enabled}
+        checked={enabled ?? true}
         onChange={(e) => onEnabledChange(e.currentTarget.checked)}
         aria-label="Enable"
       />
