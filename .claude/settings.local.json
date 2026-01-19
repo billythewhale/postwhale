@@ -9,7 +9,8 @@
       "Skill(cc10x-router)",
       "Bash(tree:*)",
       "Bash(go build:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(ls:*)"
     ]
   }
 }
