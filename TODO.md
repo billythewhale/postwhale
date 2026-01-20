@@ -61,6 +61,7 @@ Terminology: The main app window is broken up like so:
 - [x] T3: When clicking the already-selected shop in the dropdown, that shop should remain the selected shop, rather than de-selecting it (01/15/2026)
 - [x] T4: When editing the Name of a request, the text input should be flex={1} i.e. take up all the horizontal space available to it (01/16/2026)
 - [ ] T5: We need to add some kind of indeterminate progress indication when the request is in progress, like a shimmer bar
+- [ ] T6: We need to be able to build and release a binary so people can install with homebrew (or even manually) without needing to git clone the source.
 
 ## TECH DEBT (Deferred from code review 01/19/2026)
 
@@ -130,6 +131,7 @@ P3 - Lowest
     - [x] Response: JSON viewer if response was application/json or else raw response (THIS IS THE DEFAULT ACTIVE VIEW WHEN RESPONSE IS RECEIVED)
     - [x] Raw: Raw response, in case Response tab shows interactive JSON; if Response tab is already raw, hide this
     - [x] Timing
+
 
 ### F7: New Requests (P2)
 
