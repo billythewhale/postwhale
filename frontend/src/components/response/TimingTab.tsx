@@ -22,7 +22,7 @@ export function TimingTab({ requestResponse }: TimingTabProps) {
   }
 
   return (
-    <Stack gap="md">
+    <Stack gap="md" style={{ flex: 1 }}>
       <Paper p="md" withBorder>
         <Group justify="space-between" align="center" mb="xs">
           <Text fw={500}>Total Response Time</Text>

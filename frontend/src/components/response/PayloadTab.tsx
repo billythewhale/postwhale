@@ -29,14 +29,14 @@ export function PayloadTab({ requestResponse }: PayloadTabProps) {
   ].filter(Boolean) as string[]
 
   return (
-    <Accordion defaultValue={defaultValue} multiple>
+    <Accordion defaultValue={defaultValue} multiple style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {hasPathParams && (
-        <Accordion.Item value="path">
+        <Accordion.Item value="path" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
           <Accordion.Control>
             <Text fw={500}>Path Parameters</Text>
           </Accordion.Control>
-          <Accordion.Panel>
-            <ScrollArea.Autosize mah={200}>
+          <Accordion.Panel style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <ScrollArea style={{ flex: 1 }}>
               <Table striped highlightOnHover withTableBorder>
                 <Table.Thead>
                   <Table.Tr>
@@ -53,18 +53,18 @@ export function PayloadTab({ requestResponse }: PayloadTabProps) {
                   ))}
                 </Table.Tbody>
               </Table>
-            </ScrollArea.Autosize>
+            </ScrollArea>
           </Accordion.Panel>
         </Accordion.Item>
       )}
 
       {hasQueryParams && (
-        <Accordion.Item value="query">
+        <Accordion.Item value="query" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
           <Accordion.Control>
             <Text fw={500}>Query Parameters</Text>
           </Accordion.Control>
-          <Accordion.Panel>
-            <ScrollArea.Autosize mah={200}>
+          <Accordion.Panel style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <ScrollArea style={{ flex: 1 }}>
               <Table striped highlightOnHover withTableBorder>
                 <Table.Thead>
                   <Table.Tr>
@@ -81,24 +81,24 @@ export function PayloadTab({ requestResponse }: PayloadTabProps) {
                   ))}
                 </Table.Tbody>
               </Table>
-            </ScrollArea.Autosize>
+            </ScrollArea>
           </Accordion.Panel>
         </Accordion.Item>
       )}
 
       {hasBody && (
-        <Accordion.Item value="body">
+        <Accordion.Item value="body" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
           <Accordion.Control>
             <Text fw={500}>Request Body</Text>
           </Accordion.Control>
-          <Accordion.Panel>
-            <ScrollArea.Autosize mah={300}>
+          <Accordion.Panel style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <ScrollArea style={{ flex: 1 }}>
               {isJSON(body) ? (
                 <CodeHighlight code={formatJSON(body)} language="json" />
               ) : (
                 <Code block style={{ fontSize: '0.875rem' }}>{body}</Code>
               )}
-            </ScrollArea.Autosize>
+            </ScrollArea>
           </Accordion.Panel>
         </Accordion.Item>
       )}

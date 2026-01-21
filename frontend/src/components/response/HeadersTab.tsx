@@ -10,12 +10,12 @@ export function HeadersTab({ requestResponse }: HeadersTabProps) {
   const { request, response } = requestResponse
 
   return (
-    <Accordion defaultValue={['request', 'response']} multiple>
-      <Accordion.Item value="request">
+    <Accordion defaultValue={['request', 'response']} multiple style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Accordion.Item value="request" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         <Accordion.Control>
           <Text fw={500}>Request Headers</Text>
         </Accordion.Control>
-        <Accordion.Panel>
+        <Accordion.Panel style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {request?.headers ? (
             <HeadersTable headers={request.headers} />
           ) : (
@@ -24,11 +24,11 @@ export function HeadersTab({ requestResponse }: HeadersTabProps) {
         </Accordion.Panel>
       </Accordion.Item>
 
-      <Accordion.Item value="response">
+      <Accordion.Item value="response" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         <Accordion.Control>
           <Text fw={500}>Response Headers</Text>
         </Accordion.Control>
-        <Accordion.Panel>
+        <Accordion.Panel style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {response?.headers ? (
             <HeadersTable headers={response.headers} />
           ) : (
