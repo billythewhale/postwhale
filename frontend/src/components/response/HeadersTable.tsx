@@ -12,7 +12,7 @@ export function HeadersTable({ headers }: HeadersTableProps) {
   }
 
   return (
-    <ScrollArea.Autosize mah={300}>
+    <ScrollArea style={{ flex: 1 }}>
       <Table striped highlightOnHover withTableBorder>
         <Table.Thead>
           <Table.Tr>
@@ -35,6 +35,6 @@ export function HeadersTable({ headers }: HeadersTableProps) {
           ))}
         </Table.Tbody>
       </Table>
-    </ScrollArea.Autosize>
+    </ScrollArea>
   )
 }

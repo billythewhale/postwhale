@@ -26,7 +26,7 @@ export function InfoTab({ requestResponse }: InfoTabProps) {
   ]
 
   return (
-    <ScrollArea.Autosize mah={400}>
+    <ScrollArea style={{ flex: 1 }}>
       <Table>
         <Table.Tbody>
           {rows.map(({ label, value }) => (
@@ -56,6 +56,6 @@ export function InfoTab({ requestResponse }: InfoTabProps) {
           ))}
         </Table.Tbody>
       </Table>
-    </ScrollArea.Autosize>
+    </ScrollArea>
   )
 }

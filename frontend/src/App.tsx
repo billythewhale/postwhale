@@ -345,18 +345,20 @@ function AppContent() {
 
     const fullUrl = buildFullUrl(service.serviceId, config.path, environment, config.authEnabled)
 
+    const requestData = {
+      method: config.method,
+      path: config.path,
+      url: fullUrl,
+      resolvedPath: config.resolvedPath,
+      pathParams: config.pathParams,
+      queryParams: config.queryParams,
+      headers: config.headers,
+      body: config.body,
+      sentAt: Date.now(),
+    }
+
     requestResponses.set(activeConfigId, {
-      request: {
-        method: config.method,
-        path: config.path,
-        url: fullUrl,
-        resolvedPath: config.resolvedPath,
-        pathParams: config.pathParams,
-        queryParams: config.queryParams,
-        headers: config.headers,
-        body: config.body,
-        sentAt: Date.now(),
-      },
+      request: requestData,
       response: null,
       isLoading: true,
     })
@@ -385,13 +387,11 @@ function AppContent() {
       })
 
       if (!controller.signal.aborted) {
-        const current = requestResponses.get(activeConfigId)
-        requestResponses.set(activeConfigId, { request: current?.request ?? null, response: result, isLoading: false })
+        requestResponses.set(activeConfigId, { request: requestData, response: result, isLoading: false })
       }
     } catch (err) {
-      const current = requestResponses.get(activeConfigId)
       requestResponses.set(activeConfigId, {
-        request: current?.request ?? null,
+        request: requestData,
         response: {
           statusCode: 0,
           status: 'Error',

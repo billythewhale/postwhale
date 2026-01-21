@@ -16,7 +16,7 @@ export function ErrorTab({ requestResponse }: ErrorTabProps) {
   }
 
   return (
-    <Stack gap="md">
+    <Stack gap="md" style={{ flex: 1 }}>
       <Alert
         color="red"
         variant="light"

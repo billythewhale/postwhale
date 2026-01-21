@@ -22,6 +22,7 @@ export function ResponsePanel({ requestResponse }: ResponsePanelProps) {
   const [activeNav, setActiveNav] = useState<ResponseNav>('response')
   const [copied, setCopied] = useState(false)
   const prevRequestRef = useRef<number | null>(null)
+  const hasAutoSwitchedRef = useRef(false)
 
   const showRawTab = useMemo(() => {
     return requestResponse?.response?.body ? isJSON(requestResponse.response.body) : false
@@ -40,15 +41,19 @@ export function ResponsePanel({ requestResponse }: ResponsePanelProps) {
     const currentSentAt = requestResponse.request.sentAt
     if (prevRequestRef.current !== currentSentAt) {
       prevRequestRef.current = currentSentAt
+      hasAutoSwitchedRef.current = false
       if (requestResponse.isLoading) {
         setActiveNav('info')
       }
     }
 
-    if (!requestResponse.isLoading && requestResponse.response) {
+    const shouldAutoSwitch = !requestResponse.isLoading && requestResponse.response && !hasAutoSwitchedRef.current
+
+    if (shouldAutoSwitch) {
+      hasAutoSwitchedRef.current = true
       if (requestResponse.response.error) {
         setActiveNav('error')
-      } else if (activeNav === 'info') {
+      } else {
         setActiveNav('response')
       }
     }
