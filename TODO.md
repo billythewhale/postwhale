@@ -60,8 +60,9 @@ Terminology: The main app window is broken up like so:
 - [x] T2: When hovering the request name, show pencil and trash icons. Clicking pencil starts rename (same as just clicking name). Clicking trash deletes after confirmation modal. (01/15/2026)
 - [x] T3: When clicking the already-selected shop in the dropdown, that shop should remain the selected shop, rather than de-selecting it (01/15/2026)
 - [x] T4: When editing the Name of a request, the text input should be flex={1} i.e. take up all the horizontal space available to it (01/16/2026)
-- [ ] T5: We need to add some kind of indeterminate progress indication when the request is in progress, like a shimmer bar
-- [ ] T6: We need to be able to build and release a binary so people can install with homebrew (or even manually) without needing to git clone the source.
+- [x] T5: We need to add some kind of indeterminate progress indication when the request is in progress, like a shimmer bar
+- [x] T6: We need to be able to build and release a binary so people can install with homebrew (or even manually) without needing to git clone the source.
+- [x] T7: We need to store two different tokens, one for staging and one for production. Get the staging one with `tw token` get the prod one with `tw token --prod`. When env is Local and auth is one, user can pick whether to use the staging or production token.
 
 ## TECH DEBT (Deferred from code review 01/19/2026)
 

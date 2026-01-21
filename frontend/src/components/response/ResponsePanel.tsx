@@ -10,6 +10,7 @@ import { PayloadTab } from './PayloadTab'
 import { ResponseTab } from './ResponseTab'
 import { RawTab } from './RawTab'
 import { TimingTab } from './TimingTab'
+import { ErrorTab } from './ErrorTab'
 import { ResponseNavRail } from './ResponseNavRail'
 import type { ResponseNav } from './ResponseNavRail'
 
@@ -26,6 +27,10 @@ export function ResponsePanel({ requestResponse }: ResponsePanelProps) {
     return requestResponse?.response?.body ? isJSON(requestResponse.response.body) : false
   }, [requestResponse?.response?.body])
 
+  const showErrorTab = useMemo(() => {
+    return !!requestResponse?.response?.error
+  }, [requestResponse?.response?.error])
+
   useEffect(() => {
     if (!requestResponse?.request) {
       prevRequestRef.current = null
@@ -40,8 +45,12 @@ export function ResponsePanel({ requestResponse }: ResponsePanelProps) {
       }
     }
 
-    if (!requestResponse.isLoading && requestResponse.response && activeNav === 'info') {
-      setActiveNav('response')
+    if (!requestResponse.isLoading && requestResponse.response) {
+      if (requestResponse.response.error) {
+        setActiveNav('error')
+      } else if (activeNav === 'info') {
+        setActiveNav('response')
+      }
     }
   }, [requestResponse, activeNav])
 
@@ -49,12 +58,15 @@ export function ResponsePanel({ requestResponse }: ResponsePanelProps) {
     if (activeNav === 'raw' && !showRawTab) {
       setActiveNav('response')
     }
-  }, [showRawTab, activeNav])
+    if (activeNav === 'error' && !showErrorTab) {
+      setActiveNav('response')
+    }
+  }, [showRawTab, showErrorTab, activeNav])
 
   if (!requestResponse) {
     return (
       <Flex style={{ height: '100%' }}>
-        <ResponseNavRail activeNav={activeNav} onNavChange={setActiveNav} showRawTab={showRawTab} />
+        <ResponseNavRail activeNav={activeNav} onNavChange={setActiveNav} showRawTab={showRawTab} showErrorTab={showErrorTab} />
         <Flex style={{ flex: 1 }} align="center" justify="center">
           <Stack align="center" gap="xs">
             <Text size="lg" c="dimmed">No response yet</Text>
@@ -68,7 +80,7 @@ export function ResponsePanel({ requestResponse }: ResponsePanelProps) {
   if (requestResponse.isLoading) {
     return (
       <Flex style={{ height: '100%', overflow: 'hidden' }}>
-        <ResponseNavRail activeNav={activeNav} onNavChange={setActiveNav} showRawTab={showRawTab} />
+        <ResponseNavRail activeNav={activeNav} onNavChange={setActiveNav} showRawTab={showRawTab} showErrorTab={showErrorTab} />
         <Flex direction="column" style={{ flex: 1, overflow: 'hidden' }} p="md">
           <Group gap="md" align="center" mb="md">
             <Loader size="sm" />
@@ -86,7 +98,7 @@ export function ResponsePanel({ requestResponse }: ResponsePanelProps) {
   if (!response) {
     return (
       <Flex style={{ height: '100%' }}>
-        <ResponseNavRail activeNav={activeNav} onNavChange={setActiveNav} showRawTab={showRawTab} />
+        <ResponseNavRail activeNav={activeNav} onNavChange={setActiveNav} showRawTab={showRawTab} showErrorTab={showErrorTab} />
         <Flex style={{ flex: 1 }} align="center" justify="center">
           <Stack align="center" gap="xs">
             <Text size="lg" c="dimmed">No response yet</Text>
@@ -140,6 +152,8 @@ export function ResponsePanel({ requestResponse }: ResponsePanelProps) {
 
 function renderContent(requestResponse: RequestResponsePair, activeNav: ResponseNav) {
   switch (activeNav) {
+    case 'error':
+      return <ErrorTab requestResponse={requestResponse} />
     case 'info':
       return <InfoTab requestResponse={requestResponse} />
     case 'headers':

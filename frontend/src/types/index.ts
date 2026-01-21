@@ -1,4 +1,4 @@
-export type Environment = 'LOCAL' | 'STAGING' | 'PRODUCTION';
+export type Environment = 'LOCAL_STAGING' | 'LOCAL_PRODUCTION' | 'STAGING' | 'PRODUCTION';
 
 export interface Repository {
   id: number;
@@ -125,7 +125,11 @@ export interface RequestAuthConfig {
   override: boolean
   mode: 'auto' | 'manual'
   enabled: boolean
-  auto: { token: string | null; expiresAt: number | null; autoRenew: boolean }
+  auto: {
+    staging: { token: string | null; expiresAt: number | null }
+    production: { token: string | null; expiresAt: number | null }
+    autoRenew: boolean
+  }
   manual: { authType: 'bearer' | 'api-key' | 'oauth2'; token: string; apiKeyValue: string }
 }
 

@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { IconSend, IconStar, IconStarFilled, IconDeviceFloppy, IconChevronDown, IconPencil, IconTrash, IconPlus, IconArrowBackUp } from '@tabler/icons-react'
 import { Button, Badge, Text, TextInput, Stack, Group, Flex, Divider, useMantineColorScheme, ActionIcon, Menu, Box, Loader } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import type { Endpoint, SavedRequest, EditableRequestConfig } from '@/types'
+import type { Endpoint, SavedRequest, EditableRequestConfig, Environment } from '@/types'
 import { useFavorites } from '@/contexts/FavoritesContext'
 import { useGlobalHeaders } from '@/contexts/GlobalHeadersContext'
 import { useShop } from '@/contexts/ShopContext'
@@ -22,11 +22,14 @@ interface RequestPanelProps {
   config: EditableRequestConfig | null
   savedRequests: SavedRequest[]
   isDirty: boolean
+  environment: Environment
+  onSetStatus: (message?: string) => void
   onConfigChange: (config: EditableRequestConfig) => void
   onSaveAsNew: (name: string) => void
   onUpdateSavedRequest?: (id: number, nameOverride?: string) => void
   onDeleteSavedRequest?: (id: number) => void
   onUndo?: () => void
+  onLoadingStart: () => void
   onSend: (config: {
     method: string
     path: string
@@ -47,11 +50,14 @@ export function RequestPanel({
   config,
   savedRequests,
   isDirty,
+  environment,
+  onSetStatus,
   onConfigChange,
   onSaveAsNew,
   onUpdateSavedRequest,
   onDeleteSavedRequest,
   onUndo,
+  onLoadingStart,
   onSend,
   onCancel,
   isLoading,
@@ -215,9 +221,35 @@ export function RequestPanel({
                   </Button>
                 </>
               ) : (
-                <Button onClick={handleSend} size="sm" leftSection={<IconSend size={16} />}>
-                  Send
-                </Button>
+                <>
+                  <Menu position="bottom-end" withinPortal>
+                    <Menu.Target>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        leftSection={<IconDeviceFloppy size={16} />}
+                        rightSection={<IconChevronDown size={16} />}
+                        disabled={isLoading || isSaving}
+                        loading={isSaving}
+                      >
+                        Save
+                      </Button>
+                    </Menu.Target>
+                    <Menu.Dropdown>
+                      {isSavedRequest && (
+                        <Menu.Item leftSection={<IconDeviceFloppy size={16} />} onClick={handleUpdate}>
+                          Save
+                        </Menu.Item>
+                      )}
+                      <Menu.Item leftSection={<IconPlus size={16} />} onClick={handleSaveAsNew}>
+                        Save as New
+                      </Menu.Item>
+                    </Menu.Dropdown>
+                  </Menu>
+                  <Button onClick={handleSend} size="sm" leftSection={<IconSend size={16} />}>
+                    Send
+                  </Button>
+                </>
               )}
             </Group>
           </Group>
@@ -262,49 +294,6 @@ export function RequestPanel({
               />
             )}
           </Box>
-
-          <Divider />
-
-          <Group justify="space-between">
-            <Group gap="sm">
-              <Menu position="top-start" withinPortal>
-                <Menu.Target>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    leftSection={<IconDeviceFloppy size={16} />}
-                    rightSection={<IconChevronDown size={16} />}
-                    disabled={isLoading || isSaving}
-                    loading={isSaving}
-                  >
-                    Save
-                  </Button>
-                </Menu.Target>
-                <Menu.Dropdown>
-                  {isSavedRequest && (
-                    <Menu.Item leftSection={<IconDeviceFloppy size={16} />} onClick={handleUpdate}>
-                      Save
-                    </Menu.Item>
-                  )}
-                  <Menu.Item leftSection={<IconPlus size={16} />} onClick={handleSaveAsNew}>
-                    Save as New
-                  </Menu.Item>
-                </Menu.Dropdown>
-              </Menu>
-
-              {isDirty && onUndo && (
-                <Button
-                  variant="subtle"
-                  size="sm"
-                  leftSection={<IconArrowBackUp size={16} />}
-                  onClick={onUndo}
-                  disabled={isLoading || isSaving}
-                >
-                  Discard
-                </Button>
-              )}
-            </Group>
-          </Group>
         </Stack>
 
         <DeleteConfirmModal
@@ -426,7 +415,22 @@ export function RequestPanel({
   }
 
   async function handleSend() {
-    await ensureValidToken()
+    onLoadingStart()
+
+    if (config?.auth?.enabled && config.auth.mode === 'auto' && config.auth.auto.autoRenew) {
+      const timeoutId = setTimeout(() => {
+        const envName = environment === 'PRODUCTION' ? 'Prod'
+          : environment === 'STAGING' ? 'Staging' : 'Local'
+        onSetStatus(`Refreshing token (${envName})...`)
+      }, 100)
+
+      await ensureValidToken(environment)
+      clearTimeout(timeoutId)
+      onSetStatus(undefined)
+    } else {
+      await ensureValidToken(environment)
+    }
+
     const headersObj = buildHeaders()
     const validationResult = validatePathParams()
 
@@ -460,9 +464,9 @@ export function RequestPanel({
     Object.assign(result, getShopHeader())
 
     if (config!.auth?.override) {
-      Object.assign(result, getRequestAuthHeader())
+      Object.assign(result, getRequestAuthHeader(environment))
     } else {
-      Object.assign(result, getAuthHeader())
+      Object.assign(result, getAuthHeader(environment))
     }
 
     getEnabledGlobalHeaders().forEach((h) => (result[h.key] = h.value))
@@ -473,15 +477,27 @@ export function RequestPanel({
     return result
   }
 
-  function getRequestAuthHeader(): Record<string, string> {
+  function getRequestAuthHeader(env: Environment): Record<string, string> {
     const auth = config!.auth
     if (!auth?.enabled) return {}
 
     if (auth.mode === 'auto') {
-      if (!auth.auto.token) return {}
-      const isExpired = !auth.auto.expiresAt || Date.now() >= auth.auto.expiresAt
-      if (isExpired) return {}
-      return { Authorization: `Bearer ${auth.auto.token}` }
+      let tokenEnv: 'staging' | 'production'
+      if (env === 'PRODUCTION') {
+        tokenEnv = 'production'
+      } else if (env === 'STAGING') {
+        tokenEnv = 'staging'
+      } else if (env === 'LOCAL_PRODUCTION') {
+        tokenEnv = 'production'
+      } else {
+        tokenEnv = 'staging'
+      }
+
+      const tokenData = auth.auto[tokenEnv]
+      if (!tokenData.token || !tokenData.expiresAt || Date.now() >= tokenData.expiresAt) {
+        return {}
+      }
+      return { Authorization: `Bearer ${tokenData.token}` }
     }
 
     const { authType, token, apiKeyValue } = auth.manual
