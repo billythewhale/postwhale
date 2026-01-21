@@ -1,4 +1,5 @@
-import { Accordion, Text, Table, ScrollArea, Code } from '@mantine/core'
+import { Accordion, Text, Table, ScrollArea, Code, Group, useMantineColorScheme } from '@mantine/core'
+import { IconRoute, IconSearch, IconFileText } from '@tabler/icons-react'
 import { CodeHighlight } from '@mantine/code-highlight'
 import type { RequestResponsePair } from '@/types'
 import { isJSON, formatJSON } from '@/utils/json'
@@ -9,6 +10,8 @@ interface PayloadTabProps {
 
 export function PayloadTab({ requestResponse }: PayloadTabProps) {
   const { request } = requestResponse
+  const { colorScheme } = useMantineColorScheme()
+  const isDark = colorScheme === 'dark'
 
   const pathParams = request?.pathParams ?? {}
   const queryParams = request?.queryParams ?? []
@@ -29,11 +32,27 @@ export function PayloadTab({ requestResponse }: PayloadTabProps) {
   ].filter(Boolean) as string[]
 
   return (
-    <Accordion defaultValue={defaultValue} multiple style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <Accordion
+      defaultValue={defaultValue}
+      multiple
+      style={{ display: 'flex', flexDirection: 'column', height: '100%' }}
+      styles={{
+        control: {
+          padding: '12px 16px',
+          backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+          '&:hover': {
+            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+          },
+        },
+      }}
+    >
       {hasPathParams && (
         <Accordion.Item value="path" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
           <Accordion.Control>
-            <Text fw={500}>Path Parameters</Text>
+            <Group gap="xs">
+              <IconRoute size={18} style={{ opacity: 0.7 }} />
+              <Text fw={600}>Path Parameters</Text>
+            </Group>
           </Accordion.Control>
           <Accordion.Panel style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <ScrollArea style={{ flex: 1 }}>
@@ -61,7 +80,10 @@ export function PayloadTab({ requestResponse }: PayloadTabProps) {
       {hasQueryParams && (
         <Accordion.Item value="query" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
           <Accordion.Control>
-            <Text fw={500}>Query Parameters</Text>
+            <Group gap="xs">
+              <IconSearch size={18} style={{ opacity: 0.7 }} />
+              <Text fw={600}>Query Parameters</Text>
+            </Group>
           </Accordion.Control>
           <Accordion.Panel style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <ScrollArea style={{ flex: 1 }}>
@@ -89,7 +111,10 @@ export function PayloadTab({ requestResponse }: PayloadTabProps) {
       {hasBody && (
         <Accordion.Item value="body" style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
           <Accordion.Control>
-            <Text fw={500}>Request Body</Text>
+            <Group gap="xs">
+              <IconFileText size={18} style={{ opacity: 0.7 }} />
+              <Text fw={600}>Request Body</Text>
+            </Group>
           </Accordion.Control>
           <Accordion.Panel style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <ScrollArea style={{ flex: 1 }}>
