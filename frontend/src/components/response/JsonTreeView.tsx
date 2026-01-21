@@ -9,7 +9,7 @@ interface JsonTreeViewProps {
 
 export function JsonTreeView({ data, initialExpandDepth = 2 }: JsonTreeViewProps) {
   return (
-    <Box style={{ fontFamily: 'monospace', fontSize: '0.75rem', lineHeight: 1.5 }}>
+    <Box style={{ fontFamily: 'monospace', fontSize: '0.9rem', lineHeight: 1.5 }}>
       <JsonNode value={data} depth={0} initialExpandDepth={initialExpandDepth} />
     </Box>
   )
@@ -42,10 +42,10 @@ function JsonNode({ value, depth, initialExpandDepth, keyName, isLast = true }: 
   if (value === null) {
     return (
       <Box style={{ paddingLeft: indent }}>
-        {keyName !== undefined && <Text component="span" c={colors.key}>"{keyName}"</Text>}
-        {keyName !== undefined && <Text component="span" c={colors.bracket}>: </Text>}
-        <Text component="span" c={colors.null}>null</Text>
-        {!isLast && <Text component="span" c={colors.bracket}>,</Text>}
+        {keyName !== undefined && <Text component="span" c={colors.key} inherit>"{keyName}"</Text>}
+        {keyName !== undefined && <Text component="span" c={colors.bracket} inherit>: </Text>}
+        <Text component="span" c={colors.null} inherit>null</Text>
+        {!isLast && <Text component="span" c={colors.bracket} inherit>,</Text>}
       </Box>
     )
   }
@@ -54,10 +54,10 @@ function JsonNode({ value, depth, initialExpandDepth, keyName, isLast = true }: 
     const displayValue = value.length > 500 ? value.slice(0, 500) + '...' : value
     return (
       <Box style={{ paddingLeft: indent }}>
-        {keyName !== undefined && <Text component="span" c={colors.key}>"{keyName}"</Text>}
-        {keyName !== undefined && <Text component="span" c={colors.bracket}>: </Text>}
-        <Text component="span" c={colors.string}>"{escapeString(displayValue)}"</Text>
-        {!isLast && <Text component="span" c={colors.bracket}>,</Text>}
+        {keyName !== undefined && <Text component="span" c={colors.key} inherit>"{keyName}"</Text>}
+        {keyName !== undefined && <Text component="span" c={colors.bracket} inherit>: </Text>}
+        <Text component="span" c={colors.string} inherit>"{escapeString(displayValue)}"</Text>
+        {!isLast && <Text component="span" c={colors.bracket} inherit>,</Text>}
       </Box>
     )
   }
@@ -65,10 +65,10 @@ function JsonNode({ value, depth, initialExpandDepth, keyName, isLast = true }: 
   if (typeof value === 'number') {
     return (
       <Box style={{ paddingLeft: indent }}>
-        {keyName !== undefined && <Text component="span" c={colors.key}>"{keyName}"</Text>}
-        {keyName !== undefined && <Text component="span" c={colors.bracket}>: </Text>}
-        <Text component="span" c={colors.number}>{String(value)}</Text>
-        {!isLast && <Text component="span" c={colors.bracket}>,</Text>}
+        {keyName !== undefined && <Text component="span" c={colors.key} inherit>"{keyName}"</Text>}
+        {keyName !== undefined && <Text component="span" c={colors.bracket} inherit>: </Text>}
+        <Text component="span" c={colors.number} inherit>{String(value)}</Text>
+        {!isLast && <Text component="span" c={colors.bracket} inherit>,</Text>}
       </Box>
     )
   }
@@ -76,10 +76,10 @@ function JsonNode({ value, depth, initialExpandDepth, keyName, isLast = true }: 
   if (typeof value === 'boolean') {
     return (
       <Box style={{ paddingLeft: indent }}>
-        {keyName !== undefined && <Text component="span" c={colors.key}>"{keyName}"</Text>}
-        {keyName !== undefined && <Text component="span" c={colors.bracket}>: </Text>}
-        <Text component="span" c={colors.boolean}>{String(value)}</Text>
-        {!isLast && <Text component="span" c={colors.bracket}>,</Text>}
+        {keyName !== undefined && <Text component="span" c={colors.key} inherit>"{keyName}"</Text>}
+        {keyName !== undefined && <Text component="span" c={colors.bracket} inherit>: </Text>}
+        <Text component="span" c={colors.boolean} inherit>{String(value)}</Text>
+        {!isLast && <Text component="span" c={colors.bracket} inherit>,</Text>}
       </Box>
     )
   }
@@ -88,10 +88,10 @@ function JsonNode({ value, depth, initialExpandDepth, keyName, isLast = true }: 
     if (value.length === 0) {
       return (
         <Box style={{ paddingLeft: indent }}>
-          {keyName !== undefined && <Text component="span" c={colors.key}>"{keyName}"</Text>}
-          {keyName !== undefined && <Text component="span" c={colors.bracket}>: </Text>}
-          <Text component="span" c={colors.bracket}>[]</Text>
-          {!isLast && <Text component="span" c={colors.bracket}>,</Text>}
+          {keyName !== undefined && <Text component="span" c={colors.key} inherit>"{keyName}"</Text>}
+          {keyName !== undefined && <Text component="span" c={colors.bracket} inherit>: </Text>}
+          <Text component="span" c={colors.bracket} inherit>[]</Text>
+          {!isLast && <Text component="span" c={colors.bracket} inherit>,</Text>}
         </Box>
       )
     }
@@ -109,14 +109,14 @@ function JsonNode({ value, depth, initialExpandDepth, keyName, isLast = true }: 
               <IconChevronRight size={14} color={colors.caret} />
             )}
           </UnstyledButton>
-          {keyName !== undefined && <Text component="span" c={colors.key}>"{keyName}"</Text>}
-          {keyName !== undefined && <Text component="span" c={colors.bracket}>: </Text>}
-          <Text component="span" c={colors.bracket}>[</Text>
+          {keyName !== undefined && <Text component="span" c={colors.key} inherit>"{keyName}"</Text>}
+          {keyName !== undefined && <Text component="span" c={colors.bracket} inherit>: </Text>}
+          <Text component="span" c={colors.bracket} inherit>[</Text>
           {!isExpanded && (
             <>
-              <Text component="span" c={colors.bracket} size="xs" ml={4}>{value.length} items</Text>
-              <Text component="span" c={colors.bracket}>]</Text>
-              {!isLast && <Text component="span" c={colors.bracket}>,</Text>}
+              <Text component="span" c={colors.bracket} inherit ml={4}>{value.length} items</Text>
+              <Text component="span" c={colors.bracket} inherit>]</Text>
+              {!isLast && <Text component="span" c={colors.bracket} inherit>,</Text>}
             </>
           )}
         </Box>
@@ -132,8 +132,8 @@ function JsonNode({ value, depth, initialExpandDepth, keyName, isLast = true }: 
               />
             ))}
             <Box style={{ paddingLeft: indent }}>
-              <Text component="span" c={colors.bracket}>]</Text>
-              {!isLast && <Text component="span" c={colors.bracket}>,</Text>}
+              <Text component="span" c={colors.bracket} inherit>]</Text>
+              {!isLast && <Text component="span" c={colors.bracket} inherit>,</Text>}
             </Box>
           </>
         )}
@@ -147,10 +147,10 @@ function JsonNode({ value, depth, initialExpandDepth, keyName, isLast = true }: 
     if (entries.length === 0) {
       return (
         <Box style={{ paddingLeft: indent }}>
-          {keyName !== undefined && <Text component="span" c={colors.key}>"{keyName}"</Text>}
-          {keyName !== undefined && <Text component="span" c={colors.bracket}>: </Text>}
-          <Text component="span" c={colors.bracket}>{'{}'}</Text>
-          {!isLast && <Text component="span" c={colors.bracket}>,</Text>}
+          {keyName !== undefined && <Text component="span" c={colors.key} inherit>"{keyName}"</Text>}
+          {keyName !== undefined && <Text component="span" c={colors.bracket} inherit>: </Text>}
+          <Text component="span" c={colors.bracket} inherit>{'{}'}</Text>
+          {!isLast && <Text component="span" c={colors.bracket} inherit>,</Text>}
         </Box>
       )
     }
@@ -168,14 +168,14 @@ function JsonNode({ value, depth, initialExpandDepth, keyName, isLast = true }: 
               <IconChevronRight size={14} color={colors.caret} />
             )}
           </UnstyledButton>
-          {keyName !== undefined && <Text component="span" c={colors.key}>"{keyName}"</Text>}
-          {keyName !== undefined && <Text component="span" c={colors.bracket}>: </Text>}
-          <Text component="span" c={colors.bracket}>{'{'}</Text>
+          {keyName !== undefined && <Text component="span" c={colors.key} inherit>"{keyName}"</Text>}
+          {keyName !== undefined && <Text component="span" c={colors.bracket} inherit>: </Text>}
+          <Text component="span" c={colors.bracket} inherit>{'{'}</Text>
           {!isExpanded && (
             <>
-              <Text component="span" c={colors.bracket} size="xs" ml={4}>{entries.length} keys</Text>
-              <Text component="span" c={colors.bracket}>{'}'}</Text>
-              {!isLast && <Text component="span" c={colors.bracket}>,</Text>}
+              <Text component="span" c={colors.bracket} inherit ml={4}>{entries.length} keys</Text>
+              <Text component="span" c={colors.bracket} inherit>{'}'}</Text>
+              {!isLast && <Text component="span" c={colors.bracket} inherit>,</Text>}
             </>
           )}
         </Box>
@@ -192,8 +192,8 @@ function JsonNode({ value, depth, initialExpandDepth, keyName, isLast = true }: 
               />
             ))}
             <Box style={{ paddingLeft: indent }}>
-              <Text component="span" c={colors.bracket}>{'}'}</Text>
-              {!isLast && <Text component="span" c={colors.bracket}>,</Text>}
+              <Text component="span" c={colors.bracket} inherit>{'}'}</Text>
+              {!isLast && <Text component="span" c={colors.bracket} inherit>,</Text>}
             </Box>
           </>
         )}
@@ -203,10 +203,10 @@ function JsonNode({ value, depth, initialExpandDepth, keyName, isLast = true }: 
 
   return (
     <Box style={{ paddingLeft: indent }}>
-      {keyName !== undefined && <Text component="span" c={colors.key}>"{keyName}"</Text>}
-      {keyName !== undefined && <Text component="span" c={colors.bracket}>: </Text>}
-      <Text component="span">{String(value)}</Text>
-      {!isLast && <Text component="span" c={colors.bracket}>,</Text>}
+      {keyName !== undefined && <Text component="span" c={colors.key} inherit>"{keyName}"</Text>}
+      {keyName !== undefined && <Text component="span" c={colors.bracket} inherit>: </Text>}
+      <Text component="span" inherit>{String(value)}</Text>
+      {!isLast && <Text component="span" c={colors.bracket} inherit>,</Text>}
     </Box>
   )
 }
