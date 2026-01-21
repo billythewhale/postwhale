@@ -8,7 +8,7 @@ export function HeadersTable({ headers }: HeadersTableProps) {
   const entries = Object.entries(headers)
 
   if (entries.length === 0) {
-    return <Text size="sm" c="dimmed">No headers</Text>
+    return <Text size="sm" c="dimmed">None</Text>
   }
 
   return (
