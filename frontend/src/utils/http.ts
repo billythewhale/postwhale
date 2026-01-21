@@ -6,17 +6,17 @@ export function getMethodColor(method: string): string {
   const colors: Record<string, string> = {
     GET: 'teal',
     POST: 'blue',
-    PUT: 'orange',
-    PATCH: 'yellow',
-    DELETE: 'red',
+    PUT: 'indigo',
+    PATCH: 'cyan',
+    DELETE: 'pink',
   }
   return colors[method] || 'gray'
 }
 
 export function getStatusColor(statusCode: number): string {
-  if (statusCode >= 200 && statusCode < 300) return 'teal'
-  if (statusCode >= 300 && statusCode < 400) return 'blue'
-  if (statusCode >= 400 && statusCode < 500) return 'yellow'
+  if (statusCode >= 200 && statusCode < 300) return 'green'
+  if (statusCode >= 300 && statusCode < 400) return 'yellow'
+  if (statusCode >= 400 && statusCode < 500) return 'orange'
   if (statusCode >= 500) return 'red'
   return 'gray'
 }

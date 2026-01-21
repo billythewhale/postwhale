@@ -17,7 +17,7 @@ export function InfoTab({ requestResponse }: InfoTabProps) {
       label: 'Status Code',
       value: response ? (
         <Badge color={getStatusColor(response.statusCode)} variant="filled">
-          {response.statusCode} {response.status}
+          {response.status}
         </Badge>
       ) : '-',
     },

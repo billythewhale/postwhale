@@ -122,7 +122,7 @@ export function ResponsePanel({ requestResponse }: ResponsePanelProps) {
           <Group gap="md">
             <Text size="lg" fw={600}>Response</Text>
             <Badge color={getStatusColor(response.statusCode)} size="lg" variant="filled">
-              {response.statusCode} {response.status}
+              {response.status}
             </Badge>
             <Text size="sm" fw={500} c="dimmed">{response.responseTime}ms</Text>
           </Group>
