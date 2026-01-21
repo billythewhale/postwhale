@@ -4,12 +4,17 @@ import { useIPC } from '@/hooks/useIPC'
 type AuthMode = 'auto' | 'manual'
 type AuthType = 'bearer' | 'api-key' | 'oauth2'
 
+interface TokenData {
+  token: string | null
+  expiresAt: number | null
+}
+
 interface AuthConfig {
   mode: AuthMode
   enabled: boolean
   auto: {
-    token: string | null
-    expiresAt: number | null
+    staging: TokenData
+    production: TokenData
     autoRenew: boolean
   }
   manual: {
@@ -19,6 +24,8 @@ interface AuthConfig {
   }
 }
 
+type Environment = 'LOCAL_STAGING' | 'LOCAL_PRODUCTION' | 'STAGING' | 'PRODUCTION'
+
 interface AuthContextType {
   config: AuthConfig
   setMode: (mode: AuthMode) => void
@@ -27,13 +34,13 @@ interface AuthContextType {
   setManualAuthType: (authType: AuthType) => void
   setManualToken: (token: string) => void
   setManualApiKey: (value: string) => void
-  fetchToken: () => Promise<{ success: boolean; error?: string }>
-  getAuthHeader: () => Record<string, string>
-  ensureValidToken: () => Promise<void>
-  isTokenExpired: () => boolean
-  isTokenExpiring: () => boolean
-  getTokenStatus: () => 'valid' | 'expiring' | 'expired' | 'none'
-  clearToken: () => void
+  fetchToken: (env: 'staging' | 'production') => Promise<{ success: boolean; error?: string }>
+  getAuthHeader: (environment?: Environment) => Record<string, string>
+  ensureValidToken: (environment?: Environment) => Promise<void>
+  isTokenExpired: (env: 'staging' | 'production') => boolean
+  isTokenExpiring: (env: 'staging' | 'production') => boolean
+  getTokenStatus: (env: 'staging' | 'production') => 'valid' | 'expiring' | 'expired' | 'none'
+  clearToken: (env: 'staging' | 'production') => void
   isWarningDismissed: boolean
   dismissWarning: () => void
 }
@@ -45,23 +52,47 @@ const AUTH_WARNING_DISMISSED_KEY = 'postwhale_auth_warning_dismissed'
 const TOKEN_EXPIRY_MS = 55 * 60 * 1000
 const TOKEN_EXPIRING_THRESHOLD_MS = 5 * 60 * 1000
 
+function migrateOldAuthConfig(parsed: any): AuthConfig {
+  if (parsed.auto && 'token' in parsed.auto && !('staging' in parsed.auto)) {
+    return {
+      mode: parsed.mode ?? 'auto',
+      enabled: parsed.enabled ?? false,
+      auto: {
+        staging: {
+          token: parsed.auto.token ?? null,
+          expiresAt: parsed.auto.expiresAt ?? null,
+        },
+        production: { token: null, expiresAt: null },
+        autoRenew: parsed.auto.autoRenew ?? true,
+      },
+      manual: {
+        authType: parsed.manual?.authType ?? 'bearer',
+        token: parsed.manual?.token ?? '',
+        apiKeyValue: parsed.manual?.apiKeyValue ?? '',
+      },
+    }
+  }
+  return parsed
+}
+
 function loadAuthConfigFromStorage(): AuthConfig {
   try {
     const stored = localStorage.getItem(AUTH_CONFIG_KEY)
     if (stored) {
       const parsed = JSON.parse(stored)
+      const migrated = migrateOldAuthConfig(parsed)
       return {
-        mode: parsed.mode ?? 'auto',
-        enabled: parsed.enabled ?? false,
+        mode: migrated.mode ?? 'auto',
+        enabled: migrated.enabled ?? false,
         auto: {
-          token: parsed.auto?.token ?? null,
-          expiresAt: parsed.auto?.expiresAt ?? null,
-          autoRenew: parsed.auto?.autoRenew ?? true,
+          staging: migrated.auto?.staging ?? { token: null, expiresAt: null },
+          production: migrated.auto?.production ?? { token: null, expiresAt: null },
+          autoRenew: migrated.auto?.autoRenew ?? true,
         },
         manual: {
-          authType: parsed.manual?.authType ?? 'bearer',
-          token: parsed.manual?.token ?? '',
-          apiKeyValue: parsed.manual?.apiKeyValue ?? '',
+          authType: migrated.manual?.authType ?? 'bearer',
+          token: migrated.manual?.token ?? '',
+          apiKeyValue: migrated.manual?.apiKeyValue ?? '',
         },
       }
     }
@@ -71,7 +102,11 @@ function loadAuthConfigFromStorage(): AuthConfig {
   return {
     mode: 'auto',
     enabled: false,
-    auto: { token: null, expiresAt: null, autoRenew: true },
+    auto: {
+      staging: { token: null, expiresAt: null },
+      production: { token: null, expiresAt: null },
+      autoRenew: true,
+    },
     manual: { authType: 'bearer', token: '', apiKeyValue: '' },
   }
 }
@@ -133,78 +168,133 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setConfig((prev) => ({ ...prev, manual: { ...prev.manual, apiKeyValue: value } }))
   }, [])
 
-  const fetchToken = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const result = await invoke<{ output: string }>('runShellCommand', {
-        command: 'tw',
-        args: ['token'],
-      })
-      const token = result.output
-      const expiresAt = Date.now() + TOKEN_EXPIRY_MS
-      setConfig((prev) => ({
-        ...prev,
-        enabled: true,
-        auto: { ...prev.auto, token, expiresAt },
-      }))
-      return { success: true }
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch token' }
-    }
-  }, [invoke])
+  const fetchToken = useCallback(
+    async (env: 'staging' | 'production'): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const args = env === 'production' ? ['token', '--prod'] : ['token']
+        const result = await invoke<{ output: string }>('runShellCommand', {
+          command: 'tw',
+          args,
+        })
+        const token = result.output
+        const expiresAt = Date.now() + TOKEN_EXPIRY_MS
 
-  const isTokenExpired = useCallback((): boolean => {
-    if (!config.auto.token || !config.auto.expiresAt) return true
-    return Date.now() >= config.auto.expiresAt
-  }, [config.auto.token, config.auto.expiresAt])
+        setConfig((prev) => ({
+          ...prev,
+          enabled: true,
+          auto: {
+            ...prev.auto,
+            [env]: { token, expiresAt },
+          },
+        }))
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Failed to fetch token' }
+      }
+    },
+    [invoke],
+  )
 
-  const isTokenExpiring = useCallback((): boolean => {
-    if (!config.auto.token || !config.auto.expiresAt) return false
-    const timeRemaining = config.auto.expiresAt - Date.now()
-    return timeRemaining > 0 && timeRemaining <= TOKEN_EXPIRING_THRESHOLD_MS
-  }, [config.auto.token, config.auto.expiresAt])
+  const isTokenExpired = useCallback(
+    (env: 'staging' | 'production'): boolean => {
+      const tokenData = config.auto[env]
+      if (!tokenData.token || !tokenData.expiresAt) return true
+      return Date.now() >= tokenData.expiresAt
+    },
+    [config.auto],
+  )
 
-  const getTokenStatus = useCallback((): 'valid' | 'expiring' | 'expired' | 'none' => {
-    if (!config.auto.token) return 'none'
-    if (isTokenExpired()) return 'expired'
-    if (isTokenExpiring()) return 'expiring'
-    return 'valid'
-  }, [config.auto.token, isTokenExpired, isTokenExpiring])
+  const isTokenExpiring = useCallback(
+    (env: 'staging' | 'production'): boolean => {
+      const tokenData = config.auto[env]
+      if (!tokenData.token || !tokenData.expiresAt) return false
+      const timeRemaining = tokenData.expiresAt - Date.now()
+      return timeRemaining > 0 && timeRemaining <= TOKEN_EXPIRING_THRESHOLD_MS
+    },
+    [config.auto],
+  )
 
-  const clearToken = useCallback(() => {
+  const getTokenStatus = useCallback(
+    (env: 'staging' | 'production'): 'valid' | 'expiring' | 'expired' | 'none' => {
+      const tokenData = config.auto[env]
+      if (!tokenData.token) return 'none'
+      if (isTokenExpired(env)) return 'expired'
+      if (isTokenExpiring(env)) return 'expiring'
+      return 'valid'
+    },
+    [config.auto, isTokenExpired, isTokenExpiring],
+  )
+
+  const clearToken = useCallback((env: 'staging' | 'production') => {
     setConfig((prev) => ({
       ...prev,
-      auto: { ...prev.auto, token: null, expiresAt: null },
+      auto: {
+        ...prev.auto,
+        [env]: { token: null, expiresAt: null },
+      },
     }))
   }, [])
 
-  const ensureValidToken = useCallback(async () => {
-    if (config.mode !== 'auto' || !config.enabled) return
-    if (!config.auto.autoRenew) return
-    if (isTokenExpired() || isTokenExpiring()) {
-      await fetchToken()
-    }
-  }, [config.mode, config.enabled, config.auto.autoRenew, isTokenExpired, isTokenExpiring, fetchToken])
+  const ensureValidToken = useCallback(
+    async (environment?: Environment) => {
+      if (config.mode !== 'auto' || !config.enabled) return
+      if (!config.auto.autoRenew) return
 
-  const getAuthHeader = useCallback((): Record<string, string> => {
-    if (!config.enabled) return {}
+      let tokenEnv: 'staging' | 'production'
+      if (environment === 'PRODUCTION') {
+        tokenEnv = 'production'
+      } else if (environment === 'STAGING') {
+        tokenEnv = 'staging'
+      } else if (environment === 'LOCAL_PRODUCTION') {
+        tokenEnv = 'production'
+      } else {
+        tokenEnv = 'staging'
+      }
 
-    if (config.mode === 'auto') {
-      if (!config.auto.token || isTokenExpired()) return {}
-      return { Authorization: `Bearer ${config.auto.token}` }
-    }
+      if (isTokenExpired(tokenEnv) || isTokenExpiring(tokenEnv)) {
+        await fetchToken(tokenEnv)
+      }
+    },
+    [config.mode, config.enabled, config.auto.autoRenew, isTokenExpired, isTokenExpiring, fetchToken],
+  )
 
-    const { authType, token, apiKeyValue } = config.manual
-    switch (authType) {
-      case 'bearer':
-        return token ? { Authorization: `Bearer ${token}` } : {}
-      case 'api-key':
-        return apiKeyValue ? { 'x-tw-api-key': apiKeyValue } : {}
-      case 'oauth2':
-        return token ? { Authorization: `Bearer ${token}` } : {}
-      default:
-        return {}
-    }
-  }, [config, isTokenExpired])
+  const getAuthHeader = useCallback(
+    (environment?: Environment): Record<string, string> => {
+      if (!config.enabled) return {}
+
+      if (config.mode === 'auto') {
+        let tokenEnv: 'staging' | 'production'
+        if (environment === 'PRODUCTION') {
+          tokenEnv = 'production'
+        } else if (environment === 'STAGING') {
+          tokenEnv = 'staging'
+        } else if (environment === 'LOCAL_PRODUCTION') {
+          tokenEnv = 'production'
+        } else {
+          tokenEnv = 'staging'
+        }
+
+        const tokenData = config.auto[tokenEnv]
+        if (!tokenData.token || !tokenData.expiresAt || Date.now() >= tokenData.expiresAt) {
+          return {}
+        }
+        return { Authorization: `Bearer ${tokenData.token}` }
+      }
+
+      const { authType, token, apiKeyValue } = config.manual
+      switch (authType) {
+        case 'bearer':
+          return token ? { Authorization: `Bearer ${token}` } : {}
+        case 'api-key':
+          return apiKeyValue ? { 'x-tw-api-key': apiKeyValue } : {}
+        case 'oauth2':
+          return token ? { Authorization: `Bearer ${token}` } : {}
+        default:
+          return {}
+      }
+    },
+    [config],
+  )
 
   const dismissWarning = useCallback(() => {
     setIsWarningDismissed(true)

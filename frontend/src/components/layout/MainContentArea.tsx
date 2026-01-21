@@ -2,7 +2,7 @@ import { Flex, useMantineColorScheme } from '@mantine/core'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import { RequestPanel } from '@/components/request/RequestPanel'
 import { ResponsePanel } from '@/components/response/ResponsePanel'
-import type { Endpoint, SavedRequest, EditableRequestConfig, RequestResponsePair } from '@/types'
+import type { Endpoint, SavedRequest, EditableRequestConfig, RequestResponsePair, Environment } from '@/types'
 
 interface MainContentAreaProps {
   endpoint: Endpoint | null
@@ -12,11 +12,14 @@ interface MainContentAreaProps {
   requestResponse: RequestResponsePair | null
   isLoading: boolean
   isSaving: boolean
+  environment: Environment
+  onSetStatus: (message?: string) => void
   onConfigChange: (config: EditableRequestConfig) => void
   onSaveAsNew: (name: string) => void
   onUpdateSavedRequest?: (id: number, nameOverride?: string) => void
   onDeleteSavedRequest?: (id: number) => void
   onUndo?: () => void
+  onLoadingStart: () => void
   onSend: (config: {
     method: string
     path: string
@@ -38,11 +41,14 @@ export function MainContentArea({
   requestResponse,
   isLoading,
   isSaving,
+  environment,
+  onSetStatus,
   onConfigChange,
   onSaveAsNew,
   onUpdateSavedRequest,
   onDeleteSavedRequest,
   onUndo,
+  onLoadingStart,
   onSend,
   onCancel,
 }: MainContentAreaProps) {
@@ -50,7 +56,7 @@ export function MainContentArea({
   const isDark = colorScheme === 'dark'
 
   return (
-    <Flex style={{ flex: 1, overflow: 'hidden', height: '100%' }}>
+    <Flex direction="column" style={{ flex: 1, overflow: 'hidden', height: '100%' }}>
       <Group orientation="vertical" style={{ flex: 1, height: '100%' }}>
         <Panel defaultSize={50} minSize={15}>
           <RequestPanel
@@ -58,11 +64,14 @@ export function MainContentArea({
             config={config}
             savedRequests={savedRequests}
             isDirty={isDirty}
+            environment={environment}
+            onSetStatus={onSetStatus}
             onConfigChange={onConfigChange}
             onSaveAsNew={onSaveAsNew}
             onUpdateSavedRequest={onUpdateSavedRequest}
             onDeleteSavedRequest={onDeleteSavedRequest}
             onUndo={onUndo}
+            onLoadingStart={onLoadingStart}
             onSend={onSend}
             onCancel={onCancel}
             isLoading={isLoading}

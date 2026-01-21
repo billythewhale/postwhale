@@ -73,7 +73,8 @@ export function Header({ environment, onEnvironmentChange, onSettingsClick }: He
               onEnvironmentChange(v as Environment)
             }}
             data={[
-              { value: 'LOCAL', label: 'LOCAL' },
+              { value: 'LOCAL_STAGING', label: 'LOCAL STG' },
+              { value: 'LOCAL_PRODUCTION', label: 'LOCAL PROD' },
               { value: 'STAGING', label: 'STAGING' },
               { value: 'PRODUCTION', label: 'PRODUCTION' },
             ]}
@@ -115,7 +116,6 @@ export function Header({ environment, onEnvironmentChange, onSettingsClick }: He
             label="Auth"
             checked={authConfig.enabled}
             onChange={(e) => setAuthEnabled(e.currentTarget.checked)}
-            size="sm"
           />
 
           <ActionIcon

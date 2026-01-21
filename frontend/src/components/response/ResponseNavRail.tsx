@@ -6,17 +6,20 @@ import {
   IconFileText,
   IconCode,
   IconClock,
+  IconAlertCircle,
 } from '@tabler/icons-react'
 
-export type ResponseNav = 'info' | 'headers' | 'payload' | 'response' | 'raw' | 'timing'
+export type ResponseNav = 'info' | 'headers' | 'payload' | 'response' | 'raw' | 'timing' | 'error'
 
 interface ResponseNavRailProps {
   activeNav: ResponseNav
   onNavChange: (nav: ResponseNav) => void
   showRawTab?: boolean
+  showErrorTab?: boolean
 }
 
 const RESPONSE_NAVS: Array<{ value: ResponseNav; label: string; icon: typeof IconInfoCircle }> = [
+  { value: 'error', label: 'Error', icon: IconAlertCircle },
   { value: 'info', label: 'Info', icon: IconInfoCircle },
   { value: 'headers', label: 'Headers', icon: IconList },
   { value: 'payload', label: 'Payload', icon: IconUpload },
@@ -25,7 +28,7 @@ const RESPONSE_NAVS: Array<{ value: ResponseNav; label: string; icon: typeof Ico
   { value: 'timing', label: 'Timing', icon: IconClock },
 ]
 
-export function ResponseNavRail({ activeNav, onNavChange, showRawTab = false }: ResponseNavRailProps) {
+export function ResponseNavRail({ activeNav, onNavChange, showRawTab = false, showErrorTab = false }: ResponseNavRailProps) {
   const { colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
 
@@ -42,7 +45,11 @@ export function ResponseNavRail({ activeNav, onNavChange, showRawTab = false }: 
       <Text size="xs" fw={700} c="dimmed" tt="uppercase" px="sm" py="xs">
         Response
       </Text>
-      {RESPONSE_NAVS.filter(nav => nav.value !== 'raw' || showRawTab).map(({ value, label, icon: Icon }) => (
+      {RESPONSE_NAVS.filter(nav => {
+        if (nav.value === 'raw') return showRawTab
+        if (nav.value === 'error') return showErrorTab
+        return true
+      }).map(({ value, label, icon: Icon }) => (
         <NavLink
           key={value}
           label={label}
@@ -50,6 +57,7 @@ export function ResponseNavRail({ activeNav, onNavChange, showRawTab = false }: 
           active={activeNav === value}
           onClick={() => onNavChange(value)}
           variant="light"
+          style={value === 'error' ? { color: 'var(--mantine-color-red-6)' } : undefined}
         />
       ))}
     </Stack>

@@ -519,10 +519,12 @@ export function RequestBuilder({
     if (!auth?.enabled) return {}
 
     if (auth.mode === 'auto') {
-      if (!auth.auto.token) return {}
-      const isExpired = !auth.auto.expiresAt || Date.now() >= auth.auto.expiresAt
-      if (isExpired) return {}
-      return { Authorization: `Bearer ${auth.auto.token}` }
+      const tokenEnv = 'staging'
+      const tokenData = auth.auto[tokenEnv]
+      if (!tokenData.token || !tokenData.expiresAt || Date.now() >= tokenData.expiresAt) {
+        return {}
+      }
+      return { Authorization: `Bearer ${tokenData.token}` }
     }
 
     const { authType, token, apiKeyValue } = auth.manual

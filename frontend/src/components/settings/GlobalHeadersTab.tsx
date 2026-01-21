@@ -12,8 +12,10 @@ export function GlobalHeadersTab() {
 
   const getAuthHeaderInfo = (): { key: string; value: string } | null => {
     if (config.mode === 'auto') {
-      if (!config.auto.token) return null
-      return { key: 'Authorization', value: `Bearer ${config.auto.token}` }
+      const tokenEnv = 'staging'
+      const tokenData = config.auto[tokenEnv]
+      if (!tokenData.token) return null
+      return { key: 'Authorization', value: `Bearer ${tokenData.token}` }
     }
     const { authType, token, apiKeyValue } = config.manual
     if (authType === 'bearer' && token) return { key: 'Authorization', value: `Bearer ${token}` }

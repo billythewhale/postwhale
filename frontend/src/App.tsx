@@ -3,6 +3,7 @@ import { Flex, Loader, Stack, Text, Alert } from '@mantine/core'
 import { Header } from '@/components/layout/Header'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { MainContentArea } from '@/components/layout/MainContentArea'
+import { StatusBar } from '@/components/layout/StatusBar'
 import { AddRepositoryDialog } from '@/components/sidebar/AddRepositoryDialog'
 import { AutoAddReposDialog } from '@/components/sidebar/AutoAddReposDialog'
 import { FavoritesProvider } from '@/contexts/FavoritesContext'
@@ -42,13 +43,17 @@ function buildFullUrl(serviceId: string, endpoint: string, env: Environment, aut
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
   if (authEnabled) {
     switch (env) {
-      case 'LOCAL': return `http://localhost/api/v2/${serviceId}${path}`
+      case 'LOCAL_STAGING':
+      case 'LOCAL_PRODUCTION':
+        return `http://localhost/api/v2/${serviceId}${path}`
       case 'STAGING': return `https://staging.api.triplewhale.com/api/v2/${serviceId}${path}`
       case 'PRODUCTION': return `https://api.triplewhale.com/api/v2/${serviceId}${path}`
     }
   }
   switch (env) {
-    case 'LOCAL': return `http://localhost/${serviceId}${path}`
+    case 'LOCAL_STAGING':
+    case 'LOCAL_PRODUCTION':
+      return `http://localhost/${serviceId}${path}`
     case 'STAGING': return `http://stg.${serviceId}.srv.whale3.io${path}`
     case 'PRODUCTION': return `http://${serviceId}.srv.whale3.io${path}`
   }
@@ -71,7 +76,7 @@ export default function App() {
 }
 
 function AppContent() {
-  const [environment, setEnvironment] = useState<Environment>('LOCAL')
+  const [environment, setEnvironment] = useState<Environment>('LOCAL_STAGING')
   const [repositories, setRepositories] = useState<Repository[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [endpoints, setEndpoints] = useState<Endpoint[]>([])
@@ -85,6 +90,11 @@ function AppContent() {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showAutoAddDialog, setShowAutoAddDialog] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [statusMessage, setStatusMessage] = useState<string | undefined>(undefined)
+  const [statusBarVisible, setStatusBarVisible] = useState(() => {
+    const stored = localStorage.getItem('statusBarVisible')
+    return stored !== null ? stored === 'true' : true
+  })
 
   const requestConfigs = useMap<string, EditableRequestConfig>()
   const requestResponses = useMap<string, RequestResponsePair>()
@@ -99,20 +109,14 @@ function AppContent() {
     return activeNode.type === 'endpoint' ? `temp_${activeNode.endpointId}` : String(activeNode.savedRequestId)
   }, [activeNode])
 
-  const activeConfig = useMemo(() => {
-    if (!activeConfigId) return null
-    return requestConfigs.get(activeConfigId) ?? null
-  }, [activeConfigId, requestConfigs])
+  const activeConfig = !activeConfigId ? null : (requestConfigs.get(activeConfigId) ?? null)
 
   const activeEndpoint = useMemo(() => {
     if (!activeNode) return null
     return endpoints.find((e) => e.id === activeNode.endpointId) ?? null
   }, [activeNode, endpoints])
 
-  const activeRequestResponse = useMemo(() => {
-    if (!activeConfigId) return null
-    return requestResponses.get(activeConfigId) ?? null
-  }, [activeConfigId, requestResponses])
+  const activeRequestResponse = !activeConfigId ? null : (requestResponses.get(activeConfigId) ?? null)
 
   const isLoading = activeRequestResponse?.isLoading ?? false
 
@@ -357,6 +361,7 @@ function AppContent() {
       isLoading: true,
     })
     setError(null)
+    setStatusMessage('Sending request...')
 
     try {
       const result = await invoke<{
@@ -398,9 +403,20 @@ function AppContent() {
         isLoading: false,
       })
     } finally {
+      setStatusMessage(undefined)
       abortControllerRef.current = null
     }
   }, [activeConfigId, activeEndpoint, isLoading, services, environment, invoke, requestResponses])
+
+  const handleLoadingStart = useCallback(() => {
+    if (!activeConfigId) return
+    const current = requestResponses.get(activeConfigId)
+    requestResponses.set(activeConfigId, {
+      request: current?.request ?? null,
+      response: current?.response ?? null,
+      isLoading: true,
+    })
+  }, [activeConfigId, requestResponses])
 
   const handleCancel = useCallback(() => {
     abortControllerRef.current?.abort()
@@ -409,6 +425,14 @@ function AppContent() {
       if (current) requestResponses.set(activeConfigId, { ...current, isLoading: false })
     }
   }, [activeConfigId, requestResponses])
+
+  const handleToggleStatusBar = useCallback(() => {
+    setStatusBarVisible((prev) => {
+      const newValue = !prev
+      localStorage.setItem('statusBarVisible', String(newValue))
+      return newValue
+    })
+  }, [])
 
   const handleRefreshAll = async () => {
     try {
@@ -583,11 +607,14 @@ function AppContent() {
                 requestResponse={activeRequestResponse}
                 isLoading={isLoading}
                 isSaving={isSaving}
+                environment={environment}
+                onSetStatus={setStatusMessage}
                 onConfigChange={handleConfigChange}
                 onSaveAsNew={handleSaveAsNew}
                 onUpdateSavedRequest={handleUpdateSavedRequestFromConfig}
                 onDeleteSavedRequest={handleDeleteSavedRequest}
                 onUndo={activeConfigId ? () => handleUndoConfig(activeConfigId) : undefined}
+                onLoadingStart={handleLoadingStart}
                 onSend={handleSend}
                 onCancel={handleCancel}
               />
@@ -595,6 +622,13 @@ function AppContent() {
           </>
         )}
       </Flex>
+
+      <StatusBar
+        message={statusMessage}
+        isLoading={isLoading}
+        isVisible={statusBarVisible}
+        onToggleVisibility={handleToggleStatusBar}
+      />
 
       <AddRepositoryDialog open={showAddDialog} onOpenChange={setShowAddDialog} onAddRepository={handleAddRepository} />
       <AutoAddReposDialog
