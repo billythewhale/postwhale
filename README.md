@@ -22,7 +22,21 @@ A native macOS API testing tool for Triple Whale microservices. Automatically di
 
 ## Installation
 
-### Prerequisites
+### Download Pre-built Binary
+
+1. Download the latest release from [Releases](https://github.com/billythewhale/postwhale/releases)
+   - **Apple Silicon (M1/M2/M3)**: Download the `arm64` ZIP
+   - **Intel Macs**: Download the `x64` ZIP
+2. Extract the ZIP and drag `PostWhale.app` to Applications
+3. **First launch**: Right-click the app → Open (bypasses Gatekeeper warning)
+4. Click "Open" when macOS asks for confirmation
+5. Subsequently: Launch normally from Applications
+
+**Note:** The app is unsigned. The security warning on first launch is expected and safe to bypass.
+
+### Build from Source
+
+#### Prerequisites
 
 | Requirement | Version | Installation |
 |-------------|---------|--------------|
@@ -30,7 +44,7 @@ A native macOS API testing tool for Triple Whale microservices. Automatically di
 | **Node.js** | 20+ | [nodejs.org](https://nodejs.org/) |
 | **Git** | Any | [git-scm.com](https://git-scm.com/) |
 
-### Install from Source
+#### Building
 
 ```bash
 git clone <repository-url>

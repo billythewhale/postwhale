@@ -9,8 +9,8 @@ module.exports = {
       path.join(__dirname, '../backend/postwhale'),
       path.join(__dirname, '../frontend/dist')
     ],
-    osxSign: {},
-    osxNotarize: false
+    appBundleId: 'com.triplewhale.postwhale',
+    appCategoryType: 'public.app-category.developer-tools'
   },
   makers: [
     {
