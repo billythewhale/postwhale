@@ -28,12 +28,14 @@ type Service struct {
 
 // Endpoint represents an endpoint in the database
 type Endpoint struct {
-	ID          int64
-	ServiceID   int64
-	Method      string
-	Path        string
-	OperationID string
-	SpecJSON    string
+	ID                    int64
+	ServiceID             int64
+	Method                string
+	Path                  string
+	OperationID           string
+	SpecJSON              string
+	EndpointGroupName     string
+	EndpointGroupFilePath string
 }
 
 // Request represents a saved request in the database
@@ -111,9 +113,11 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		path TEXT NOT NULL,
 		operation_id TEXT NOT NULL,
 		spec_json TEXT NOT NULL,
+		endpoint_group_name TEXT NOT NULL DEFAULT 'public',
+		endpoint_group_file_path TEXT NOT NULL DEFAULT '',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE,
-		UNIQUE(service_id, method, path)
+		UNIQUE(service_id, method, path, endpoint_group_name)
 	);
 
 	CREATE TABLE IF NOT EXISTS requests (
@@ -146,7 +150,116 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		return nil, err
 	}
 
+	if err := migrateLegacyEndpointsSchema(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+
 	return db, nil
+}
+
+func tableHasColumn(db *sql.DB, tableName string, columnName string) (bool, error) {
+	rows, err := db.Query(fmt.Sprintf("PRAGMA table_info(%s)", tableName))
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name string
+		var colType string
+		var notNull int
+		var defaultValue sql.NullString
+		var pk int
+
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); err != nil {
+			return false, err
+		}
+
+		if name == columnName {
+			return true, nil
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+
+	return false, nil
+}
+
+func migrateLegacyEndpointsSchema(db *sql.DB) error {
+	hasGroupNameColumn, err := tableHasColumn(db, "endpoints", "endpoint_group_name")
+	if err != nil {
+		return err
+	}
+	hasGroupFilePathColumn, err := tableHasColumn(db, "endpoints", "endpoint_group_file_path")
+	if err != nil {
+		return err
+	}
+
+	if hasGroupNameColumn && hasGroupFilePathColumn {
+		return nil
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	rollback := func(migrationErr error) error {
+		_ = tx.Rollback()
+		return migrationErr
+	}
+
+	if _, err := tx.Exec("PRAGMA foreign_keys = OFF"); err != nil {
+		return rollback(err)
+	}
+
+	if _, err := tx.Exec("ALTER TABLE endpoints RENAME TO endpoints_legacy"); err != nil {
+		return rollback(err)
+	}
+
+	if _, err := tx.Exec(`
+		CREATE TABLE endpoints (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			service_id INTEGER NOT NULL,
+			method TEXT NOT NULL,
+			path TEXT NOT NULL,
+			operation_id TEXT NOT NULL,
+			spec_json TEXT NOT NULL,
+			endpoint_group_name TEXT NOT NULL DEFAULT 'public',
+			endpoint_group_file_path TEXT NOT NULL DEFAULT '',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE,
+			UNIQUE(service_id, method, path, endpoint_group_name)
+		)
+	`); err != nil {
+		return rollback(err)
+	}
+
+	if _, err := tx.Exec(`
+		INSERT INTO endpoints (id, service_id, method, path, operation_id, spec_json, endpoint_group_name, endpoint_group_file_path, created_at)
+		SELECT id, service_id, method, path, operation_id, spec_json, 'public', '', created_at
+		FROM endpoints_legacy
+	`); err != nil {
+		return rollback(err)
+	}
+
+	if _, err := tx.Exec("DROP TABLE endpoints_legacy"); err != nil {
+		return rollback(err)
+	}
+
+	if _, err := tx.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return rollback(err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // AddRepository adds a new repository to the database
@@ -284,6 +397,9 @@ func AddEndpoint(db *sql.DB, endpoint Endpoint) (int64, error) {
 	if endpoint.Path == "" {
 		return 0, fmt.Errorf("endpoint path cannot be empty")
 	}
+	if endpoint.EndpointGroupName == "" {
+		endpoint.EndpointGroupName = "public"
+	}
 
 	// Validate HTTP method
 	validMethods := map[string]bool{
@@ -300,8 +416,14 @@ func AddEndpoint(db *sql.DB, endpoint Endpoint) (int64, error) {
 	}
 
 	result, err := db.Exec(
-		"INSERT INTO endpoints (service_id, method, path, operation_id, spec_json) VALUES (?, ?, ?, ?, ?)",
-		endpoint.ServiceID, endpoint.Method, endpoint.Path, endpoint.OperationID, endpoint.SpecJSON,
+		"INSERT INTO endpoints (service_id, method, path, operation_id, spec_json, endpoint_group_name, endpoint_group_file_path) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		endpoint.ServiceID,
+		endpoint.Method,
+		endpoint.Path,
+		endpoint.OperationID,
+		endpoint.SpecJSON,
+		endpoint.EndpointGroupName,
+		endpoint.EndpointGroupFilePath,
 	)
 	if err != nil {
 		return 0, err
@@ -313,7 +435,7 @@ func AddEndpoint(db *sql.DB, endpoint Endpoint) (int64, error) {
 // GetEndpointsByService retrieves all endpoints for a service
 func GetEndpointsByService(db *sql.DB, serviceID int64) ([]Endpoint, error) {
 	rows, err := db.Query(
-		"SELECT id, service_id, method, path, operation_id, spec_json FROM endpoints WHERE service_id = ? ORDER BY path, method",
+		"SELECT id, service_id, method, path, operation_id, spec_json, endpoint_group_name, endpoint_group_file_path FROM endpoints WHERE service_id = ? ORDER BY endpoint_group_name, path, method",
 		serviceID,
 	)
 	if err != nil {
@@ -325,7 +447,16 @@ func GetEndpointsByService(db *sql.DB, serviceID int64) ([]Endpoint, error) {
 	endpoints := []Endpoint{}
 	for rows.Next() {
 		var ep Endpoint
-		if err := rows.Scan(&ep.ID, &ep.ServiceID, &ep.Method, &ep.Path, &ep.OperationID, &ep.SpecJSON); err != nil {
+		if err := rows.Scan(
+			&ep.ID,
+			&ep.ServiceID,
+			&ep.Method,
+			&ep.Path,
+			&ep.OperationID,
+			&ep.SpecJSON,
+			&ep.EndpointGroupName,
+			&ep.EndpointGroupFilePath,
+		); err != nil {
 			return nil, err
 		}
 		endpoints = append(endpoints, ep)
@@ -342,7 +473,7 @@ func GetEndpointsByService(db *sql.DB, serviceID int64) ([]Endpoint, error) {
 // GetAllEndpoints retrieves all endpoints from the database
 func GetAllEndpoints(db *sql.DB) ([]Endpoint, error) {
 	rows, err := db.Query(
-		"SELECT id, service_id, method, path, operation_id, spec_json FROM endpoints ORDER BY path, method",
+		"SELECT id, service_id, method, path, operation_id, spec_json, endpoint_group_name, endpoint_group_file_path FROM endpoints ORDER BY endpoint_group_name, path, method",
 	)
 	if err != nil {
 		return nil, err
@@ -352,7 +483,16 @@ func GetAllEndpoints(db *sql.DB) ([]Endpoint, error) {
 	endpoints := []Endpoint{}
 	for rows.Next() {
 		var ep Endpoint
-		if err := rows.Scan(&ep.ID, &ep.ServiceID, &ep.Method, &ep.Path, &ep.OperationID, &ep.SpecJSON); err != nil {
+		if err := rows.Scan(
+			&ep.ID,
+			&ep.ServiceID,
+			&ep.Method,
+			&ep.Path,
+			&ep.OperationID,
+			&ep.SpecJSON,
+			&ep.EndpointGroupName,
+			&ep.EndpointGroupFilePath,
+		); err != nil {
 			return nil, err
 		}
 		endpoints = append(endpoints, ep)

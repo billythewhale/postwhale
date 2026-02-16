@@ -101,8 +101,9 @@ function filterBySearch(
   indexMaps.endpointById.forEach((endpoint) => {
     const matchesPath = endpoint.path.toLowerCase().includes(query);
     const matchesMethod = endpoint.method.toLowerCase().includes(query);
+    const matchesGroupName = (endpoint.endpointGroupName || 'public').toLowerCase().includes(query);
 
-    if (matchesPath || matchesMethod) {
+    if (matchesPath || matchesMethod || matchesGroupName) {
       matchingEndpointIds.add(endpoint.id);
       const service = indexMaps.serviceById.get(endpoint.serviceId);
       if (service) {

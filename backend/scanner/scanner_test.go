@@ -1,103 +1,197 @@
 package scanner
 
 import (
+	"encoding/json"
+	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
-func TestScanRepository_ValidRepo(t *testing.T) {
-	// Use the fake-repo path
-	repoPath := filepath.Join("..", "..", "fake-repo")
+func TestParseOpenAPIGroupName(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		fileName    string
+		expected    string
+		shouldParse bool
+	}{
+		{fileName: "openapi.yml", expected: "public", shouldParse: true},
+		{fileName: "openapi.yaml", expected: "public", shouldParse: true},
+		{fileName: "openapi.internal.yml", expected: "internal", shouldParse: true},
+		{fileName: "openapi.my-group.yaml", expected: "my-group", shouldParse: true},
+		{fileName: "openapi.INTERNAL.yml", shouldParse: false},
+		{fileName: "openapi.foo.bar.yml", shouldParse: false},
+		{fileName: "openapi.private.json", shouldParse: false},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.fileName, func(t *testing.T) {
+			t.Parallel()
+			groupName, ok := parseOpenAPIGroupName(tc.fileName)
+			if ok != tc.shouldParse {
+				t.Fatalf("expected parse=%v, got parse=%v", tc.shouldParse, ok)
+			}
+			if groupName != tc.expected {
+				t.Fatalf("expected group %q, got %q", tc.expected, groupName)
+			}
+		})
+	}
+}
+
+func TestFindOpenAPIFiles_ValidGroupsOnly(t *testing.T) {
+	t.Parallel()
+
+	servicePath := t.TempDir()
+	writeTestFile(t, filepath.Join(servicePath, "openapi.yml"), "openapi: 3.0.0\n")
+	writeTestFile(t, filepath.Join(servicePath, "openapi.internal.yml"), "openapi: 3.0.0\n")
+	writeTestFile(t, filepath.Join(servicePath, "openapi.my-group.yaml"), "openapi: 3.0.0\n")
+	writeTestFile(t, filepath.Join(servicePath, "openapi.foo.bar.yml"), "openapi: 3.0.0\n")
+	writeTestFile(t, filepath.Join(servicePath, "openapi.INTERNAL.yml"), "openapi: 3.0.0\n")
+
+	files := findOpenAPIFiles(servicePath)
+	if len(files) != 3 {
+		t.Fatalf("expected 3 valid OpenAPI files, got %d", len(files))
+	}
+
+	actualGroups := []string{files[0].GroupName, files[1].GroupName, files[2].GroupName}
+	expectedGroups := []string{"public", "internal", "my-group"}
+	if !slices.Equal(actualGroups, expectedGroups) {
+		t.Fatalf("expected groups %v, got %v", expectedGroups, actualGroups)
+	}
+}
+
+func TestScanRepository_ValidRepoWithEndpointGroups(t *testing.T) {
+	t.Parallel()
+
+	repoPath := t.TempDir()
+	createServiceFixture(t, repoPath, "virgil", 8080, map[string]string{
+		"openapi.yml": `openapi: 3.0.0
+info:
+  title: Virgil Public API
+  version: "1.0.0"
+paths:
+  /poems:
+    get:
+      operationId: listPoems
+`,
+		"openapi.internal.yml": `openapi: 3.0.0
+info:
+  title: Virgil Internal API
+  version: "1.0.0"
+paths:
+  /admin/sync:
+    post:
+      operationId: syncAdmin
+`,
+		"openapi.my-group.yml": `openapi: 3.0.0
+info:
+  title: Virgil Special Group
+  version: "1.0.0"
+paths:
+  /special:
+    patch:
+      operationId: patchSpecial
+`,
+	})
 
 	result := ScanRepository(repoPath)
 
-	// Check no critical errors
 	if len(result.Errors) > 0 {
-		t.Errorf("Expected no errors, got %v", result.Errors)
+		t.Fatalf("expected no errors, got %v", result.Errors)
+	}
+	if len(result.Services) != 1 {
+		t.Fatalf("expected 1 service, got %d", len(result.Services))
 	}
 
-	// Check services found
-	if len(result.Services) != 2 {
-		t.Errorf("Expected 2 services, got %d", len(result.Services))
+	service := result.Services[0]
+	if service.ServiceID != "virgil" {
+		t.Fatalf("expected serviceID virgil, got %q", service.ServiceID)
+	}
+	if service.Name != "Virgil Public API" {
+		t.Fatalf("expected service name from public OpenAPI, got %q", service.Name)
+	}
+	if len(service.EndpointGroups) != 3 {
+		t.Fatalf("expected 3 endpoint groups, got %d", len(service.EndpointGroups))
 	}
 
-	// Check fusion service
-	var fusionSvc *DiscoveredService
-	for i := range result.Services {
-		if result.Services[i].ServiceID == "fusion" {
-			fusionSvc = &result.Services[i]
-			break
-		}
+	groupNames := []string{
+		service.EndpointGroups[0].Name,
+		service.EndpointGroups[1].Name,
+		service.EndpointGroups[2].Name,
 	}
-	if fusionSvc == nil {
-		t.Fatal("fusion service not found")
-	}
-	if fusionSvc.Name != "Fusion Service - Private API" {
-		t.Errorf("Expected 'Fusion Service - Private API', got %q", fusionSvc.Name)
-	}
-	if fusionSvc.Port != 8080 {
-		t.Errorf("Expected port 8080, got %d", fusionSvc.Port)
-	}
-	if len(fusionSvc.Endpoints) != 3 {
-		t.Errorf("Expected 3 endpoints for fusion, got %d", len(fusionSvc.Endpoints))
+	expectedGroups := []string{"public", "internal", "my-group"}
+	if !slices.Equal(groupNames, expectedGroups) {
+		t.Fatalf("expected groups %v, got %v", expectedGroups, groupNames)
 	}
 
-	// Check moby service
-	var mobySvc *DiscoveredService
-	for i := range result.Services {
-		if result.Services[i].ServiceID == "moby" {
-			mobySvc = &result.Services[i]
-			break
-		}
-	}
-	if mobySvc == nil {
-		t.Fatal("moby service not found")
-	}
-	if mobySvc.Name != "Moby Service - Private API" {
-		t.Errorf("Expected 'Moby Service - Private API', got %q", mobySvc.Name)
-	}
-	if mobySvc.Port != 8080 {
-		t.Errorf("Expected port 8080, got %d", mobySvc.Port)
-	}
-	if len(mobySvc.Endpoints) != 3 {
-		t.Errorf("Expected 3 endpoints for moby, got %d", len(mobySvc.Endpoints))
+	if len(service.Endpoints) != 3 {
+		t.Fatalf("expected flattened endpoint count 3, got %d", len(service.Endpoints))
 	}
 }
 
 func TestScanRepository_NoServicesDir(t *testing.T) {
-	// Use a directory without services subdirectory
-	repoPath := filepath.Join("..", "..", "backend")
+	t.Parallel()
 
+	repoPath := t.TempDir()
 	result := ScanRepository(repoPath)
 
-	// Should return error about missing services directory
 	if len(result.Errors) == 0 {
-		t.Error("Expected error for missing services directory")
+		t.Fatal("expected error for missing services directory")
 	}
 	if len(result.Services) != 0 {
-		t.Errorf("Expected 0 services, got %d", len(result.Services))
+		t.Fatalf("expected 0 services, got %d", len(result.Services))
 	}
-}
-
-func TestScanRepository_MissingOpenAPI(t *testing.T) {
-	// Create a temporary test directory with tw-config.json but no openapi.private.yaml
-	// This is a conceptual test - we'll skip actual file creation for simplicity
-	// and just test the logic handles missing files gracefully
-	t.Skip("Requires test data setup")
-}
-
-func TestScanRepository_InvalidConfig(t *testing.T) {
-	// Test handling of invalid tw-config.json
-	t.Skip("Requires test data setup")
 }
 
 func TestScanRepository_EmptyPath(t *testing.T) {
+	t.Parallel()
+
 	result := ScanRepository("")
 
 	if len(result.Errors) == 0 {
-		t.Error("Expected error for empty path")
+		t.Fatal("expected error for empty path")
 	}
 	if len(result.Services) != 0 {
-		t.Errorf("Expected 0 services, got %d", len(result.Services))
+		t.Fatalf("expected 0 services, got %d", len(result.Services))
+	}
+}
+
+func createServiceFixture(t *testing.T, repoPath string, serviceID string, port int, openAPI map[string]string) {
+	t.Helper()
+
+	servicePath := filepath.Join(repoPath, "services", serviceID)
+	if err := os.MkdirAll(servicePath, 0o755); err != nil {
+		t.Fatalf("failed to create service directory: %v", err)
+	}
+
+	config := map[string]interface{}{
+		"env": map[string]interface{}{
+			"PORT":       port,
+			"SERVICE_ID": serviceID,
+		},
+		"serviceId":   serviceID,
+		"gitRepo":     "git@github.com:triplewhale/" + serviceID,
+		"deployments": map[string]interface{}{},
+	}
+	configData, err := json.Marshal(config)
+	if err != nil {
+		t.Fatalf("failed to marshal config: %v", err)
+	}
+	writeTestFile(t, filepath.Join(servicePath, "tw-config.json"), string(configData))
+
+	for fileName, contents := range openAPI {
+		writeTestFile(t, filepath.Join(servicePath, fileName), contents)
+	}
+}
+
+func writeTestFile(t *testing.T, path string, contents string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("failed to create directory for %s: %v", path, err)
+	}
+	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+		t.Fatalf("failed to write file %s: %v", path, err)
 	}
 }

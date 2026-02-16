@@ -20,6 +20,8 @@ export interface Endpoint {
   method: string;
   path: string;
   operationId: string;
+  endpointGroupName?: string;
+  endpointGroupFilePath?: string;
   spec?: EndpointSpec; // Optional - backend may not include this field
 }
 

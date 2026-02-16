@@ -1,0 +1,37 @@
+openapi: 3.0.0
+info:
+  title: Moby Service - Private API
+  version: 1.0.0
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Health check
+      tags: [Health]
+      responses:
+        '200':
+          description: OK
+
+  /whales:
+    get:
+      operationId: listWhales
+      summary: List whales
+      tags: [Whales]
+      responses:
+        '200':
+          description: OK
+
+  /whales/{whaleId}:
+    delete:
+      operationId: deleteWhale
+      summary: Delete whale
+      tags: [Whales]
+      parameters:
+        - name: whaleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted

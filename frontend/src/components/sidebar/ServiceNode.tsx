@@ -76,6 +76,61 @@ export function ServiceNode({
     setContextMenu({ opened: true, position: { x: e.clientX, y: e.clientY } })
   }
 
+  const groupedEndpoints = endpoints.reduce<Record<string, Endpoint[]>>((acc, endpoint) => {
+    const groupName = endpoint.endpointGroupName || 'public'
+    if (!acc[groupName]) {
+      acc[groupName] = []
+    }
+    acc[groupName].push(endpoint)
+    return acc
+  }, {})
+
+  const endpointGroups = Object.entries(groupedEndpoints)
+    .map(([name, groupEndpoints]) => ({
+      name,
+      endpoints: groupEndpoints,
+    }))
+    .sort((a, b) => {
+      if (a.name === 'public') return -1
+      if (b.name === 'public') return 1
+      return a.name.localeCompare(b.name)
+    })
+
+  const shouldFlattenGroups = endpointGroups.length === 1 && endpointGroups[0].name === 'public'
+
+  const renderEndpointNode = (endpoint: Endpoint) => {
+    const endpointSavedRequests = savedRequests.filter((sr) => sr.endpointId === endpoint.id)
+    const isEndpointActive = selectedEndpointId === endpoint.id && selectedSavedRequestId === null
+    const hasActiveChild = endpointSavedRequests.some((sr) => sr.id === selectedSavedRequestId)
+    const isActiveOrHasActiveChild = isEndpointActive || hasActiveChild
+
+    return (
+      <EndpointNode
+        key={endpoint.id}
+        endpoint={endpoint}
+        savedRequests={endpointSavedRequests}
+        isSelected={selectedEndpointId === endpoint.id}
+        isExpanded={expandedEndpoints.has(endpoint.id)}
+        isActiveOrHasActiveChild={isActiveOrHasActiveChild}
+        isFavorite={isFavoriteEndpoint(endpoint.id)}
+        isDark={isDark}
+        searchQuery={searchQuery}
+        selectedSavedRequestId={selectedSavedRequestId}
+        dirtyConfigIds={dirtyConfigIds}
+        onSelect={() => onSelectEndpoint(endpoint)}
+        onToggleExpand={() => onToggleEndpoint(endpoint.id)}
+        onToggleFavorite={() => onToggleEndpointFavorite(endpoint.id)}
+        onSelectSavedRequest={onSelectSavedRequest}
+        onUpdateSavedRequest={onUpdateSavedRequest}
+        onSaveAsNew={onSaveAsNew}
+        onUndoConfig={onUndoConfig}
+        onCreateNewRequest={() => onCreateNewRequest(endpoint.id)}
+        onCloneSavedRequest={onCloneSavedRequest}
+        onDeleteSavedRequest={onDeleteSavedRequest}
+      />
+    )
+  }
+
   return (
     <Box>
       <Group
@@ -151,38 +206,23 @@ export function ServiceNode({
       {isExpanded && (
         <Box ml={24} mt={2}>
           <Stack gap={2}>
-            {endpoints.map((endpoint) => {
-              const endpointSavedRequests = savedRequests.filter((sr) => sr.endpointId === endpoint.id)
-              const isEndpointActive = selectedEndpointId === endpoint.id && selectedSavedRequestId === null
-              const hasActiveChild = endpointSavedRequests.some((sr) => sr.id === selectedSavedRequestId)
-              const isActiveOrHasActiveChild = isEndpointActive || hasActiveChild
-
-              return (
-                <EndpointNode
-                  key={endpoint.id}
-                  endpoint={endpoint}
-                  savedRequests={endpointSavedRequests}
-                  isSelected={selectedEndpointId === endpoint.id}
-                  isExpanded={expandedEndpoints.has(endpoint.id)}
-                  isActiveOrHasActiveChild={isActiveOrHasActiveChild}
-                  isFavorite={isFavoriteEndpoint(endpoint.id)}
-                  isDark={isDark}
-                  searchQuery={searchQuery}
-                  selectedSavedRequestId={selectedSavedRequestId}
-                  dirtyConfigIds={dirtyConfigIds}
-                  onSelect={() => onSelectEndpoint(endpoint)}
-                  onToggleExpand={() => onToggleEndpoint(endpoint.id)}
-                  onToggleFavorite={() => onToggleEndpointFavorite(endpoint.id)}
-                  onSelectSavedRequest={onSelectSavedRequest}
-                  onUpdateSavedRequest={onUpdateSavedRequest}
-                  onSaveAsNew={onSaveAsNew}
-                  onUndoConfig={onUndoConfig}
-                  onCreateNewRequest={() => onCreateNewRequest(endpoint.id)}
-                  onCloneSavedRequest={onCloneSavedRequest}
-                  onDeleteSavedRequest={onDeleteSavedRequest}
-                />
-              )
-            })}
+            {shouldFlattenGroups ? (
+              endpoints.map(renderEndpointNode)
+            ) : (
+              endpointGroups.map((group) => (
+                <Box key={group.name}>
+                  <Group px={8} py={4} justify="space-between" wrap="nowrap">
+                    <HighlightMatch text={group.name} query={searchQuery} size="xs" c="dimmed" fw={600} />
+                    <Text size="xs" c="dimmed">{group.endpoints.length}</Text>
+                  </Group>
+                  <Box ml={12}>
+                    <Stack gap={2}>
+                      {group.endpoints.map(renderEndpointNode)}
+                    </Stack>
+                  </Box>
+                </Box>
+              ))
+            )}
           </Stack>
         </Box>
       )}

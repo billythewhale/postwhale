@@ -4,18 +4,36 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
 
 	"github.com/triplewhale/postwhale/discovery"
 )
 
 // DiscoveredService represents a discovered service with its config and endpoints
 type DiscoveredService struct {
-	ServiceID string
+	ServiceID      string
+	Name           string
+	Port           int
+	Config         *discovery.TWConfig
+	EndpointGroups []EndpointGroup
+	Endpoints      []discovery.APIEndpoint
+}
+
+// EndpointGroup represents a named endpoint group discovered from an OpenAPI file.
+type EndpointGroup struct {
 	Name      string
-	Port      int
-	Config    *discovery.TWConfig
+	FilePath  string
 	Endpoints []discovery.APIEndpoint
 }
+
+type openAPIFile struct {
+	Path      string
+	GroupName string
+}
+
+var openAPIGroupPattern = regexp.MustCompile(`^openapi\.([a-z0-9][a-z0-9-]*)\.(yml|yaml)$`)
 
 // ScanResult contains the results of scanning a repository
 type ScanResult struct {
@@ -75,22 +93,60 @@ func ScanRepository(repoPath string) ScanResult {
 	return result
 }
 
-// findOpenAPIFile finds an OpenAPI file in the service directory
-// Matches pattern: openapi*.yaml or openapi*.yml (e.g., openapi.private.yaml, openapi.public.yml)
-func findOpenAPIFile(servicePath string) string {
-	// Try yaml extension first
-	yamlMatches, _ := filepath.Glob(filepath.Join(servicePath, "openapi*.yaml"))
-	if len(yamlMatches) > 0 {
-		return yamlMatches[0]
+func parseOpenAPIGroupName(fileName string) (string, bool) {
+	switch fileName {
+	case "openapi.yml", "openapi.yaml":
+		return "public", true
 	}
 
-	// Try yml extension
-	ymlMatches, _ := filepath.Glob(filepath.Join(servicePath, "openapi*.yml"))
-	if len(ymlMatches) > 0 {
-		return ymlMatches[0]
+	matches := openAPIGroupPattern.FindStringSubmatch(fileName)
+	if len(matches) != 3 {
+		return "", false
 	}
 
-	return ""
+	return matches[1], true
+}
+
+// findOpenAPIFiles finds all supported OpenAPI files and resolves endpoint groups from filenames.
+// Supports: openapi.yml|yaml => public, and openapi.<group>.yml|yaml => <group>.
+func findOpenAPIFiles(servicePath string) []openAPIFile {
+	patterns := []string{"openapi*.yaml", "openapi*.yml"}
+	groupToFile := map[string]openAPIFile{}
+
+	for _, pattern := range patterns {
+		matches, _ := filepath.Glob(filepath.Join(servicePath, pattern))
+		for _, path := range matches {
+			fileName := filepath.Base(path)
+			groupName, ok := parseOpenAPIGroupName(fileName)
+			if !ok {
+				continue
+			}
+			if _, exists := groupToFile[groupName]; exists {
+				continue
+			}
+			groupToFile[groupName] = openAPIFile{
+				Path:      path,
+				GroupName: groupName,
+			}
+		}
+	}
+
+	files := make([]openAPIFile, 0, len(groupToFile))
+	for _, file := range groupToFile {
+		files = append(files, file)
+	}
+
+	sort.Slice(files, func(i, j int) bool {
+		if files[i].GroupName == "public" {
+			return true
+		}
+		if files[j].GroupName == "public" {
+			return false
+		}
+		return files[i].GroupName < files[j].GroupName
+	})
+
+	return files
 }
 
 // scanService scans a single service directory for config and endpoints
@@ -104,34 +160,59 @@ func scanService(servicePath string) *DiscoveredService {
 	}
 
 	service := &DiscoveredService{
-		ServiceID: config.ServiceID,
-		Name:      "", // Will be populated from OpenAPI
-		Port:      config.Env.Port,
-		Config:    config,
-		Endpoints: []discovery.APIEndpoint{},
+		ServiceID:      config.ServiceID,
+		Name:           "", // Will be populated from OpenAPI
+		Port:           config.Env.Port,
+		Config:         config,
+		EndpointGroups: []EndpointGroup{},
+		Endpoints:      []discovery.APIEndpoint{},
 	}
 
-	// Find OpenAPI file (matches openapi*.yaml or openapi*.yml)
-	openapiPath := findOpenAPIFile(servicePath)
-	if openapiPath == "" {
-		// Service has config but no OpenAPI - use serviceID as name
+	openAPIFiles := findOpenAPIFiles(servicePath)
+	if len(openAPIFiles) == 0 {
 		service.Name = config.ServiceID
 		return service
 	}
 
-	openapi, err := discovery.ParseOpenAPI(openapiPath)
-	if err != nil {
-		// Service has config but OpenAPI failed to parse - use serviceID as name
+	publicTitle := ""
+	firstTitle := ""
+
+	for _, file := range openAPIFiles {
+		openapi, err := discovery.ParseOpenAPI(file.Path)
+		if err != nil {
+			continue
+		}
+
+		title := strings.TrimSpace(openapi.Info.Title)
+		if file.GroupName == "public" && title != "" {
+			publicTitle = title
+		}
+		if firstTitle == "" && title != "" {
+			firstTitle = title
+		}
+
+		endpoints := discovery.ExtractEndpoints(openapi)
+		service.EndpointGroups = append(service.EndpointGroups, EndpointGroup{
+			Name:      file.GroupName,
+			FilePath:  file.Path,
+			Endpoints: endpoints,
+		})
+		service.Endpoints = append(service.Endpoints, endpoints...)
+	}
+
+	if len(service.EndpointGroups) == 0 {
 		service.Name = config.ServiceID
 		return service
 	}
 
-	// Get service name from OpenAPI info
-	service.Name = openapi.Info.Title
-
-	// Extract endpoints
-	endpoints := discovery.ExtractEndpoints(openapi)
-	service.Endpoints = endpoints
+	switch {
+	case publicTitle != "":
+		service.Name = publicTitle
+	case firstTitle != "":
+		service.Name = firstTitle
+	default:
+		service.Name = config.ServiceID
+	}
 
 	return service
 }

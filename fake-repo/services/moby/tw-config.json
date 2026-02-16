@@ -1,0 +1,27 @@
+{
+  "env": {
+    "PORT": 8080,
+    "SERVICE_ID": "moby"
+  },
+  "serviceId": "moby",
+  "gitRepo": "git@github.com:triplewhale/moby",
+  "deployments": {
+    "moby": {
+      "name": "moby",
+      "endpoints": {
+        "internal": {
+          "type": "internal",
+          "url": "http://moby.srv.whale3.io"
+        },
+        "staging": {
+          "type": "internal",
+          "url": "http://stg.moby.srv.whale3.io"
+        },
+        "production": {
+          "type": "internal",
+          "url": "http://moby.srv.whale3.io"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "env": {
+    "PORT": 8080,
+    "SERVICE_ID": "fusion"
+  },
+  "serviceId": "fusion",
+  "gitRepo": "git@github.com:triplewhale/fusion",
+  "deployments": {
+    "fusion": {
+      "name": "fusion",
+      "endpoints": {
+        "internal": {
+          "type": "internal",
+          "url": "http://fusion.srv.whale3.io"
+        },
+        "staging": {
+          "type": "internal",
+          "url": "http://stg.fusion.srv.whale3.io"
+        },
+        "production": {
+          "type": "internal",
+          "url": "http://fusion.srv.whale3.io"
+        }
+      }
+    }
+  }
+}

@@ -174,19 +174,22 @@ func (h *Handler) handleAddRepository(data json.RawMessage) IPCResponse {
 			}
 		}
 
-		// Add endpoints for this service
-		for _, endpoint := range svc.Endpoints {
-			_, err := db.AddEndpoint(h.database, db.Endpoint{
-				ServiceID:   serviceID,
-				Method:      endpoint.Method,
-				Path:        endpoint.Path,
-				OperationID: endpoint.OperationID,
-				SpecJSON:    "{}",
-			})
-			if err != nil {
-				return IPCResponse{
-					Success: false,
-					Error:   fmt.Sprintf("failed to add endpoint %s: %v", endpoint.Path, err),
+		for _, group := range svc.EndpointGroups {
+			for _, endpoint := range group.Endpoints {
+				_, err := db.AddEndpoint(h.database, db.Endpoint{
+					ServiceID:             serviceID,
+					Method:                endpoint.Method,
+					Path:                  endpoint.Path,
+					OperationID:           endpoint.OperationID,
+					SpecJSON:              "{}",
+					EndpointGroupName:     group.Name,
+					EndpointGroupFilePath: group.FilePath,
+				})
+				if err != nil {
+					return IPCResponse{
+						Success: false,
+						Error:   fmt.Sprintf("failed to add endpoint %s: %v", endpoint.Path, err),
+					}
 				}
 			}
 		}
@@ -365,11 +368,13 @@ func (h *Handler) handleGetEndpoints(data json.RawMessage) IPCResponse {
 	result := make([]interface{}, len(endpoints))
 	for i, ep := range endpoints {
 		result[i] = map[string]interface{}{
-			"id":          ep.ID,
-			"serviceId":   ep.ServiceID,
-			"operationId": ep.OperationID,
-			"method":      ep.Method,
-			"path":        ep.Path,
+			"id":                    ep.ID,
+			"serviceId":             ep.ServiceID,
+			"operationId":           ep.OperationID,
+			"method":                ep.Method,
+			"path":                  ep.Path,
+			"endpointGroupName":     ep.EndpointGroupName,
+			"endpointGroupFilePath": ep.EndpointGroupFilePath,
 		}
 	}
 
@@ -392,11 +397,13 @@ func (h *Handler) handleGetAllEndpoints() IPCResponse {
 	result := make([]interface{}, len(endpoints))
 	for i, ep := range endpoints {
 		result[i] = map[string]interface{}{
-			"id":          ep.ID,
-			"serviceId":   ep.ServiceID,
-			"operationId": ep.OperationID,
-			"method":      ep.Method,
-			"path":        ep.Path,
+			"id":                    ep.ID,
+			"serviceId":             ep.ServiceID,
+			"operationId":           ep.OperationID,
+			"method":                ep.Method,
+			"path":                  ep.Path,
+			"endpointGroupName":     ep.EndpointGroupName,
+			"endpointGroupFilePath": ep.EndpointGroupFilePath,
 		}
 	}
 
@@ -749,30 +756,35 @@ func (h *Handler) handleRefreshRepository(data json.RawMessage) IPCResponse {
 
 		// Track which endpoints still exist after scan
 		scannedEndpoints := make(map[string]bool)
-		for _, endpoint := range svc.Endpoints {
-			key := endpoint.Method + ":" + endpoint.Path
-			scannedEndpoints[key] = true
+		for _, group := range svc.EndpointGroups {
+			for _, endpoint := range group.Endpoints {
+				key := group.Name + ":" + endpoint.Method + ":" + endpoint.Path
+				scannedEndpoints[key] = true
+			}
 		}
 
 		// Remove endpoints that no longer exist for this service
 		for _, existingEp := range existingEndpoints {
-			key := existingEp.Method + ":" + existingEp.Path
+			key := existingEp.EndpointGroupName + ":" + existingEp.Method + ":" + existingEp.Path
 			if !scannedEndpoints[key] {
 				_, _ = h.database.Exec("DELETE FROM endpoints WHERE id = ?", existingEp.ID)
 			}
 		}
 
 		// Upsert endpoints for this service (preserves IDs via unique constraint)
-		for _, endpoint := range svc.Endpoints {
-			_, err := h.database.Exec(`
-				INSERT INTO endpoints (service_id, method, path, operation_id, spec_json)
-				VALUES (?, ?, ?, ?, ?)
-				ON CONFLICT(service_id, method, path) DO UPDATE SET
-					operation_id = excluded.operation_id,
-					spec_json = excluded.spec_json
-			`, serviceID, endpoint.Method, endpoint.Path, endpoint.OperationID, "{}")
-			if err == nil {
-				endpointsAdded++
+		for _, group := range svc.EndpointGroups {
+			for _, endpoint := range group.Endpoints {
+				_, err := h.database.Exec(`
+					INSERT INTO endpoints (service_id, method, path, operation_id, spec_json, endpoint_group_name, endpoint_group_file_path)
+					VALUES (?, ?, ?, ?, ?, ?, ?)
+					ON CONFLICT(service_id, method, path, endpoint_group_name) DO UPDATE SET
+						operation_id = excluded.operation_id,
+						spec_json = excluded.spec_json,
+						endpoint_group_file_path = excluded.endpoint_group_file_path
+				`, serviceID, endpoint.Method, endpoint.Path, endpoint.OperationID, "{}", group.Name, group.FilePath)
+				if err == nil {
+					endpointsAdded++
+				}
 			}
 		}
 	}
