@@ -20,6 +20,7 @@ func TestParseOpenAPIGroupName(t *testing.T) {
 		{fileName: "openapi.yaml", expected: "public", shouldParse: true},
 		{fileName: "openapi.internal.yml", expected: "internal", shouldParse: true},
 		{fileName: "openapi.my-group.yaml", expected: "my-group", shouldParse: true},
+		{fileName: "openapi.moby_automations.yml", expected: "moby_automations", shouldParse: true},
 		{fileName: "openapi.INTERNAL.yml", shouldParse: false},
 		{fileName: "openapi.foo.bar.yml", shouldParse: false},
 		{fileName: "openapi.private.json", shouldParse: false},
@@ -46,17 +47,18 @@ func TestFindOpenAPIFiles_ValidGroupsOnly(t *testing.T) {
 	servicePath := t.TempDir()
 	writeTestFile(t, filepath.Join(servicePath, "openapi.yml"), "openapi: 3.0.0\n")
 	writeTestFile(t, filepath.Join(servicePath, "openapi.internal.yml"), "openapi: 3.0.0\n")
+	writeTestFile(t, filepath.Join(servicePath, "openapi.moby_automations.yml"), "openapi: 3.0.0\n")
 	writeTestFile(t, filepath.Join(servicePath, "openapi.my-group.yaml"), "openapi: 3.0.0\n")
 	writeTestFile(t, filepath.Join(servicePath, "openapi.foo.bar.yml"), "openapi: 3.0.0\n")
 	writeTestFile(t, filepath.Join(servicePath, "openapi.INTERNAL.yml"), "openapi: 3.0.0\n")
 
 	files := findOpenAPIFiles(servicePath)
-	if len(files) != 3 {
-		t.Fatalf("expected 3 valid OpenAPI files, got %d", len(files))
+	if len(files) != 4 {
+		t.Fatalf("expected 4 valid OpenAPI files, got %d", len(files))
 	}
 
-	actualGroups := []string{files[0].GroupName, files[1].GroupName, files[2].GroupName}
-	expectedGroups := []string{"public", "internal", "my-group"}
+	actualGroups := []string{files[0].GroupName, files[1].GroupName, files[2].GroupName, files[3].GroupName}
+	expectedGroups := []string{"public", "internal", "moby_automations", "my-group"}
 	if !slices.Equal(actualGroups, expectedGroups) {
 		t.Fatalf("expected groups %v, got %v", expectedGroups, actualGroups)
 	}
@@ -128,6 +130,15 @@ paths:
     patch:
       operationId: patchSpecial
 `,
+		"openapi.moby_automations.yml": `openapi: 3.0.0
+info:
+  title: Virgil Automations Group
+  version: "1.0.0"
+paths:
+  /automations:
+    get:
+      operationId: listAutomations
+`,
 	})
 
 	result := ScanRepository(repoPath)
@@ -146,22 +157,23 @@ paths:
 	if service.Name != "Virgil Public API" {
 		t.Fatalf("expected service name from public OpenAPI, got %q", service.Name)
 	}
-	if len(service.EndpointGroups) != 3 {
-		t.Fatalf("expected 3 endpoint groups, got %d", len(service.EndpointGroups))
+	if len(service.EndpointGroups) != 4 {
+		t.Fatalf("expected 4 endpoint groups, got %d", len(service.EndpointGroups))
 	}
 
 	groupNames := []string{
 		service.EndpointGroups[0].Name,
 		service.EndpointGroups[1].Name,
 		service.EndpointGroups[2].Name,
+		service.EndpointGroups[3].Name,
 	}
-	expectedGroups := []string{"public", "internal", "my-group"}
+	expectedGroups := []string{"public", "internal", "moby_automations", "my-group"}
 	if !slices.Equal(groupNames, expectedGroups) {
 		t.Fatalf("expected groups %v, got %v", expectedGroups, groupNames)
 	}
 
-	if len(service.Endpoints) != 3 {
-		t.Fatalf("expected flattened endpoint count 3, got %d", len(service.Endpoints))
+	if len(service.Endpoints) != 4 {
+		t.Fatalf("expected flattened endpoint count 4, got %d", len(service.Endpoints))
 	}
 }
 

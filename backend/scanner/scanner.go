@@ -33,7 +33,7 @@ type openAPIFile struct {
 	GroupName string
 }
 
-var openAPIGroupPattern = regexp.MustCompile(`^openapi\.([a-z0-9][a-z0-9-]*)\.(yml|yaml)$`)
+var openAPIGroupPattern = regexp.MustCompile(`^openapi\.([a-z0-9][a-z0-9_-]*)\.(yml|yaml)$`)
 
 // ScanResult contains the results of scanning a repository
 type ScanResult struct {

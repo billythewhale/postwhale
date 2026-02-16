@@ -75,6 +75,113 @@ paths:
 	}
 }
 
+func TestHandleRequest_RefreshRepository_LoadsNewUnderscoreGroupFile(t *testing.T) {
+	t.Parallel()
+
+	repoPath := t.TempDir()
+	createIPCServiceFixture(t, repoPath, "moby", 8080, map[string]string{
+		"openapi.yml": `openapi: 3.0.0
+info:
+  title: Moby Public API
+  version: "1.0.0"
+paths:
+  /chat:
+    post:
+      operationId: chatPost
+`,
+	})
+
+	handler := NewHandler(":memory:")
+	defer handler.Close()
+
+	addPayload, _ := json.Marshal(map[string]string{"path": repoPath})
+	addResponse := handler.HandleRequest(IPCRequest{Action: "addRepository", Data: addPayload})
+	if !addResponse.Success {
+		t.Fatalf("expected addRepository success, got error: %s", addResponse.Error)
+	}
+
+	addData, ok := addResponse.Data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected addRepository data map, got %T", addResponse.Data)
+	}
+
+	var repoID int64
+	switch v := addData["id"].(type) {
+	case int64:
+		repoID = v
+	case float64:
+		repoID = int64(v)
+	default:
+		t.Fatalf("expected repo id as int64/float64, got %T", addData["id"])
+	}
+
+	writeIPCFile(t, filepath.Join(repoPath, "services", "moby", "openapi.moby_automations.yml"), `openapi: 3.0.0
+info:
+  title: Moby Automations API
+  version: "1.0.0"
+paths:
+  /tools/jobs/list-jobs:
+    post:
+      operationId: listJobs
+`)
+
+	refreshPayload, _ := json.Marshal(map[string]int64{"id": repoID})
+	refreshResponse := handler.HandleRequest(IPCRequest{Action: "refreshRepository", Data: refreshPayload})
+	if !refreshResponse.Success {
+		t.Fatalf("expected refreshRepository success, got error: %s", refreshResponse.Error)
+	}
+
+	var serviceID int64
+	if err := handler.database.QueryRow(
+		"SELECT id FROM services WHERE repo_id = ? AND service_id = ?",
+		repoID,
+		"moby",
+	).Scan(&serviceID); err != nil {
+		t.Fatalf("failed to get refreshed moby service id: %v", err)
+	}
+
+	rows, err := handler.database.Query(
+		"SELECT endpoint_group_name, path FROM endpoints WHERE service_id = ? ORDER BY endpoint_group_name, path",
+		serviceID,
+	)
+	if err != nil {
+		t.Fatalf("failed to query endpoints for service %d: %v", serviceID, err)
+	}
+	defer rows.Close()
+
+	groupPathSet := map[string]bool{}
+	for rows.Next() {
+		var groupName string
+		var path string
+		if err := rows.Scan(&groupName, &path); err != nil {
+			t.Fatalf("failed to scan endpoint row: %v", err)
+		}
+		groupPathSet[groupName+":"+path] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("failed while reading endpoints rows: %v", err)
+	}
+
+	if !groupPathSet["public:/chat"] {
+		t.Fatalf("expected refreshed public endpoint /chat, got %v", groupPathSet)
+	}
+	if !groupPathSet["moby_automations:/tools/jobs/list-jobs"] {
+		t.Fatalf("expected refreshed moby_automations endpoint, got %v", groupPathSet)
+	}
+
+	var misplacedCount int
+	if err := handler.database.QueryRow(
+		"SELECT COUNT(*) FROM endpoints WHERE service_id != ? AND path = ?",
+		serviceID,
+		"/tools/jobs/list-jobs",
+	).Scan(&misplacedCount); err != nil {
+		t.Fatalf("failed to query misplaced refreshed endpoints: %v", err)
+	}
+	if misplacedCount != 0 {
+		t.Fatalf("expected no misplaced refreshed endpoints, found %d", misplacedCount)
+	}
+}
+
 func createIPCServiceFixture(t *testing.T, repoPath string, serviceID string, port int, openAPI map[string]string) {
 	t.Helper()
 

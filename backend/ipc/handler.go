@@ -721,7 +721,7 @@ func (h *Handler) handleRefreshRepository(data json.RawMessage) IPCResponse {
 	endpointsAdded := 0
 	for _, svc := range scanResult.Services {
 		// Use INSERT OR REPLACE to preserve IDs when service already exists
-		result, err := h.database.Exec(`
+		_, err := h.database.Exec(`
 			INSERT INTO services (repo_id, service_id, name, port, config_json)
 			VALUES (?, ?, ?, ?, ?)
 			ON CONFLICT(repo_id, service_id) DO UPDATE SET
@@ -733,18 +733,14 @@ func (h *Handler) handleRefreshRepository(data json.RawMessage) IPCResponse {
 			continue // Skip services that fail to add
 		}
 
-		// Get the service ID (either newly inserted or existing)
-		serviceID, err := result.LastInsertId()
+		var serviceID int64
+		err = h.database.QueryRow(
+			"SELECT id FROM services WHERE repo_id = ? AND service_id = ?",
+			input.ID,
+			svc.ServiceID,
+		).Scan(&serviceID)
 		if err != nil {
-			// If LastInsertId fails (happens on UPDATE), find the service by unique key
-			rows, err := h.database.Query("SELECT id FROM services WHERE repo_id = ? AND service_id = ?", input.ID, svc.ServiceID)
-			if err != nil {
-				continue
-			}
-			if rows.Next() {
-				rows.Scan(&serviceID)
-			}
-			rows.Close()
+			continue
 		}
 		servicesAdded++
 
