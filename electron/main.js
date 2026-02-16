@@ -1,11 +1,166 @@
 const { app, BrowserWindow, ipcMain, session } = require('electron');
 const { spawn } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 
 let mainWindow;
 let backendProcess;
 let requestHandlers = new Map(); // Track pending requests
+let backendWatcher;
+let backendRestartTimer;
+let backendBuildProcess;
+let backendRestartInProgress = false;
+let backendRestartQueued = false;
+
+const BACKEND_RESTART_DEBOUNCE_MS = 250;
+const isDev = process.env.NODE_ENV === 'development';
+const backendDir = path.join(__dirname, '../backend');
+
+function rejectPendingRequests(message) {
+  for (const [, { reject }] of requestHandlers) {
+    reject(new Error(message));
+  }
+  requestHandlers.clear();
+}
+
+function getBackendPath() {
+  if (isDev) {
+    return path.join(__dirname, '../backend/postwhale');
+  }
+  return path.join(process.resourcesPath, 'postwhale');
+}
+
+function shouldReloadBackendFile(filename) {
+  if (!filename) {
+    return false;
+  }
+  const normalized = filename.replace(/\\/g, '/');
+  return normalized.endsWith('.go') || normalized.endsWith('/go.mod') || normalized.endsWith('/go.sum') || normalized === 'go.mod' || normalized === 'go.sum';
+}
+
+function stopBackend(done) {
+  if (!backendProcess) {
+    done();
+    return;
+  }
+
+  const processToStop = backendProcess;
+  backendProcess = null;
+  let finished = false;
+  const finish = () => {
+    if (finished) {
+      return;
+    }
+    finished = true;
+    done();
+  };
+
+  processToStop.once('close', finish);
+  processToStop.kill();
+  setTimeout(finish, 1000);
+}
+
+function buildBackendBinary(callback) {
+  if (backendBuildProcess) {
+    backendRestartQueued = true;
+    return;
+  }
+
+  console.log('[Electron] Rebuilding backend binary...');
+  backendBuildProcess = spawn('go', ['build', '-o', 'postwhale', '.'], {
+    cwd: backendDir,
+    env: { ...process.env, GOCACHE: process.env.GOCACHE || '/tmp/go-cache' },
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+
+  let stdout = '';
+  let stderr = '';
+  let finalized = false;
+
+  const finalize = (buildSucceeded) => {
+    if (finalized) {
+      return;
+    }
+    finalized = true;
+    backendBuildProcess = null;
+    callback(buildSucceeded);
+
+    if (backendRestartQueued) {
+      backendRestartQueued = false;
+      scheduleBackendRestart('queued change');
+    }
+  };
+
+  backendBuildProcess.stdout.on('data', (data) => {
+    stdout += data.toString();
+  });
+
+  backendBuildProcess.stderr.on('data', (data) => {
+    stderr += data.toString();
+  });
+
+  backendBuildProcess.on('close', (code) => {
+    const buildSucceeded = code === 0;
+    if (buildSucceeded) {
+      console.log('[Electron] Backend rebuild complete');
+    } else {
+      console.error('[Electron] Backend rebuild failed:', stderr || stdout || `exit code ${code}`);
+    }
+    finalize(buildSucceeded);
+  });
+
+  backendBuildProcess.on('error', (error) => {
+    console.error('[Electron] Failed to start backend rebuild:', error);
+    finalize(false);
+  });
+}
+
+function restartBackendAfterBuild() {
+  if (backendRestartInProgress) {
+    backendRestartQueued = true;
+    return;
+  }
+
+  backendRestartInProgress = true;
+  buildBackendBinary((buildSucceeded) => {
+    if (!buildSucceeded) {
+      backendRestartInProgress = false;
+      return;
+    }
+
+    rejectPendingRequests('Backend restarting');
+    stopBackend(() => {
+      startBackend();
+      backendRestartInProgress = false;
+    });
+  });
+}
+
+function scheduleBackendRestart(filename) {
+  clearTimeout(backendRestartTimer);
+  backendRestartTimer = setTimeout(() => {
+    console.log(`[Electron] Backend source changed (${filename}), reloading backend`);
+    restartBackendAfterBuild();
+  }, BACKEND_RESTART_DEBOUNCE_MS);
+}
+
+function watchBackendChanges() {
+  if (!isDev) {
+    return;
+  }
+
+  backendWatcher = fs.watch(backendDir, { recursive: true }, (_eventType, filename) => {
+    if (!shouldReloadBackendFile(filename)) {
+      return;
+    }
+    scheduleBackendRestart(filename);
+  });
+
+  backendWatcher.on('error', (error) => {
+    console.error('[Electron] Backend watcher error:', error);
+  });
+}
 
 // Content Security Policy for Electron security
 // Development: allows Vite HMR (requires unsafe-eval for hot reloading)
@@ -91,14 +246,7 @@ function createWindow() {
 }
 
 function startBackend() {
-  // In development, use backend/postwhale
-  // In production (packaged), use resources/app.asar.unpacked/backend/postwhale
-  let backendPath;
-  if (process.env.NODE_ENV === 'development') {
-    backendPath = path.join(__dirname, '../backend/postwhale');
-  } else {
-    backendPath = path.join(process.resourcesPath, 'postwhale');
-  }
+  const backendPath = getBackendPath();
 
   console.log('[Electron] Starting backend:', backendPath);
 
@@ -135,6 +283,7 @@ function startBackend() {
 
   backendProcess.on('close', (code) => {
     console.log('[Electron] Backend process exited with code', code);
+    rejectPendingRequests('Backend process exited');
   });
 
   backendProcess.on('error', (error) => {
@@ -159,6 +308,9 @@ ipcMain.handle('ipc-request', async (event, action, data) => {
 
     // Send request to backend
     try {
+      if (!backendProcess || !backendProcess.stdin || backendProcess.killed || !backendProcess.stdin.writable) {
+        throw new Error('Backend is not available');
+      }
       backendProcess.stdin.write(requestLine);
     } catch (error) {
       console.error('[Electron] Failed to write to backend:', error);
@@ -203,11 +355,21 @@ async function waitForVite(url, maxAttempts = 30) {
   return false;
 }
 
+async function initializeBackend() {
+  if (isDev) {
+    await new Promise((resolve) => {
+      buildBackendBinary(() => resolve());
+    });
+    watchBackendChanges();
+  }
+  startBackend();
+}
+
 app.whenReady().then(async () => {
   setupContentSecurityPolicy();
-  startBackend();
+  await initializeBackend();
 
-  if (process.env.NODE_ENV === 'development') {
+  if (isDev) {
     await waitForVite('http://localhost:5173');
   }
 
@@ -220,16 +382,31 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on('window-all-closed', () => {
+function cleanup() {
+  clearTimeout(backendRestartTimer);
+
+  if (backendWatcher) {
+    backendWatcher.close();
+    backendWatcher = null;
+  }
+
+  if (backendBuildProcess) {
+    backendBuildProcess.kill();
+    backendBuildProcess = null;
+  }
+
   if (backendProcess) {
     backendProcess.kill();
+    backendProcess = null;
   }
+}
+
+app.on('window-all-closed', () => {
+  cleanup();
   app.quit();
 });
 
 // Clean up backend process on app quit
 app.on('before-quit', () => {
-  if (backendProcess) {
-    backendProcess.kill();
-  }
+  cleanup();
 });
