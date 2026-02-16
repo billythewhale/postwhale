@@ -62,6 +62,40 @@ func TestFindOpenAPIFiles_ValidGroupsOnly(t *testing.T) {
 	}
 }
 
+func TestFindOpenAPIFiles_RefreshPrefersYMLForExistingGroup(t *testing.T) {
+	t.Parallel()
+
+	servicePath := t.TempDir()
+	yamlPath := filepath.Join(servicePath, "openapi.internal.yaml")
+	ymlPath := filepath.Join(servicePath, "openapi.internal.yml")
+
+	writeTestFile(t, yamlPath, "openapi: 3.0.0\n")
+	files := findOpenAPIFiles(servicePath)
+	if len(files) != 1 {
+		t.Fatalf("expected 1 OpenAPI file, got %d", len(files))
+	}
+	if files[0].Path != yamlPath {
+		t.Fatalf("expected initial file %q, got %q", yamlPath, files[0].Path)
+	}
+
+	writeTestFile(t, ymlPath, "openapi: 3.0.0\n")
+	files = findOpenAPIFiles(servicePath)
+	if len(files) != 1 {
+		t.Fatalf("expected 1 OpenAPI file after refresh, got %d", len(files))
+	}
+	if files[0].GroupName != "internal" {
+		t.Fatalf("expected group internal, got %q", files[0].GroupName)
+	}
+	if files[0].Path != ymlPath {
+		t.Fatalf("expected refreshed file %q, got %q", ymlPath, files[0].Path)
+	}
+
+	files = findOpenAPIFiles(servicePath)
+	if files[0].Path != ymlPath {
+		t.Fatalf("expected deterministic file selection %q, got %q", ymlPath, files[0].Path)
+	}
+}
+
 func TestScanRepository_ValidRepoWithEndpointGroups(t *testing.T) {
 	t.Parallel()
 

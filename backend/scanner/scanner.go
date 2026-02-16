@@ -110,7 +110,7 @@ func parseOpenAPIGroupName(fileName string) (string, bool) {
 // findOpenAPIFiles finds all supported OpenAPI files and resolves endpoint groups from filenames.
 // Supports: openapi.yml|yaml => public, and openapi.<group>.yml|yaml => <group>.
 func findOpenAPIFiles(servicePath string) []openAPIFile {
-	patterns := []string{"openapi*.yaml", "openapi*.yml"}
+	patterns := []string{"openapi*.yml", "openapi*.yaml"}
 	groupToFile := map[string]openAPIFile{}
 
 	for _, pattern := range patterns {
