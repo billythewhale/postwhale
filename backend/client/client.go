@@ -16,9 +16,11 @@ import (
 type Environment string
 
 const (
-	EnvLocal      Environment = "LOCAL"
-	EnvStaging    Environment = "STAGING"
-	EnvProduction Environment = "PRODUCTION"
+	EnvLocal           Environment = "LOCAL"
+	EnvLocalStaging    Environment = "LOCAL_STAGING"
+	EnvLocalProduction Environment = "LOCAL_PRODUCTION"
+	EnvStaging         Environment = "STAGING"
+	EnvProduction      Environment = "PRODUCTION"
 )
 
 // RequestConfig contains all parameters for making an HTTP request
@@ -56,7 +58,7 @@ func buildURL(config RequestConfig) string {
 
 	if config.AuthEnabled {
 		switch config.Environment {
-		case EnvLocal:
+		case EnvLocal, EnvLocalStaging, EnvLocalProduction:
 			return fmt.Sprintf("http://localhost/api/v2/%s%s", config.ServiceID, endpoint)
 		case EnvStaging:
 			return fmt.Sprintf("https://staging.api.triplewhale.com/api/v2/%s%s", config.ServiceID, endpoint)
@@ -66,7 +68,7 @@ func buildURL(config RequestConfig) string {
 	}
 
 	switch config.Environment {
-	case EnvLocal:
+	case EnvLocal, EnvLocalStaging, EnvLocalProduction:
 		return fmt.Sprintf("http://localhost/%s%s", config.ServiceID, endpoint)
 	case EnvStaging:
 		return fmt.Sprintf("http://stg.%s.srv.whale3.io%s", config.ServiceID, endpoint)
@@ -108,8 +110,8 @@ func executeRequestWithURL(url string, config RequestConfig) Response {
 				remoteAddr = addr
 			}
 		},
-		DNSDone: func(_ httptrace.DNSDoneInfo) {},
-		GetConn: func(_ string) {},
+		DNSDone:              func(_ httptrace.DNSDoneInfo) {},
+		GetConn:              func(_ string) {},
 		GotFirstResponseByte: func() {},
 	}
 	ctx = httptrace.WithClientTrace(ctx, trace)

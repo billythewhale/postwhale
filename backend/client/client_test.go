@@ -24,6 +24,36 @@ func TestBuildURL_Local(t *testing.T) {
 	}
 }
 
+func TestBuildURL_LocalStaging(t *testing.T) {
+	config := RequestConfig{
+		ServiceID:   "fusion",
+		Endpoint:    "/orders",
+		Environment: EnvLocalStaging,
+	}
+
+	url := buildURL(config)
+	expected := "http://localhost/fusion/orders"
+
+	if url != expected {
+		t.Errorf("buildURL() = %q, want %q", url, expected)
+	}
+}
+
+func TestBuildURL_LocalProduction(t *testing.T) {
+	config := RequestConfig{
+		ServiceID:   "fusion",
+		Endpoint:    "/orders",
+		Environment: EnvLocalProduction,
+	}
+
+	url := buildURL(config)
+	expected := "http://localhost/fusion/orders"
+
+	if url != expected {
+		t.Errorf("buildURL() = %q, want %q", url, expected)
+	}
+}
+
 func TestBuildURL_Staging(t *testing.T) {
 	config := RequestConfig{
 		ServiceID:   "fusion",
@@ -78,6 +108,22 @@ func TestBuildURL_WithoutLeadingSlash(t *testing.T) {
 
 	url := buildURL(config)
 	expected := "http://localhost/moby/chat"
+
+	if url != expected {
+		t.Errorf("buildURL() = %q, want %q", url, expected)
+	}
+}
+
+func TestBuildURL_LocalStaging_WithAuth(t *testing.T) {
+	config := RequestConfig{
+		ServiceID:   "moby",
+		Endpoint:    "chat",
+		Environment: EnvLocalStaging,
+		AuthEnabled: true,
+	}
+
+	url := buildURL(config)
+	expected := "http://localhost/api/v2/moby/chat"
 
 	if url != expected {
 		t.Errorf("buildURL() = %q, want %q", url, expected)
