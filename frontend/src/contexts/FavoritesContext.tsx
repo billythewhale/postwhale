@@ -2,18 +2,20 @@ import { createContext, useContext, useState, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import { notifications } from '@mantine/notifications'
 
-type FavoriteType = 'repos' | 'services' | 'endpoints'
-
-interface Favorites {
-  repos: Set<number>
-  services: Set<number>
-  endpoints: Set<number>
+type FavoriteType = 'repos' | 'services' | 'endpoints' | 'endpointGroups'
+type FavoriteIdByType = {
+  repos: number
+  services: number
+  endpoints: number
+  endpointGroups: string
 }
+
+type Favorites = { [K in FavoriteType]: Set<FavoriteIdByType[K]> }
 
 interface FavoritesContextType {
   favorites: Favorites
-  toggleFavorite: (type: FavoriteType, id: number) => void
-  isFavorite: (type: FavoriteType, id: number) => boolean
+  toggleFavorite: <T extends FavoriteType>(type: T, id: FavoriteIdByType[T]) => void
+  isFavorite: <T extends FavoriteType>(type: T, id: FavoriteIdByType[T]) => boolean
   clearAllFavorites: () => void
   hasFavorites: () => boolean
 }
@@ -24,24 +26,28 @@ const STORAGE_KEYS: Record<FavoriteType, string> = {
   repos: 'postwhale_favorites_repos',
   services: 'postwhale_favorites_services',
   endpoints: 'postwhale_favorites_endpoints',
+  endpointGroups: 'postwhale_favorites_endpoint_groups',
 }
 
-function loadFavoritesFromStorage(type: FavoriteType): Set<number> {
+function loadFavoritesFromStorage<T extends FavoriteType>(type: T): Set<FavoriteIdByType[T]> {
   try {
     const stored = localStorage.getItem(STORAGE_KEYS[type])
     if (stored) {
       const parsed = JSON.parse(stored)
       if (Array.isArray(parsed)) {
-        return new Set(parsed)
+        if (type === 'endpointGroups') {
+          return new Set(parsed.map((value) => String(value))) as Set<FavoriteIdByType[T]>
+        }
+        return new Set(parsed.filter((value): value is number => typeof value === 'number')) as Set<FavoriteIdByType[T]>
       }
     }
   } catch (error) {
     console.error(`Failed to load favorites for ${type}:`, error)
   }
-  return new Set()
+  return new Set<FavoriteIdByType[T]>()
 }
 
-function saveFavoritesToStorage(type: FavoriteType, favorites: Set<number>): boolean {
+function saveFavoritesToStorage<T extends FavoriteType>(type: T, favorites: Set<FavoriteIdByType[T]>): boolean {
   try {
     localStorage.setItem(STORAGE_KEYS[type], JSON.stringify(Array.from(favorites)))
     return true
@@ -73,11 +79,12 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     repos: loadFavoritesFromStorage('repos'),
     services: loadFavoritesFromStorage('services'),
     endpoints: loadFavoritesFromStorage('endpoints'),
+    endpointGroups: loadFavoritesFromStorage('endpointGroups'),
   }))
 
   const [pendingToggles, setPendingToggles] = useState<Set<string>>(() => new Set())
 
-  const toggleFavorite = useCallback((type: FavoriteType, id: number) => {
+  const toggleFavorite = useCallback(<T extends FavoriteType>(type: T, id: FavoriteIdByType[T]) => {
     const toggleKey = `${type}-${id}`
 
     if (pendingToggles.has(toggleKey)) {
@@ -87,8 +94,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     setPendingToggles(prev => new Set([...prev, toggleKey]))
 
     setFavorites((prev) => {
-      const newFavorites = { ...prev }
-      const set = new Set(prev[type])
+      const set = new Set(prev[type]) as Set<FavoriteIdByType[T]>
 
       if (set.has(id)) {
         set.delete(id)
@@ -96,7 +102,6 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         set.add(id)
       }
 
-      newFavorites[type] = set
       saveFavoritesToStorage(type, set)
 
       setTimeout(() => {
@@ -107,11 +112,11 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         })
       }, 0)
 
-      return newFavorites
+      return { ...prev, [type]: set } as Favorites
     })
   }, [pendingToggles])
 
-  const isFavorite = useCallback((type: FavoriteType, id: number): boolean => {
+  const isFavorite = useCallback(<T extends FavoriteType>(type: T, id: FavoriteIdByType[T]): boolean => {
     return favorites[type].has(id)
   }, [favorites])
 
@@ -120,14 +125,15 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       repos: new Set(),
       services: new Set(),
       endpoints: new Set(),
+      endpointGroups: new Set(),
     }
 
     setFavorites(emptyFavorites)
 
-    // Save to localStorage
     let allSucceeded = true
-    Object.keys(STORAGE_KEYS).forEach((type) => {
-      const succeeded = saveFavoritesToStorage(type as FavoriteType, new Set())
+    const favoriteTypes = Object.keys(STORAGE_KEYS) as FavoriteType[]
+    favoriteTypes.forEach((type) => {
+      const succeeded = saveFavoritesToStorage(type, emptyFavorites[type])
       if (!succeeded) {
         allSucceeded = false
       }
@@ -147,7 +153,8 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     return (
       favorites.repos.size > 0 ||
       favorites.services.size > 0 ||
-      favorites.endpoints.size > 0
+      favorites.endpoints.size > 0 ||
+      favorites.endpointGroups.size > 0
     )
   }, [favorites])
 

@@ -16,6 +16,7 @@ interface RepositoryNodeProps {
   isExpanded: boolean
   expandedServices: Set<number>
   expandedEndpoints: Set<number>
+  expandedEndpointGroups: Set<string>
   isFavorite: boolean
   isDark: boolean
   searchQuery: string
@@ -24,12 +25,15 @@ interface RepositoryNodeProps {
   dirtyConfigIds: Set<string>
   isFavoriteService: (id: number) => boolean
   isFavoriteEndpoint: (id: number) => boolean
+  isFavoriteEndpointGroup: (id: string) => boolean
   onToggle: () => void
   onToggleFavorite: () => void
   onToggleService: (id: number) => void
   onToggleEndpoint: (id: number) => void
+  onToggleEndpointGroup: (id: string) => void
   onToggleServiceFavorite: (id: number) => void
   onToggleEndpointFavorite: (id: number) => void
+  onToggleEndpointGroupFavorite: (id: string) => void
   onSelectEndpoint: (endpoint: Endpoint) => void
   onSelectSavedRequest: (sr: SavedRequest) => void
   onRemoveRepository: (id: number) => void
@@ -53,6 +57,7 @@ export function RepositoryNode({
   isExpanded,
   expandedServices,
   expandedEndpoints,
+  expandedEndpointGroups,
   isFavorite,
   isDark,
   searchQuery,
@@ -61,12 +66,15 @@ export function RepositoryNode({
   dirtyConfigIds,
   isFavoriteService,
   isFavoriteEndpoint,
+  isFavoriteEndpointGroup,
   onToggle,
   onToggleFavorite,
   onToggleService,
   onToggleEndpoint,
+  onToggleEndpointGroup,
   onToggleServiceFavorite,
   onToggleEndpointFavorite,
+  onToggleEndpointGroupFavorite,
   onSelectEndpoint,
   onSelectSavedRequest,
   onRemoveRepository,
@@ -196,6 +204,7 @@ export function RepositoryNode({
                   savedRequests={savedRequests}
                   isExpanded={expandedServices.has(service.id)}
                   expandedEndpoints={expandedEndpoints}
+                  expandedEndpointGroups={expandedEndpointGroups}
                   isFavorite={isFavoriteService(service.id)}
                   isDark={isDark}
                   searchQuery={searchQuery}
@@ -203,11 +212,14 @@ export function RepositoryNode({
                   selectedSavedRequestId={selectedSavedRequestId}
                   dirtyConfigIds={dirtyConfigIds}
                   isFavoriteEndpoint={isFavoriteEndpoint}
+                  isFavoriteEndpointGroup={isFavoriteEndpointGroup}
                   onToggle={() => onToggleService(service.id)}
                   onToggleEndpoint={onToggleEndpoint}
+                  onToggleEndpointGroup={onToggleEndpointGroup}
                   onToggleFavorite={() => onToggleServiceFavorite(service.id)}
                   onSelectEndpoint={onSelectEndpoint}
                   onToggleEndpointFavorite={onToggleEndpointFavorite}
+                  onToggleEndpointGroupFavorite={onToggleEndpointGroupFavorite}
                   onSelectSavedRequest={onSelectSavedRequest}
                   onUpdateSavedRequest={onUpdateSavedRequest}
                   onSaveAsNew={onSaveAsNew}

@@ -13,6 +13,7 @@ interface ServiceNodeProps {
   savedRequests: SavedRequest[]
   isExpanded: boolean
   expandedEndpoints: Set<number>
+  expandedEndpointGroups: Set<string>
   isFavorite: boolean
   isDark: boolean
   searchQuery: string
@@ -20,11 +21,14 @@ interface ServiceNodeProps {
   selectedSavedRequestId: number | null
   dirtyConfigIds: Set<string>
   isFavoriteEndpoint: (id: number) => boolean
+  isFavoriteEndpointGroup: (id: string) => boolean
   onToggle: () => void
   onToggleEndpoint: (id: number) => void
+  onToggleEndpointGroup: (id: string) => void
   onToggleFavorite: () => void
   onSelectEndpoint: (endpoint: Endpoint) => void
   onToggleEndpointFavorite: (id: number) => void
+  onToggleEndpointGroupFavorite: (id: string) => void
   onSelectSavedRequest: (sr: SavedRequest) => void
   onUpdateSavedRequest: (id: number) => void
   onSaveAsNew: (name: string) => void
@@ -42,6 +46,7 @@ export function ServiceNode({
   savedRequests,
   isExpanded,
   expandedEndpoints,
+  expandedEndpointGroups,
   isFavorite,
   isDark,
   searchQuery,
@@ -49,11 +54,14 @@ export function ServiceNode({
   selectedSavedRequestId,
   dirtyConfigIds,
   isFavoriteEndpoint,
+  isFavoriteEndpointGroup,
   onToggle,
   onToggleEndpoint,
+  onToggleEndpointGroup,
   onToggleFavorite,
   onSelectEndpoint,
   onToggleEndpointFavorite,
+  onToggleEndpointGroupFavorite,
   onSelectSavedRequest,
   onUpdateSavedRequest,
   onSaveAsNew,
@@ -65,6 +73,7 @@ export function ServiceNode({
   onImportSavedRequests,
 }: ServiceNodeProps) {
   const [isHovered, setIsHovered] = useState(false)
+  const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<{ opened: boolean; position: { x: number; y: number } }>({
     opened: false,
     position: { x: 0, y: 0 },
@@ -87,6 +96,7 @@ export function ServiceNode({
 
   const endpointGroups = Object.entries(groupedEndpoints)
     .map(([name, groupEndpoints]) => ({
+      id: `${service.id}:${name || 'public'}`,
       name,
       endpoints: groupEndpoints,
     }))
@@ -210,16 +220,56 @@ export function ServiceNode({
               endpoints.map(renderEndpointNode)
             ) : (
               endpointGroups.map((group) => (
-                <Box key={group.name}>
-                  <Group px={8} py={4} justify="space-between" wrap="nowrap">
-                    <HighlightMatch text={group.name} query={searchQuery} size="xs" c="dimmed" fw={600} />
-                    <Text size="xs" c="dimmed">{group.endpoints.length}</Text>
+                <Box key={group.id}>
+                  <Group
+                    gap={4}
+                    wrap="nowrap"
+                    onMouseEnter={() => setHoveredGroupId(group.id)}
+                    onMouseLeave={() => setHoveredGroupId((prev) => (prev === group.id ? null : prev))}
+                    onFocus={() => setHoveredGroupId(group.id)}
+                    onBlur={() => setHoveredGroupId((prev) => (prev === group.id ? null : prev))}
+                    tabIndex={0}
+                    style={{ outline: 'none' }}
+                  >
+                    <FavoriteToggle
+                      isFavorite={isFavoriteEndpointGroup(group.id)}
+                      isHovered={hoveredGroupId === group.id}
+                      onToggle={(e) => {
+                        e.stopPropagation()
+                        onToggleEndpointGroupFavorite(group.id)
+                      }}
+                      ariaLabel={isFavoriteEndpointGroup(group.id) ? 'Unfavorite endpoint group' : 'Favorite endpoint group'}
+                    />
+
+                    <Flex onClick={() => onToggleEndpointGroup(group.id)} style={{ cursor: 'pointer' }} align="center">
+                      {expandedEndpointGroups.has(group.id) ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                    </Flex>
+
+                    <Box
+                      onClick={() => onToggleEndpointGroup(group.id)}
+                      className="sidebar-nav-item"
+                      style={(theme) => ({
+                        flex: 1,
+                        padding: '4px 8px',
+                        borderRadius: theme.radius.md,
+                        cursor: 'pointer',
+                        transition: 'all 150ms ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                      })}
+                    >
+                      <HighlightMatch text={group.name} query={searchQuery} size="xs" c="dimmed" fw={600} style={{ flex: 1 }} />
+                      <Text size="xs" c="dimmed">{group.endpoints.length}</Text>
+                    </Box>
                   </Group>
-                  <Box ml={12}>
-                    <Stack gap={2}>
-                      {group.endpoints.map(renderEndpointNode)}
-                    </Stack>
-                  </Box>
+                  {expandedEndpointGroups.has(group.id) && (
+                    <Box ml={12}>
+                      <Stack gap={2}>
+                        {group.endpoints.map(renderEndpointNode)}
+                      </Stack>
+                    </Box>
+                  )}
                 </Box>
               ))
             )}

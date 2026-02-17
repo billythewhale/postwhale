@@ -35,6 +35,8 @@ interface SidebarProps {
   onImportRepoSavedRequests: (repoId: number) => void
 }
 
+const getEndpointGroupId = (serviceId: number, groupName?: string) => `${serviceId}:${groupName || 'public'}`
+
 export function Sidebar({
   repositories,
   services,
@@ -68,17 +70,39 @@ export function Sidebar({
   const [manualExpandedRepos, setManualExpandedRepos] = useState<Set<number>>(new Set())
   const [manualExpandedServices, setManualExpandedServices] = useState<Set<number>>(new Set())
   const [manualExpandedEndpoints, setManualExpandedEndpoints] = useState<Set<number>>(new Set())
+  const [manualExpandedEndpointGroups, setManualExpandedEndpointGroups] = useState<Set<string>>(new Set())
   const [userHasInteracted, setUserHasInteracted] = useState(false)
   const [deleteConfirmRequest, setDeleteConfirmRequest] = useState<SavedRequest | null>(null)
 
+  const favoritesForTree = useMemo(() => {
+    const endpointFavorites = new Set(favorites.endpoints)
+    endpoints.forEach((endpoint) => {
+      if (favorites.endpointGroups.has(getEndpointGroupId(endpoint.serviceId, endpoint.endpointGroupName))) {
+        endpointFavorites.add(endpoint.id)
+      }
+    })
+
+    return {
+      repos: favorites.repos,
+      services: favorites.services,
+      endpoints: endpointFavorites,
+    }
+  }, [favorites, endpoints])
+
   const filteredTree = useMemo(
-    () => filterTree(repositories, services, endpoints, currentView, searchQuery, filterState, favorites),
-    [repositories, services, endpoints, currentView, searchQuery, filterState, favorites]
+    () => filterTree(repositories, services, endpoints, currentView, searchQuery, filterState, favoritesForTree),
+    [repositories, services, endpoints, currentView, searchQuery, filterState, favoritesForTree]
+  )
+
+  const autoExpandedEndpointGroups = useMemo(
+    () => new Set(endpoints.map((endpoint) => getEndpointGroupId(endpoint.serviceId, endpoint.endpointGroupName))),
+    [endpoints]
   )
 
   const expandedRepos = userHasInteracted ? manualExpandedRepos : filteredTree.expandedRepos
   const expandedServices = userHasInteracted ? manualExpandedServices : filteredTree.expandedServices
   const expandedEndpoints = manualExpandedEndpoints
+  const expandedEndpointGroups = userHasInteracted ? manualExpandedEndpointGroups : autoExpandedEndpointGroups
 
   const selectedEndpointId = activeNode?.type === 'endpoint' ? activeNode.endpointId : null
   const selectedSavedRequestId = activeNode?.type === 'savedRequest' ? activeNode.savedRequestId : null
@@ -137,6 +161,7 @@ export function Sidebar({
                   isExpanded={expandedRepos.has(repo.id)}
                   expandedServices={expandedServices}
                   expandedEndpoints={expandedEndpoints}
+                  expandedEndpointGroups={expandedEndpointGroups}
                   isFavorite={isFavorite('repos', repo.id)}
                   isDark={isDark}
                   searchQuery={searchQuery}
@@ -145,12 +170,15 @@ export function Sidebar({
                   dirtyConfigIds={dirtyConfigIds}
                   isFavoriteService={(id) => isFavorite('services', id)}
                   isFavoriteEndpoint={(id) => isFavorite('endpoints', id)}
+                  isFavoriteEndpointGroup={(id) => isFavorite('endpointGroups', id)}
                   onToggle={() => handleToggleRepo(repo.id)}
                   onToggleFavorite={() => toggleFavorite('repos', repo.id)}
                   onToggleService={handleToggleService}
                   onToggleEndpoint={handleToggleEndpoint}
+                  onToggleEndpointGroup={handleToggleEndpointGroup}
                   onToggleServiceFavorite={(id) => toggleFavorite('services', id)}
                   onToggleEndpointFavorite={(id) => toggleFavorite('endpoints', id)}
+                  onToggleEndpointGroupFavorite={(id) => toggleFavorite('endpointGroups', id)}
                   onSelectEndpoint={handleSelectEndpoint}
                   onSelectSavedRequest={handleSelectSavedRequest}
                   onRemoveRepository={onRemoveRepository}
@@ -220,6 +248,7 @@ export function Sidebar({
       setManualExpandedServices((prev) => (userHasInteracted ? prev : new Set(filteredTree.expandedServices)))
     }
 
+    setManualExpandedEndpointGroups((prev) => (userHasInteracted ? prev : new Set(autoExpandedEndpointGroups)))
     setUserHasInteracted(true)
   }
 
@@ -248,6 +277,7 @@ export function Sidebar({
       })
     }
 
+    setManualExpandedEndpointGroups((prev) => (userHasInteracted ? prev : new Set(autoExpandedEndpointGroups)))
     setUserHasInteracted(true)
   }
 
@@ -261,6 +291,24 @@ export function Sidebar({
       }
       return next
     })
+  }
+
+  function handleToggleEndpointGroup(groupId: string) {
+    setManualExpandedRepos((prev) => (userHasInteracted ? prev : new Set(filteredTree.expandedRepos)))
+    setManualExpandedServices((prev) => (userHasInteracted ? prev : new Set(filteredTree.expandedServices)))
+
+    setManualExpandedEndpointGroups((prev) => {
+      const base = userHasInteracted ? prev : autoExpandedEndpointGroups
+      const next = new Set(base)
+      if (next.has(groupId)) {
+        next.delete(groupId)
+      } else {
+        next.add(groupId)
+      }
+      return next
+    })
+
+    setUserHasInteracted(true)
   }
 
   function handleDeleteSavedRequest(id: number) {
