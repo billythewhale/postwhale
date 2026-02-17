@@ -115,6 +115,50 @@ func (h *Handler) HandleRequest(request IPCRequest) IPCResponse {
 	return response
 }
 
+func serializeEndpointSpec(endpoint interface{}) string {
+	specJSON, err := json.Marshal(endpoint)
+	if err != nil {
+		return "{}"
+	}
+	return string(specJSON)
+}
+
+func parseEndpointSpec(specJSON string) interface{} {
+	trimmed := strings.TrimSpace(specJSON)
+	if trimmed == "" || trimmed == "{}" {
+		return nil
+	}
+
+	var parsed interface{}
+	if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
+		return nil
+	}
+
+	if asMap, ok := parsed.(map[string]interface{}); ok && len(asMap) == 0 {
+		return nil
+	}
+
+	return parsed
+}
+
+func endpointToResponseMap(ep db.Endpoint) map[string]interface{} {
+	result := map[string]interface{}{
+		"id":                    ep.ID,
+		"serviceId":             ep.ServiceID,
+		"operationId":           ep.OperationID,
+		"method":                ep.Method,
+		"path":                  ep.Path,
+		"endpointGroupName":     ep.EndpointGroupName,
+		"endpointGroupFilePath": ep.EndpointGroupFilePath,
+	}
+
+	if spec := parseEndpointSpec(ep.SpecJSON); spec != nil {
+		result["spec"] = spec
+	}
+
+	return result
+}
+
 // handleAddRepository adds a repository and scans it for services
 func (h *Handler) handleAddRepository(data json.RawMessage) IPCResponse {
 	var input struct {
@@ -181,7 +225,7 @@ func (h *Handler) handleAddRepository(data json.RawMessage) IPCResponse {
 					Method:                endpoint.Method,
 					Path:                  endpoint.Path,
 					OperationID:           endpoint.OperationID,
-					SpecJSON:              "{}",
+					SpecJSON:              serializeEndpointSpec(endpoint),
 					EndpointGroupName:     group.Name,
 					EndpointGroupFilePath: group.FilePath,
 				})
@@ -367,15 +411,7 @@ func (h *Handler) handleGetEndpoints(data json.RawMessage) IPCResponse {
 	// Convert to interface{} slice
 	result := make([]interface{}, len(endpoints))
 	for i, ep := range endpoints {
-		result[i] = map[string]interface{}{
-			"id":                    ep.ID,
-			"serviceId":             ep.ServiceID,
-			"operationId":           ep.OperationID,
-			"method":                ep.Method,
-			"path":                  ep.Path,
-			"endpointGroupName":     ep.EndpointGroupName,
-			"endpointGroupFilePath": ep.EndpointGroupFilePath,
-		}
+		result[i] = endpointToResponseMap(ep)
 	}
 
 	return IPCResponse{
@@ -396,15 +432,7 @@ func (h *Handler) handleGetAllEndpoints() IPCResponse {
 
 	result := make([]interface{}, len(endpoints))
 	for i, ep := range endpoints {
-		result[i] = map[string]interface{}{
-			"id":                    ep.ID,
-			"serviceId":             ep.ServiceID,
-			"operationId":           ep.OperationID,
-			"method":                ep.Method,
-			"path":                  ep.Path,
-			"endpointGroupName":     ep.EndpointGroupName,
-			"endpointGroupFilePath": ep.EndpointGroupFilePath,
-		}
+		result[i] = endpointToResponseMap(ep)
 	}
 
 	return IPCResponse{
@@ -777,7 +805,7 @@ func (h *Handler) handleRefreshRepository(data json.RawMessage) IPCResponse {
 						operation_id = excluded.operation_id,
 						spec_json = excluded.spec_json,
 						endpoint_group_file_path = excluded.endpoint_group_file_path
-				`, serviceID, endpoint.Method, endpoint.Path, endpoint.OperationID, "{}", group.Name, group.FilePath)
+				`, serviceID, endpoint.Method, endpoint.Path, endpoint.OperationID, serializeEndpointSpec(endpoint), group.Name, group.FilePath)
 				if err == nil {
 					endpointsAdded++
 				}

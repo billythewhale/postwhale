@@ -47,9 +47,12 @@ export interface RequestBody {
 
 export interface Schema {
   type?: string;
+  format?: string;
   properties?: Record<string, Schema>;
   items?: Schema;
   required?: string[];
+  example?: unknown;
+  nullable?: boolean;
   $ref?: string;
 }
 

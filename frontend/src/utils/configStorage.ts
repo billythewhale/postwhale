@@ -1,13 +1,41 @@
 import type { Endpoint, SavedRequest, EditableRequestConfig, ConfigSnapshot } from '@/types'
 import { safeParseJSON } from './json'
+import { createDefaultRequestBody } from './requestBodyDefaults'
 
 const STORAGE_KEY_PREFIX = 'postwhale_config_'
 export const DEBOUNCE_MS = 300
 
+function toSnapshot(config: Partial<EditableRequestConfig>): ConfigSnapshot {
+  return {
+    name: config.name ?? null,
+    pathParams: config.pathParams ?? {},
+    queryParams: config.queryParams ?? [],
+    headers: config.headers ?? [],
+    body: config.body ?? '',
+    auth: config.auth,
+  }
+}
+
 export function loadConfigFromStorage(id: string): Partial<EditableRequestConfig> | null {
   try {
     const stored = localStorage.getItem(`${STORAGE_KEY_PREFIX}${id}`)
-    return stored ? JSON.parse(stored) : null
+    if (!stored) {
+      return null
+    }
+
+    const parsed = JSON.parse(stored) as Partial<EditableRequestConfig>
+    const snapshot = parsed._originalSnapshot
+    const isUnchangedTempConfig =
+      id.startsWith('temp_') &&
+      !!snapshot &&
+      parsed.body?.trim() === '' &&
+      JSON.stringify(toSnapshot(parsed)) === JSON.stringify(snapshot)
+
+    if (isUnchangedTempConfig) {
+      return null
+    }
+
+    return parsed
   } catch {
     return null
   }
@@ -42,6 +70,7 @@ export function createAnonymousConfig(endpoint: Endpoint): EditableRequestConfig
   const defaultQueryParams = endpoint.spec?.parameters
     ?.filter((p) => p.in === 'query')
     .map((p) => ({ key: p.name, value: '', enabled: true })) || []
+  const defaultBody = createDefaultRequestBody(endpoint)
 
   const config: EditableRequestConfig = {
     id: `temp_${endpoint.id}`,
@@ -50,7 +79,7 @@ export function createAnonymousConfig(endpoint: Endpoint): EditableRequestConfig
     pathParams: {},
     queryParams: defaultQueryParams,
     headers: [{ key: 'Content-Type', value: 'application/json', enabled: true }],
-    body: '',
+    body: defaultBody,
   }
   config._originalSnapshot = extractSnapshot(config)
   return config

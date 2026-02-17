@@ -182,6 +182,129 @@ paths:
 	}
 }
 
+func TestHandleRequest_GetAllEndpoints_IncludesRequestBodySchema(t *testing.T) {
+	t.Parallel()
+
+	repoPath := t.TempDir()
+	createIPCServiceFixture(t, repoPath, "poets", 8080, map[string]string{
+		"openapi.yml": `openapi: 3.0.0
+info:
+  title: Poets API
+  version: "1.0.0"
+paths:
+  /poems:
+    post:
+      operationId: createPoem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+                likes:
+                  type: integer
+                published:
+                  type: boolean
+      responses:
+        '200':
+          description: ok
+`,
+	})
+
+	handler := NewHandler(":memory:")
+	defer handler.Close()
+
+	addPayload, _ := json.Marshal(map[string]string{"path": repoPath})
+	addResponse := handler.HandleRequest(IPCRequest{Action: "addRepository", Data: addPayload})
+	if !addResponse.Success {
+		t.Fatalf("expected addRepository success, got error: %s", addResponse.Error)
+	}
+
+	allEndpointsResponse := handler.HandleRequest(IPCRequest{Action: "getAllEndpoints", Data: json.RawMessage(`{}`)})
+	if !allEndpointsResponse.Success {
+		t.Fatalf("expected getAllEndpoints success, got error: %s", allEndpointsResponse.Error)
+	}
+
+	endpoints, ok := allEndpointsResponse.Data.([]interface{})
+	if !ok {
+		t.Fatalf("expected endpoints array, got %T", allEndpointsResponse.Data)
+	}
+
+	var poemEndpoint map[string]interface{}
+	for _, raw := range endpoints {
+		ep, ok := raw.(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected endpoint object, got %T", raw)
+		}
+		if path, _ := ep["path"].(string); path == "/poems" {
+			poemEndpoint = ep
+			break
+		}
+	}
+	if poemEndpoint == nil {
+		t.Fatal("expected /poems endpoint")
+	}
+
+	spec, ok := poemEndpoint["spec"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected endpoint spec object, got %#v", poemEndpoint["spec"])
+	}
+
+	requestBody, ok := spec["requestBody"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected requestBody object, got %#v", spec["requestBody"])
+	}
+
+	content, ok := requestBody["content"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected requestBody.content object, got %#v", requestBody["content"])
+	}
+
+	jsonContent, ok := content["application/json"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected application/json object, got %#v", content["application/json"])
+	}
+
+	schema, ok := jsonContent["schema"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected schema object, got %#v", jsonContent["schema"])
+	}
+
+	properties, ok := schema["properties"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected properties object, got %#v", schema["properties"])
+	}
+
+	titleProp, ok := properties["title"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected title property, got %#v", properties["title"])
+	}
+	if titleProp["type"] != "string" {
+		t.Fatalf("expected title.type=string, got %#v", titleProp["type"])
+	}
+
+	likesProp, ok := properties["likes"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected likes property, got %#v", properties["likes"])
+	}
+	if likesProp["type"] != "integer" {
+		t.Fatalf("expected likes.type=integer, got %#v", likesProp["type"])
+	}
+
+	publishedProp, ok := properties["published"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected published property, got %#v", properties["published"])
+	}
+	if publishedProp["type"] != "boolean" {
+		t.Fatalf("expected published.type=boolean, got %#v", publishedProp["type"])
+	}
+}
+
 func createIPCServiceFixture(t *testing.T, repoPath string, serviceID string, port int, openAPI map[string]string) {
 	t.Helper()
 

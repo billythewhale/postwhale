@@ -38,49 +38,49 @@ type Service struct {
 
 // APIEndpoint represents an OpenAPI endpoint
 type APIEndpoint struct {
-	OperationID string
-	Method      string
-	Path        string
-	Summary     string
-	Tags        []string
-	Parameters  []Parameter
-	RequestBody *RequestBody
-	Responses   map[string]Response
+	OperationID string              `json:"operationId"`
+	Method      string              `json:"method"`
+	Path        string              `json:"path"`
+	Summary     string              `json:"summary"`
+	Tags        []string            `json:"tags"`
+	Parameters  []Parameter         `json:"parameters"`
+	RequestBody *RequestBody        `json:"requestBody,omitempty"`
+	Responses   map[string]Response `json:"responses"`
 }
 
 // Parameter represents an endpoint parameter
 type Parameter struct {
-	Name     string
-	In       string // path, query, header
-	Required bool
-	Schema   Schema
+	Name     string `json:"name"`
+	In       string `json:"in"` // path, query, header
+	Required bool   `json:"required"`
+	Schema   Schema `json:"schema"`
 }
 
 // RequestBody represents request body schema
 type RequestBody struct {
-	Required bool
-	Content  map[string]MediaType
+	Required bool                 `json:"required"`
+	Content  map[string]MediaType `json:"content"`
 }
 
 // MediaType represents a media type with schema
 type MediaType struct {
-	Schema  Schema
-	Example interface{}
+	Schema  Schema      `json:"schema"`
+	Example interface{} `json:"example,omitempty"`
 }
 
 // Response represents an endpoint response
 type Response struct {
-	Description string
-	Content     map[string]MediaType
+	Description string               `json:"description"`
+	Content     map[string]MediaType `json:"content,omitempty"`
 }
 
 // Schema represents a JSON schema
 type Schema struct {
-	Type       string
-	Format     string
-	Required   []string
-	Properties map[string]Schema
-	Items      *Schema
-	Example    interface{}
-	Ref        string
+	Type       string            `json:"type,omitempty"`
+	Format     string            `json:"format,omitempty"`
+	Required   []string          `json:"required,omitempty"`
+	Properties map[string]Schema `json:"properties,omitempty"`
+	Items      *Schema           `json:"items,omitempty"`
+	Example    interface{}       `json:"example,omitempty"`
+	Ref        string            `json:"$ref,omitempty"`
 }

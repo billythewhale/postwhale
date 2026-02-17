@@ -1,6 +1,8 @@
 package discovery
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -77,5 +79,80 @@ func TestExtractEndpoints(t *testing.T) {
 
 	if createOrderEndpoint.Path != "/orders" {
 		t.Errorf("Expected path '/orders', got '%s'", createOrderEndpoint.Path)
+	}
+}
+
+func TestExtractEndpoints_ResolvesRequestBodySchemaRefs(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	openapiPath := filepath.Join(dir, "openapi.yml")
+	spec := `openapi: 3.0.0
+info:
+  title: Poets API
+  version: "1.0.0"
+paths:
+  /poems:
+    post:
+      operationId: createPoem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePoemRequest'
+      responses:
+        '200':
+          description: ok
+components:
+  schemas:
+    CreatePoemRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+        wordCount:
+          type: integer
+        published:
+          type: boolean
+`
+	if err := os.WriteFile(openapiPath, []byte(spec), 0o644); err != nil {
+		t.Fatalf("failed to write test openapi file: %v", err)
+	}
+
+	parsed, err := ParseOpenAPI(openapiPath)
+	if err != nil {
+		t.Fatalf("failed to parse openapi: %v", err)
+	}
+
+	endpoints := ExtractEndpoints(parsed)
+	if len(endpoints) != 1 {
+		t.Fatalf("expected 1 endpoint, got %d", len(endpoints))
+	}
+
+	body := endpoints[0].RequestBody
+	if body == nil {
+		t.Fatal("expected request body")
+	}
+
+	content, ok := body.Content["application/json"]
+	if !ok {
+		t.Fatal("expected application/json content")
+	}
+
+	if content.Schema.Type != "object" {
+		t.Fatalf("expected schema type object, got %q", content.Schema.Type)
+	}
+
+	if content.Schema.Properties["title"].Type != "string" {
+		t.Fatalf("expected title string schema, got %#v", content.Schema.Properties["title"])
+	}
+	if content.Schema.Properties["wordCount"].Type != "integer" {
+		t.Fatalf("expected wordCount integer schema, got %#v", content.Schema.Properties["wordCount"])
+	}
+	if content.Schema.Properties["published"].Type != "boolean" {
+		t.Fatalf("expected published boolean schema, got %#v", content.Schema.Properties["published"])
 	}
 }

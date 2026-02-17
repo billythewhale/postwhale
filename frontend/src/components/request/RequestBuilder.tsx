@@ -274,7 +274,7 @@ export function RequestBuilder({
                 </Tabs.Panel>
 
                 <Tabs.Panel value="body" pt="md">
-                  <BodyPanel body={config.body} onChange={(body) => updateConfig({ body })} />
+                  <BodyPanel endpoint={endpoint} body={config.body} onChange={(body) => updateConfig({ body })} />
                 </Tabs.Panel>
 
                 <Tabs.Panel value="auth" pt="md">

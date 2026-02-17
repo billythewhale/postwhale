@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -138,7 +139,7 @@ func ExtractEndpoints(spec *OpenAPISpec) []APIEndpoint {
 					Name:     param.Name,
 					In:       param.In,
 					Required: param.Required,
-					Schema:   convertSchema(param.Schema),
+					Schema:   convertSchema(param.Schema, spec.Components, map[string]bool{}),
 				})
 			}
 
@@ -150,7 +151,7 @@ func ExtractEndpoints(spec *OpenAPISpec) []APIEndpoint {
 				}
 				for contentType, mediaType := range operation.RequestBody.Content {
 					endpoint.RequestBody.Content[contentType] = MediaType{
-						Schema:  convertSchema(mediaType.Schema),
+						Schema:  convertSchema(mediaType.Schema, spec.Components, map[string]bool{}),
 						Example: mediaType.Example,
 					}
 				}
@@ -162,7 +163,7 @@ func ExtractEndpoints(spec *OpenAPISpec) []APIEndpoint {
 				convertedContent := make(map[string]MediaType)
 				for contentType, mediaType := range response.Content {
 					convertedContent[contentType] = MediaType{
-						Schema:  convertSchema(mediaType.Schema),
+						Schema:  convertSchema(mediaType.Schema, spec.Components, map[string]bool{}),
 						Example: mediaType.Example,
 					}
 				}
@@ -179,8 +180,40 @@ func ExtractEndpoints(spec *OpenAPISpec) []APIEndpoint {
 	return endpoints
 }
 
+func resolveSchemaRef(ref string, components Components) (*OASchema, bool) {
+	const prefix = "#/components/schemas/"
+	if !strings.HasPrefix(ref, prefix) {
+		return nil, false
+	}
+
+	name := strings.TrimPrefix(ref, prefix)
+	schema, ok := components.Schemas[name]
+	if !ok {
+		return nil, false
+	}
+
+	return &schema, true
+}
+
 // convertSchema converts OASchema to Schema
-func convertSchema(oas OASchema) Schema {
+func convertSchema(oas OASchema, components Components, resolving map[string]bool) Schema {
+	if oas.Ref != "" {
+		if resolving[oas.Ref] {
+			return Schema{Type: "object", Ref: oas.Ref}
+		}
+
+		if resolved, ok := resolveSchemaRef(oas.Ref, components); ok {
+			resolving[oas.Ref] = true
+			converted := convertSchema(*resolved, components, resolving)
+			delete(resolving, oas.Ref)
+
+			if converted.Ref == "" {
+				converted.Ref = oas.Ref
+			}
+			return converted
+		}
+	}
+
 	schema := Schema{
 		Type:     oas.Type,
 		Format:   oas.Format,
@@ -192,12 +225,12 @@ func convertSchema(oas OASchema) Schema {
 	if oas.Properties != nil {
 		schema.Properties = make(map[string]Schema)
 		for key, prop := range oas.Properties {
-			schema.Properties[key] = convertSchema(prop)
+			schema.Properties[key] = convertSchema(prop, components, resolving)
 		}
 	}
 
 	if oas.Items != nil {
-		items := convertSchema(*oas.Items)
+		items := convertSchema(*oas.Items, components, resolving)
 		schema.Items = &items
 	}
 

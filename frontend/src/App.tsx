@@ -186,7 +186,19 @@ function AppContent() {
 
   const handleUndoConfig = useCallback((configId: string) => {
     const config = requestConfigs.get(configId)
-    if (!config?._originalSnapshot) return
+    if (!config) return
+
+    if (configId.startsWith('temp_')) {
+      const endpoint = endpoints.find((e) => e.id === config.endpointId)
+      if (!endpoint) return
+
+      const restoredConfig = createAnonymousConfig(endpoint)
+      requestConfigs.set(configId, restoredConfig)
+      saveConfigToStorage(restoredConfig)
+      return
+    }
+
+    if (!config._originalSnapshot) return
 
     const restoredConfig: EditableRequestConfig = {
       ...config,
@@ -194,7 +206,7 @@ function AppContent() {
     }
     requestConfigs.set(configId, restoredConfig)
     saveConfigToStorage(restoredConfig)
-  }, [requestConfigs])
+  }, [requestConfigs, endpoints])
 
   const handleSaveAsNew = useCallback(async (name: string) => {
     if (!activeConfig || !activeEndpoint) return

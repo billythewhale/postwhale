@@ -260,7 +260,7 @@ export function RequestPanel({
             </Text>
           )}
 
-          <Box style={{ flex: 1, overflow: 'auto' }}>
+          <Box style={{ flex: 1, minHeight: 0, overflow: activeNav === 'body' ? 'hidden' : 'auto' }}>
             {activeNav === 'params' && (
               <PathParamsPanel
                 paramNames={pathParamNames}
@@ -285,7 +285,7 @@ export function RequestPanel({
               />
             )}
             {activeNav === 'body' && (
-              <BodyPanel body={config.body} onChange={(body) => updateConfig({ body })} />
+              <BodyPanel endpoint={endpoint} body={config.body} onChange={(body) => updateConfig({ body })} />
             )}
             {activeNav === 'auth' && (
               <RequestAuthTab
