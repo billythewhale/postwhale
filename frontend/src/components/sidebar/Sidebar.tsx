@@ -277,7 +277,18 @@ export function Sidebar({
       })
     }
 
-    setManualExpandedEndpointGroups((prev) => (userHasInteracted ? prev : new Set(autoExpandedEndpointGroups)))
+    setManualExpandedEndpointGroups((prev) => {
+      const base = userHasInteracted ? prev : autoExpandedEndpointGroups
+      const next = new Set(base)
+
+      if (!isCurrentlyExpanded) {
+        endpoints
+          .filter((e) => e.serviceId === serviceId)
+          .forEach((endpoint) => next.delete(getEndpointGroupId(endpoint.serviceId, endpoint.endpointGroupName)))
+      }
+
+      return next
+    })
     setUserHasInteracted(true)
   }
 
