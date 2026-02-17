@@ -116,7 +116,7 @@ export function ResponsePanel({ requestResponse }: ResponsePanelProps) {
 
   return (
     <Flex style={{ height: '100%', overflow: 'hidden' }}>
-      <ResponseNavRail activeNav={activeNav} onNavChange={setActiveNav} showRawTab={showRawTab} />
+      <ResponseNavRail activeNav={activeNav} onNavChange={setActiveNav} showRawTab={showRawTab} showErrorTab={showErrorTab} />
       <Flex direction="column" style={{ flex: 1, overflow: 'hidden' }} p="md">
         <Group justify="space-between" align="center" mb="md">
           <Group gap="md">
