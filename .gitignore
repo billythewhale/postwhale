@@ -5,6 +5,7 @@ frontend/node_modules/
 # Build outputs
 frontend/dist/
 backend/postwhale
+backend/postwhale-backend
 backend/postwhale.exe
 electron/dist/
 electron/out/
