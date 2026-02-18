@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "Usage: ./release v<major>.<minor>.<patch>" >&2
+  exit 1
+}
+
+if [[ $# -ne 1 ]]; then
+  usage
+fi
+
+version="$1"
+if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  usage
+fi
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$repo_root"
+
+notes_file="docs/releases/${version//./_}.md"
+
+for cmd in git gh npm; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "Missing required command: $cmd" >&2
+    exit 1
+  fi
+done
+
+if [[ ! -f "$notes_file" ]]; then
+  echo "Missing release notes file: $notes_file" >&2
+  exit 1
+fi
+
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "Working tree is dirty. Commit or stash changes first." >&2
+  exit 1
+fi
+
+if git rev-parse "$version" >/dev/null 2>&1; then
+  echo "Tag already exists locally: $version" >&2
+  exit 1
+fi
+
+if git ls-remote --exit-code --tags origin "refs/tags/$version" >/dev/null 2>&1; then
+  echo "Tag already exists on origin: $version" >&2
+  exit 1
+fi
+
+if gh release view "$version" >/dev/null 2>&1; then
+  echo "GitHub release already exists: $version" >&2
+  exit 1
+fi
+
+git tag -a "$version" -F "$notes_file"
+git push origin "$version"
+
+rm -rf electron/out/make/zip/darwin/arm64 electron/out/make/zip/darwin/x64
+
+npm run build:backend:universal
+npm run build:frontend
+npm run make:arm64
+npm run make:x64
+
+arm64_zip_dir="electron/out/make/zip/darwin/arm64"
+x64_zip_dir="electron/out/make/zip/darwin/x64"
+
+arm64_zip="$(find "$arm64_zip_dir" -maxdepth 1 -type f -name '*.zip' 2>/dev/null | sort | tail -n 1 || true)"
+x64_zip="$(find "$x64_zip_dir" -maxdepth 1 -type f -name '*.zip' 2>/dev/null | sort | tail -n 1 || true)"
+
+if [[ -z "$arm64_zip" ]]; then
+  echo "No arm64 zip found in $arm64_zip_dir" >&2
+  exit 1
+fi
+
+if [[ -z "$x64_zip" ]]; then
+  echo "No x64 zip found in $x64_zip_dir" >&2
+  exit 1
+fi
+
+asset_dir="$(mktemp -d "/tmp/postwhale-release-${version}-XXXXXX")"
+cleanup() {
+  rm -rf "$asset_dir"
+}
+trap cleanup EXIT
+
+arm64_asset="$asset_dir/PostWhale-darwin-arm64.zip"
+x64_asset="$asset_dir/PostWhale-darwin-x64.zip"
+
+cp "$arm64_zip" "$arm64_asset"
+cp "$x64_zip" "$x64_asset"
+
+gh release create "$version" --title "$version" --notes-file "$notes_file"
+gh release upload "$version" "$arm64_asset" "$x64_asset"
