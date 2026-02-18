@@ -194,3 +194,20 @@ export interface ImportResult {
   skipped: number
   errors: string[]
 }
+
+export interface ReleaseCheckResult {
+  currentVersion: string
+  latestVersion: string
+  hasUpdate: boolean
+  releaseName: string
+  body: string
+  publishedAt: string | null
+  htmlUrl: string | null
+  assetName: string | null
+  downloadUrl: string | null
+}
+
+export interface ReleaseDownloadResult {
+  filePath: string
+  fileName: string
+}

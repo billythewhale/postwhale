@@ -1,6 +1,8 @@
-const { app, BrowserWindow, ipcMain, session } = require('electron');
+const { app, BrowserWindow, ipcMain, session, shell } = require('electron');
 const { spawn } = require('child_process');
 const fs = require('fs');
+const https = require('https');
+const os = require('os');
 const path = require('path');
 const readline = require('readline');
 
@@ -14,6 +16,12 @@ let backendRestartInProgress = false;
 let backendRestartQueued = false;
 
 const BACKEND_RESTART_DEBOUNCE_MS = 250;
+const RELEASES_API_URL = 'https://api.github.com/repos/billythewhale/postwhale/releases/latest';
+const RELEASE_REQUEST_HEADERS = {
+  Accept: 'application/vnd.github+json',
+  'User-Agent': 'PostWhale'
+};
+const MAX_HTTP_REDIRECTS = 5;
 const isDev = process.env.NODE_ENV === 'development';
 const backendDir = path.join(__dirname, '../backend');
 
@@ -37,6 +45,322 @@ function shouldReloadBackendFile(filename) {
   }
   const normalized = filename.replace(/\\/g, '/');
   return normalized.endsWith('.go') || normalized.endsWith('/go.mod') || normalized.endsWith('/go.sum') || normalized === 'go.mod' || normalized === 'go.sum';
+}
+
+function normalizeVersion(version) {
+  if (typeof version !== 'string') {
+    return '';
+  }
+  return version.trim().replace(/^v/i, '');
+}
+
+function parseVersion(version) {
+  const normalized = normalizeVersion(version);
+  if (!normalized) {
+    return null;
+  }
+  const core = normalized.split('-')[0];
+  const parts = core.split('.').map((part) => Number.parseInt(part, 10));
+  if (parts.length === 0 || parts.some((part) => Number.isNaN(part))) {
+    return null;
+  }
+  return parts;
+}
+
+function isVersionNewer(latestVersion, currentVersion) {
+  const latest = parseVersion(latestVersion);
+  const current = parseVersion(currentVersion);
+
+  if (!latest || !current) {
+    return normalizeVersion(latestVersion) !== normalizeVersion(currentVersion);
+  }
+
+  const maxLength = Math.max(latest.length, current.length);
+  for (let i = 0; i < maxLength; i += 1) {
+    const latestPart = latest[i] || 0;
+    const currentPart = current[i] || 0;
+    if (latestPart > currentPart) {
+      return true;
+    }
+    if (latestPart < currentPart) {
+      return false;
+    }
+  }
+  return false;
+}
+
+function selectReleaseAsset(assets) {
+  const validAssets = Array.isArray(assets) ? assets.filter((asset) => asset && typeof asset.name === 'string' && typeof asset.browser_download_url === 'string') : [];
+  if (validAssets.length === 0) {
+    return null;
+  }
+
+  const preferredPatterns = [];
+  if (process.platform === 'darwin' && process.arch === 'arm64') {
+    preferredPatterns.push(/darwin-arm64.*\.zip$/i, /arm64.*\.zip$/i);
+  } else if (process.platform === 'darwin' && process.arch === 'x64') {
+    preferredPatterns.push(/darwin-x64.*\.zip$/i, /x64.*\.zip$/i);
+  }
+
+  preferredPatterns.push(/\.zip$/i, /darwin.*\.dmg$/i, /\.dmg$/i);
+
+  for (const pattern of preferredPatterns) {
+    const match = validAssets.find((asset) => pattern.test(asset.name));
+    if (match) {
+      return match;
+    }
+  }
+
+  return validAssets[0];
+}
+
+function resolveDownloadPath(downloadsDir, fileName) {
+  const safeFileName = path.basename(fileName);
+  const extension = path.extname(safeFileName);
+  const baseName = extension ? safeFileName.slice(0, -extension.length) : safeFileName;
+
+  let attempt = 0;
+  let candidatePath = path.join(downloadsDir, safeFileName);
+  while (fs.existsSync(candidatePath)) {
+    attempt += 1;
+    candidatePath = path.join(downloadsDir, `${baseName}-${attempt}${extension}`);
+  }
+
+  return candidatePath;
+}
+
+function parseDownloadUrl(urlString) {
+  try {
+    return new URL(urlString);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function isTrustedDownloadHost(hostname) {
+  return hostname === 'github.com' || hostname === 'objects.githubusercontent.com' || hostname === 'github-releases.githubusercontent.com';
+}
+
+function requestJson(urlString, redirectCount = 0) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(urlString, { headers: RELEASE_REQUEST_HEADERS }, (response) => {
+      const statusCode = response.statusCode || 0;
+
+      if (statusCode >= 300 && statusCode < 400 && response.headers.location) {
+        if (redirectCount >= MAX_HTTP_REDIRECTS) {
+          response.resume();
+          reject(new Error('Too many redirects while checking for updates'));
+          return;
+        }
+        const redirectUrl = new URL(response.headers.location, urlString).toString();
+        response.resume();
+        requestJson(redirectUrl, redirectCount + 1).then(resolve).catch(reject);
+        return;
+      }
+
+      if (statusCode !== 200) {
+        const chunks = [];
+        response.on('data', (chunk) => chunks.push(chunk));
+        response.on('end', () => {
+          const message = Buffer.concat(chunks).toString('utf8');
+          reject(new Error(`Release lookup failed (${statusCode}): ${message || 'Unknown response'}`));
+        });
+        return;
+      }
+
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => {
+        body += chunk;
+      });
+      response.on('end', () => {
+        try {
+          resolve(JSON.parse(body));
+        } catch (_error) {
+          reject(new Error('Invalid release metadata received'));
+        }
+      });
+    });
+
+    request.on('error', (error) => {
+      reject(error);
+    });
+
+    request.setTimeout(10000, () => {
+      request.destroy(new Error('Release lookup timed out'));
+    });
+  });
+}
+
+function downloadToFile(urlString, destinationPath, redirectCount = 0) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(urlString, { headers: RELEASE_REQUEST_HEADERS }, (response) => {
+      const statusCode = response.statusCode || 0;
+
+      if (statusCode >= 300 && statusCode < 400 && response.headers.location) {
+        if (redirectCount >= MAX_HTTP_REDIRECTS) {
+          response.resume();
+          reject(new Error('Too many redirects while downloading update'));
+          return;
+        }
+        const redirectUrl = new URL(response.headers.location, urlString).toString();
+        response.resume();
+        downloadToFile(redirectUrl, destinationPath, redirectCount + 1).then(resolve).catch(reject);
+        return;
+      }
+
+      if (statusCode !== 200) {
+        const chunks = [];
+        response.on('data', (chunk) => chunks.push(chunk));
+        response.on('end', () => {
+          const message = Buffer.concat(chunks).toString('utf8');
+          reject(new Error(`Update download failed (${statusCode}): ${message || 'Unknown response'}`));
+        });
+        return;
+      }
+
+      const file = fs.createWriteStream(destinationPath);
+      let settled = false;
+
+      const finishWithError = (error) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        file.destroy();
+        fs.unlink(destinationPath, () => {
+          reject(error);
+        });
+      };
+
+      file.on('finish', () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        file.close(() => {
+          resolve(destinationPath);
+        });
+      });
+
+      file.on('error', finishWithError);
+      response.on('error', finishWithError);
+      response.pipe(file);
+    });
+
+    request.on('error', (error) => {
+      fs.unlink(destinationPath, () => {
+        reject(error);
+      });
+    });
+
+    request.setTimeout(30000, () => {
+      request.destroy(new Error('Update download timed out'));
+    });
+  });
+}
+
+async function fetchLatestRelease() {
+  const release = await requestJson(RELEASES_API_URL);
+  if (!release || typeof release !== 'object') {
+    throw new Error('Release metadata is unavailable');
+  }
+  return release;
+}
+
+function createReleasePayload(release) {
+  const currentVersion = normalizeVersion(app.getVersion());
+  const latestVersion = normalizeVersion(release.tag_name || release.name || currentVersion);
+  const selectedAsset = selectReleaseAsset(release.assets);
+
+  return {
+    currentVersion,
+    latestVersion,
+    hasUpdate: isVersionNewer(latestVersion, currentVersion),
+    releaseName: release.name || release.tag_name || latestVersion,
+    body: typeof release.body === 'string' ? release.body : '',
+    publishedAt: typeof release.published_at === 'string' ? release.published_at : null,
+    htmlUrl: typeof release.html_url === 'string' ? release.html_url : null,
+    assetName: selectedAsset ? selectedAsset.name : null,
+    downloadUrl: selectedAsset ? selectedAsset.browser_download_url : null
+  };
+}
+
+async function handleCheckForUpdates() {
+  try {
+    const release = await fetchLatestRelease();
+    return {
+      success: true,
+      data: createReleasePayload(release)
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to check for updates'
+    };
+  }
+}
+
+async function handleDownloadLatestRelease(data = {}) {
+  try {
+    const payload = data && typeof data === 'object' ? data : {};
+    let downloadUrl = typeof payload.downloadUrl === 'string' ? payload.downloadUrl : '';
+    let assetName = typeof payload.assetName === 'string' ? payload.assetName : '';
+
+    if (!downloadUrl || !assetName) {
+      const release = await fetchLatestRelease();
+      const payload = createReleasePayload(release);
+      downloadUrl = payload.downloadUrl || '';
+      assetName = payload.assetName || '';
+    }
+
+    if (!downloadUrl || !assetName) {
+      return {
+        success: false,
+        error: 'No compatible release asset was found'
+      };
+    }
+
+    const parsedUrl = parseDownloadUrl(downloadUrl);
+    if (!parsedUrl || !isTrustedDownloadHost(parsedUrl.hostname)) {
+      return {
+        success: false,
+        error: 'Download URL is not allowed'
+      };
+    }
+
+    const downloadsDir = app.getPath('downloads') || os.homedir();
+    const destinationPath = resolveDownloadPath(downloadsDir, assetName);
+    await downloadToFile(downloadUrl, destinationPath);
+
+    return {
+      success: true,
+      data: {
+        filePath: destinationPath,
+        fileName: path.basename(destinationPath)
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to download update'
+    };
+  }
+}
+
+function handleRevealDownloadedFile(data = {}) {
+  if (!data || typeof data.filePath !== 'string' || data.filePath.trim() === '') {
+    return {
+      success: false,
+      error: 'Missing file path'
+    };
+  }
+
+  shell.showItemInFolder(data.filePath);
+  return {
+    success: true,
+    data: true
+  };
 }
 
 function stopBackend(done) {
@@ -293,6 +617,18 @@ function startBackend() {
 
 // Handle IPC requests from renderer
 ipcMain.handle('ipc-request', async (event, action, data) => {
+  if (action === 'checkForUpdates') {
+    return handleCheckForUpdates();
+  }
+
+  if (action === 'downloadLatestRelease') {
+    return handleDownloadLatestRelease(data);
+  }
+
+  if (action === 'revealDownloadedFile') {
+    return handleRevealDownloadedFile(data);
+  }
+
   return new Promise((resolve, reject) => {
     // Generate unique request ID
     const requestId = Date.now() + Math.random();

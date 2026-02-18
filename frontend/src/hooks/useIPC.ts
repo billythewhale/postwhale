@@ -73,6 +73,31 @@ export function useIPC() {
       } as unknown as T;
     }
 
+    if (action === 'checkForUpdates') {
+      return {
+        currentVersion: '0.0.0-dev',
+        latestVersion: '0.0.0-dev',
+        hasUpdate: false,
+        releaseName: 'Development Build',
+        body: '',
+        publishedAt: null,
+        htmlUrl: null,
+        assetName: null,
+        downloadUrl: null
+      } as unknown as T;
+    }
+
+    if (action === 'downloadLatestRelease') {
+      return {
+        filePath: '/tmp/PostWhale-update.zip',
+        fileName: 'PostWhale-update.zip'
+      } as unknown as T;
+    }
+
+    if (action === 'revealDownloadedFile') {
+      return true as T;
+    }
+
     // Default: return empty object for other actions
     return {} as T;
   }, []);

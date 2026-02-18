@@ -2,6 +2,7 @@ import { Paper, Group, Title, ActionIcon, Tabs, useMantineColorScheme } from '@m
 import { IconX } from '@tabler/icons-react'
 import { GlobalHeadersTab } from './GlobalHeadersTab'
 import { AuthenticationTab } from './AuthenticationTab'
+import { UpdatesTab } from './UpdatesTab'
 
 interface GlobalSettingsPanelProps {
   onClose: () => void
@@ -37,6 +38,7 @@ export function GlobalSettingsPanel({ onClose }: GlobalSettingsPanelProps) {
         <Tabs.List>
           <Tabs.Tab value="headers">Global Headers</Tabs.Tab>
           <Tabs.Tab value="auth">Authentication</Tabs.Tab>
+          <Tabs.Tab value="updates">Updates</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="headers" pt="md" style={{ flex: 1 }}>
@@ -45,6 +47,10 @@ export function GlobalSettingsPanel({ onClose }: GlobalSettingsPanelProps) {
 
         <Tabs.Panel value="auth" pt="md" style={{ flex: 1 }}>
           <AuthenticationTab />
+        </Tabs.Panel>
+
+        <Tabs.Panel value="updates" pt="md" style={{ flex: 1 }}>
+          <UpdatesTab />
         </Tabs.Panel>
       </Tabs>
     </Paper>
