@@ -47,11 +47,10 @@ export function ResponsePanel({ requestResponse }: ResponsePanelProps) {
       }
     }
 
-    const shouldAutoSwitch = !requestResponse.isLoading && requestResponse.response && !hasAutoSwitchedRef.current
-
-    if (shouldAutoSwitch) {
+    const response = requestResponse.response
+    if (!requestResponse.isLoading && response && !hasAutoSwitchedRef.current) {
       hasAutoSwitchedRef.current = true
-      if (requestResponse.response.error) {
+      if (response.error) {
         setActiveNav('error')
       } else {
         setActiveNav('response')
