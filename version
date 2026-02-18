@@ -140,3 +140,11 @@ elif command -v vim >/dev/null 2>&1; then
 else
   vi "$new_release_file"
 fi
+
+if [[ ! -f "$new_release_file" ]]; then
+  echo "Release notes file is missing: $new_release_file" >&2
+  exit 1
+fi
+
+git add "$new_release_file"
+git commit -m "docs: add ${new_version} release notes" -- "$new_release_file"
