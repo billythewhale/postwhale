@@ -1,6 +1,6 @@
 {
   "name": "postwhale",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "PostWhale - API Testing for Triple Whale",
   "main": "main.js",
   "scripts": {
