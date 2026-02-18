@@ -4,25 +4,26 @@ module.exports = {
   packagerConfig: {
     name: 'PostWhale',
     executableName: 'PostWhale',
+    icon: path.join(__dirname, 'assets', 'icon'),
     asar: true,
     extraResource: [
       path.join(__dirname, '../backend/postwhale'),
-      path.join(__dirname, '../frontend/dist')
+      path.join(__dirname, '../frontend/dist'),
     ],
     appBundleId: 'com.triplewhale.postwhale',
-    appCategoryType: 'public.app-category.developer-tools'
+    appCategoryType: 'public.app-category.developer-tools',
   },
   makers: [
     {
       name: '@electron-forge/maker-zip',
-      platforms: ['darwin']
+      platforms: ['darwin'],
     },
     {
       name: '@electron-forge/maker-dmg',
       config: {
         name: 'PostWhale',
-        format: 'ULFO'
-      }
-    }
-  ]
+        format: 'ULFO',
+      },
+    },
+  ],
 };
