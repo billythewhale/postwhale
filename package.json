@@ -1,6 +1,6 @@
 {
   "name": "postwhale-workspace",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "scripts": {
     "dev:frontend": "cd frontend && npm run dev",
