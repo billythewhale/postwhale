@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, Badge, Button, Code, Group, Stack, Text } from '@mantine/core'
-import { IconAlertCircle, IconCheck, IconDownload, IconFolder, IconRefresh } from '@tabler/icons-react'
+import { IconAlertCircle, IconCheck, IconDownload, IconRefresh } from '@tabler/icons-react'
 import { useIPC } from '@/hooks/useIPC'
 import type { ReleaseCheckResult, ReleaseDownloadResult } from '@/types'
 
@@ -9,12 +9,15 @@ export function UpdatesTab() {
   const [releaseInfo, setReleaseInfo] = useState<ReleaseCheckResult | null>(null)
   const [downloadResult, setDownloadResult] = useState<ReleaseDownloadResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [installMessage, setInstallMessage] = useState<string | null>(null)
   const [isChecking, setIsChecking] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [isInstalling, setIsInstalling] = useState(false)
 
   const checkForUpdates = useCallback(async () => {
     setIsChecking(true)
     setError(null)
+    setInstallMessage(null)
     setDownloadResult(null)
 
     try {
@@ -36,6 +39,7 @@ export function UpdatesTab() {
 
     setIsDownloading(true)
     setError(null)
+    setInstallMessage(null)
 
     try {
       const result = await invoke<ReleaseDownloadResult>('downloadLatestRelease', {
@@ -50,13 +54,20 @@ export function UpdatesTab() {
     }
   }, [invoke, releaseInfo])
 
-  const handleRevealInFinder = useCallback(async () => {
+  const handleInstall = useCallback(async () => {
     if (!downloadResult?.filePath) return
 
+    setIsInstalling(true)
+    setError(null)
+    setInstallMessage(null)
+
     try {
-      await invoke('revealDownloadedFile', { filePath: downloadResult.filePath })
+      await invoke('installLatestRelease', { filePath: downloadResult.filePath })
+      setInstallMessage('Update installed. Restart PostWhale to use the new version.')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to show downloaded file')
+      setError(err instanceof Error ? err.message : 'Failed to install update')
+    } finally {
+      setIsInstalling(false)
     }
   }, [invoke, downloadResult])
 
@@ -116,10 +127,12 @@ export function UpdatesTab() {
                 <Button
                   variant="default"
                   size="sm"
-                  onClick={handleRevealInFinder}
-                  leftSection={<IconFolder size={16} />}
+                  onClick={handleInstall}
+                  loading={isInstalling}
+                  disabled={isDownloading}
+                  leftSection={<IconCheck size={16} />}
                 >
-                  Show in Finder
+                  Install
                 </Button>
               )}
             </Group>
@@ -128,6 +141,12 @@ export function UpdatesTab() {
               <Text size="xs" c="dimmed">
                 Downloaded to <Code>{downloadResult.filePath}</Code>
               </Text>
+            )}
+
+            {installMessage && (
+              <Alert color="green" icon={<IconCheck size={16} />}>
+                {installMessage}
+              </Alert>
             )}
           </Stack>
         ) : (

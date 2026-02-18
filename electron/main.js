@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, session, shell } = require('electron');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const https = require('https');
@@ -363,6 +363,162 @@ function handleRevealDownloadedFile(data = {}) {
   };
 }
 
+function runCommand(command, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, options);
+    let stdout = '';
+    let stderr = '';
+
+    if (child.stdout) {
+      child.stdout.on('data', (chunk) => {
+        stdout += chunk.toString();
+      });
+    }
+
+    if (child.stderr) {
+      child.stderr.on('data', (chunk) => {
+        stderr += chunk.toString();
+      });
+    }
+
+    child.on('error', (error) => {
+      reject(error);
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve({ stdout, stderr });
+        return;
+      }
+      const details = (stderr || stdout || '').trim();
+      reject(new Error(details || `Command failed: ${command}`));
+    });
+  });
+}
+
+function findAppBundle(rootDir, appName) {
+  const queue = [rootDir];
+
+  while (queue.length > 0) {
+    const currentDir = queue.shift();
+    if (!currentDir) {
+      continue;
+    }
+
+    let entries = [];
+    try {
+      entries = fs.readdirSync(currentDir, { withFileTypes: true });
+    } catch (_error) {
+      continue;
+    }
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+
+      const entryPath = path.join(currentDir, entry.name);
+      if (entry.name === appName) {
+        return entryPath;
+      }
+
+      queue.push(entryPath);
+    }
+  }
+
+  return null;
+}
+
+async function handleInstallLatestRelease(data = {}) {
+  try {
+    if (process.platform !== 'darwin') {
+      return {
+        success: false,
+        error: 'Automatic install is only supported on macOS'
+      };
+    }
+
+    const payload = data && typeof data === 'object' ? data : {};
+    const filePath = typeof payload.filePath === 'string' ? payload.filePath.trim() : '';
+    if (!filePath) {
+      return {
+        success: false,
+        error: 'Missing downloaded file path'
+      };
+    }
+
+    const zipPath = path.resolve(filePath);
+    if (!fs.existsSync(zipPath)) {
+      return {
+        success: false,
+        error: `Downloaded file not found: ${zipPath}`
+      };
+    }
+
+    const extractDir = fs.mkdtempSync(path.join(os.tmpdir(), 'postwhale-install-'));
+    const targetAppPath = '/Applications/PostWhale.app';
+
+    try {
+      await runCommand('/usr/bin/unzip', ['-o', zipPath, '-d', extractDir]);
+
+      const extractedAppPath = findAppBundle(extractDir, 'PostWhale.app');
+      if (!extractedAppPath) {
+        return {
+          success: false,
+          error: 'Update archive does not contain PostWhale.app'
+        };
+      }
+
+      await fs.promises.rm(targetAppPath, { recursive: true, force: true });
+      await fs.promises.cp(extractedAppPath, targetAppPath, { recursive: true });
+
+      try {
+        await runCommand('/usr/bin/xattr', ['-dr', 'com.apple.quarantine', targetAppPath]);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        if (!message.includes('No such xattr')) {
+          throw error;
+        }
+      }
+    } finally {
+      await fs.promises.rm(extractDir, { recursive: true, force: true });
+    }
+
+    const result = await dialog.showMessageBox({
+      type: 'info',
+      buttons: ['Restart Now', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Update Installed',
+      message: 'PostWhale update installed.',
+      detail: 'Restart PostWhale to use the new version.'
+    });
+
+    if (result.response === 0) {
+      app.relaunch();
+      app.exit(0);
+      return {
+        success: true,
+        data: {
+          restartRequested: true
+        }
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        restartRequested: false
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to install update'
+    };
+  }
+}
+
 function stopBackend(done) {
   if (!backendProcess) {
     done();
@@ -627,6 +783,10 @@ ipcMain.handle('ipc-request', async (event, action, data) => {
 
   if (action === 'revealDownloadedFile') {
     return handleRevealDownloadedFile(data);
+  }
+
+  if (action === 'installLatestRelease') {
+    return handleInstallLatestRelease(data);
   }
 
   return new Promise((resolve, reject) => {
