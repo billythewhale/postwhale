@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "Usage: ./version [--major|--minor|--patch]" >&2
+  exit 1
+}
+
+if [[ $# -gt 1 ]]; then
+  usage
+fi
+
+bump="patch"
+if [[ $# -eq 1 ]]; then
+  case "$1" in
+    --major) bump="major" ;;
+    --minor) bump="minor" ;;
+    --patch) bump="patch" ;;
+    *) usage ;;
+  esac
+fi
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$repo_root"
+
+mkdir -p docs/releases
+
+latest_release_basename="$(
+  find docs/releases -maxdepth 1 -type f -name 'v*_*.md' -exec basename {} \; \
+    | grep -E '^v[0-9]+_[0-9]+_[0-9]+\.md$' \
+    | sed 's/\.md$//' \
+    | sort -V \
+    | tail -n 1 \
+    || true
+)"
+
+if [[ -n "$latest_release_basename" ]]; then
+  latest_version="${latest_release_basename//_/.}"
+  if [[ ! "$latest_version" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+    echo "Invalid latest release file name: ${latest_release_basename}.md" >&2
+    exit 1
+  fi
+  major="${BASH_REMATCH[1]}"
+  minor="${BASH_REMATCH[2]}"
+  patch="${BASH_REMATCH[3]}"
+else
+  latest_version=""
+  major=0
+  minor=0
+  patch=0
+fi
+
+case "$bump" in
+  major)
+    major=$((major + 1))
+    minor=0
+    patch=0
+    ;;
+  minor)
+    minor=$((minor + 1))
+    patch=0
+    ;;
+  patch)
+    patch=$((patch + 1))
+    ;;
+esac
+
+new_version="v${major}.${minor}.${patch}"
+new_release_basename="${new_version//./_}"
+new_release_file="docs/releases/${new_release_basename}.md"
+
+if [[ -f "$new_release_file" ]]; then
+  echo "Release notes already exist: $new_release_file" >&2
+  exit 1
+fi
+
+printf '# %s\n\n' "$new_version" > "$new_release_file"
+
+if ! command -v codex >/dev/null 2>&1; then
+  echo "codex command not found. Created $new_release_file with header only." >&2
+else
+  if [[ -n "$latest_version" ]] && git rev-parse "$latest_version" >/dev/null 2>&1; then
+    commit_range="${latest_version}..HEAD"
+    commits="$(git log --no-merges --pretty=format:'- %s (%h)' "$commit_range" || true)"
+    files_changed="$(git diff --name-only "$commit_range" || true)"
+  else
+    commits="$(git log --no-merges -n 100 --pretty=format:'- %s (%h)' || true)"
+    files_changed="$(git ls-files || true)"
+  fi
+
+  if [[ -z "$commits" ]]; then
+    commits="- No commits found in range."
+  fi
+
+  if [[ -z "$files_changed" ]]; then
+    files_changed="- No file changes found."
+  fi
+
+  codex_prompt="$(cat <<EOF
+Generate release notes for $new_version of PostWhale.
+
+Output requirements:
+- Output only markdown bullet points
+- 4 to 8 bullets
+- No title, no intro, no outro, no code fences
+- Focus on end-user visible changes
+
+Context:
+- Previous release: ${latest_version:-none}
+- Commit summaries:
+$commits
+
+- Changed files:
+$files_changed
+EOF
+)"
+
+  codex_output_file="$(mktemp /tmp/postwhale-release-notes-XXXXXX)"
+  if codex exec -C "$repo_root" -o "$codex_output_file" "$codex_prompt"; then
+    codex_output="$(cat "$codex_output_file")"
+    if [[ -n "$codex_output" ]]; then
+      printf '%s\n' "$codex_output" >> "$new_release_file"
+    fi
+  else
+    echo "codex exec failed. Created $new_release_file with header only." >&2
+  fi
+  rm -f "$codex_output_file"
+fi
+
+if [[ -n "${VISUAL:-}" ]]; then
+  "$VISUAL" "$new_release_file"
+elif [[ -n "${EDITOR:-}" ]]; then
+  "$EDITOR" "$new_release_file"
+elif command -v code >/dev/null 2>&1; then
+  code -w "$new_release_file"
+elif command -v nvim >/dev/null 2>&1; then
+  nvim "$new_release_file"
+elif command -v vim >/dev/null 2>&1; then
+  vim "$new_release_file"
+else
+  vi "$new_release_file"
+fi

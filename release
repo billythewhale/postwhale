@@ -2,23 +2,35 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: ./release v<major>.<minor>.<patch>" >&2
+  echo "Usage: ./release" >&2
   exit 1
 }
 
-if [[ $# -ne 1 ]]; then
-  usage
-fi
-
-version="$1"
-if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+if [[ $# -ne 0 ]]; then
   usage
 fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_root"
 
-notes_file="docs/releases/${version//./_}.md"
+latest_release_basename="$(
+  find docs/releases -maxdepth 1 -type f -name 'v*_*.md' -exec basename {} \; \
+    | grep -E '^v[0-9]+_[0-9]+_[0-9]+\.md$' \
+    | sed 's/\.md$//' \
+    | sort -V \
+    | tail -n 1 \
+    || true
+)"
+
+if [[ -z "$latest_release_basename" ]]; then
+  echo "No release notes files found in docs/releases (expected v<major>_<minor>_<patch>.md)" >&2
+  exit 1
+fi
+
+version="${latest_release_basename//_/.}"
+plain_version="${version#v}"
+
+notes_file="docs/releases/${latest_release_basename}.md"
 
 for cmd in git gh npm; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -53,6 +65,23 @@ npm run build:backend:universal
 npm run build:frontend
 npm run make:arm64
 npm run make:x64
+
+npm version "$plain_version" --no-git-tag-version --allow-same-version >/dev/null
+(cd frontend && npm version "$plain_version" --no-git-tag-version --allow-same-version >/dev/null)
+(cd electron && npm version "$plain_version" --no-git-tag-version --allow-same-version >/dev/null)
+
+version_files=(
+  package.json
+  package-lock.json
+  frontend/package.json
+  frontend/package-lock.json
+  electron/package.json
+  electron/package-lock.json
+)
+
+git add "${version_files[@]}"
+git commit -m "chore: bump versions to $version"
+git push
 
 arm64_zip_dir="electron/out/make/zip/darwin/arm64"
 x64_zip_dir="electron/out/make/zip/darwin/x64"
