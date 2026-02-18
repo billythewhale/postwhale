@@ -81,11 +81,17 @@ if ! command -v codex >/dev/null 2>&1; then
 else
   if [[ -n "$latest_version" ]] && git rev-parse "$latest_version" >/dev/null 2>&1; then
     commit_range="${latest_version}..HEAD"
-    commits="$(git log --no-merges --pretty=format:'- %s (%h)' "$commit_range" || true)"
-    files_changed="$(git diff --name-only "$commit_range" || true)"
+    commits="$(git log --no-merges --pretty=format:'- %s (%h)' "$commit_range" | head -n 40 || true)"
+    files_changed="$(git diff --name-only "$commit_range" | head -n 60 || true)"
   else
-    commits="$(git log --no-merges -n 100 --pretty=format:'- %s (%h)' || true)"
-    files_changed="$(git ls-files || true)"
+    commits="$(git log --no-merges -n 40 --pretty=format:'- %s (%h)' || true)"
+    files_changed="$(
+      git log --no-merges -n 40 --name-only --pretty=format: \
+        | sed '/^$/d' \
+        | sort -u \
+        | head -n 60 \
+        || true
+    )"
   fi
 
   if [[ -z "$commits" ]]; then
@@ -101,9 +107,10 @@ Generate release notes for $new_version of PostWhale.
 
 Output requirements:
 - Output only markdown bullet points
-- 4 to 8 bullets
+- 4 to 6 bullets
 - No title, no intro, no outro, no code fences
 - Focus on end-user visible changes
+- Move fast and draft quickly; do not overthink
 
 Context:
 - Previous release: ${latest_version:-none}

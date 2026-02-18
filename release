@@ -32,6 +32,8 @@ plain_version="${version#v}"
 
 notes_file="docs/releases/${latest_release_basename}.md"
 
+echo "Creating release ${version}"
+
 for cmd in git gh npm; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "Missing required command: $cmd" >&2
