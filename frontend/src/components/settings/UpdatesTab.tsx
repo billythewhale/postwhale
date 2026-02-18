@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, Badge, Button, Code, Group, Stack, Text } from '@mantine/core'
-import { IconAlertCircle, IconCheck, IconDownload, IconRefresh } from '@tabler/icons-react'
+import { IconAlertCircle, IconCheck, IconDownload, IconExternalLink, IconRefresh } from '@tabler/icons-react'
 import { useIPC } from '@/hooks/useIPC'
 import type { ReleaseCheckResult, ReleaseDownloadResult } from '@/types'
 
@@ -71,6 +71,16 @@ export function UpdatesTab() {
     }
   }, [invoke, downloadResult])
 
+  const handleViewOnGitHub = useCallback(async () => {
+    if (!releaseInfo?.htmlUrl) return
+
+    try {
+      await invoke('openExternalUrl', { url: releaseInfo.htmlUrl })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to open release page')
+    }
+  }, [invoke, releaseInfo])
+
   return (
     <Stack gap="md">
       <Group justify="space-between" align="center">
@@ -112,6 +122,15 @@ export function UpdatesTab() {
               </Text>
             )}
 
+            {releaseInfo.body && (
+              <Stack gap={4}>
+                <Text size="sm" fw={500}>Release notes</Text>
+                <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-wrap' }}>
+                  {releaseInfo.body}
+                </Text>
+              </Stack>
+            )}
+
             <Group gap="xs">
               <Button
                 size="sm"
@@ -133,6 +152,17 @@ export function UpdatesTab() {
                   leftSection={<IconCheck size={16} />}
                 >
                   Install
+                </Button>
+              )}
+
+              {releaseInfo.htmlUrl && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleViewOnGitHub}
+                  leftSection={<IconExternalLink size={16} />}
+                >
+                  View on GitHub
                 </Button>
               )}
             </Group>

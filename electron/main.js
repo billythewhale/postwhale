@@ -363,6 +363,40 @@ function handleRevealDownloadedFile(data = {}) {
   };
 }
 
+function handleOpenExternalUrl(data = {}) {
+  const payload = data && typeof data === 'object' ? data : {};
+  const rawUrl = typeof payload.url === 'string' ? payload.url.trim() : '';
+  if (!rawUrl) {
+    return {
+      success: false,
+      error: 'Missing URL'
+    };
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(rawUrl);
+  } catch (_error) {
+    return {
+      success: false,
+      error: 'Invalid URL'
+    };
+  }
+
+  if (parsedUrl.protocol !== 'https:') {
+    return {
+      success: false,
+      error: 'Only HTTPS URLs are allowed'
+    };
+  }
+
+  shell.openExternal(parsedUrl.toString());
+  return {
+    success: true,
+    data: true
+  };
+}
+
 function runCommand(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, options);
@@ -783,6 +817,10 @@ ipcMain.handle('ipc-request', async (event, action, data) => {
 
   if (action === 'revealDownloadedFile') {
     return handleRevealDownloadedFile(data);
+  }
+
+  if (action === 'openExternalUrl') {
+    return handleOpenExternalUrl(data);
   }
 
   if (action === 'installLatestRelease') {

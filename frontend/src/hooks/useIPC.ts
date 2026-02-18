@@ -98,6 +98,10 @@ export function useIPC() {
       return true as T;
     }
 
+    if (action === 'openExternalUrl') {
+      return true as T;
+    }
+
     // Default: return empty object for other actions
     return {} as T;
   }, []);
