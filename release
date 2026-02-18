@@ -37,11 +37,6 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   exit 1
 fi
 
-if git rev-parse "$version" >/dev/null 2>&1; then
-  echo "Tag already exists locally: $version" >&2
-  exit 1
-fi
-
 if git ls-remote --exit-code --tags origin "refs/tags/$version" >/dev/null 2>&1; then
   echo "Tag already exists on origin: $version" >&2
   exit 1
@@ -50,6 +45,10 @@ fi
 if gh release view "$version" >/dev/null 2>&1; then
   echo "GitHub release already exists: $version" >&2
   exit 1
+fi
+
+if git rev-parse "$version" >/dev/null 2>&1; then
+  git tag -d "$version" >/dev/null
 fi
 
 git tag -a "$version" -F "$notes_file"
