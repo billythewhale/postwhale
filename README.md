@@ -14,16 +14,16 @@ PostWhale is a native macOS API client for Triple Whale services. It auto-discov
 
 1. Open [GitHub Releases](https://github.com/billythewhale/postwhale/releases).
 2. Pick the tag/version you want (example: `v1.2.0`).
-3. If that release has app assets, download one:
+3. Download from the release **Assets** section (not `Source code (zip)`):
    - Apple Silicon (M1/M2/M3/M4): `PostWhale-darwin-arm64.zip`
    - Intel Mac: `PostWhale-darwin-x64.zip`
-4. If that release only has source-code ZIPs, build locally:
+4. Unzip the file into your ~/Downloads folder (only temporary)
+5. Install and run:
    ```bash
-   npm install
-   npm run build
+   mv ~/Downloads/PostWhale.app /Applications/
+   xattr -dr com.apple.quarantine /Applications/PostWhale.app
+   open /Applications/PostWhale.app
    ```
-5. Move `PostWhale.app` to `/Applications` (from the downloaded ZIP or `electron/out/...` after building).
-6. First launch only: right-click `PostWhale.app` → **Open** → **Open**.
 
 ## Quick start
 
