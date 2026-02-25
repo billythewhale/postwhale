@@ -6,6 +6,7 @@ import { MainContentArea } from '@/components/layout/MainContentArea'
 import { StatusBar } from '@/components/layout/StatusBar'
 import { AddRepositoryDialog } from '@/components/sidebar/AddRepositoryDialog'
 import { AutoAddReposDialog } from '@/components/sidebar/AutoAddReposDialog'
+import { CreateEndpointDialog } from '@/components/sidebar/CreateEndpointDialog'
 import { FavoritesProvider } from '@/contexts/FavoritesContext'
 import { GlobalHeadersProvider } from '@/contexts/GlobalHeadersContext'
 import { ShopProvider } from '@/contexts/ShopContext'
@@ -89,6 +90,11 @@ function AppContent() {
   const [error, setError] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showAutoAddDialog, setShowAutoAddDialog] = useState(false)
+  const [createEndpointDialog, setCreateEndpointDialog] = useState<{
+    open: boolean
+    serviceId: number
+    endpointGroupName: string
+  } | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | undefined>(undefined)
   const [statusBarVisible, setStatusBarVisible] = useState(() => {
@@ -563,6 +569,28 @@ function AppContent() {
     return results
   }
 
+  const handleOpenCreateEndpointDialog = useCallback((serviceId: number, endpointGroupName: string) => {
+    setCreateEndpointDialog({ open: true, serviceId, endpointGroupName })
+  }, [])
+
+  const handleCreateEndpoint = useCallback(async (serviceId: number, endpointGroupName: string, method: string, path: string) => {
+    await invoke('createCustomEndpoint', { serviceId, method, path, endpointGroupName })
+    await loadData(false)
+  }, [invoke])
+
+  const handleUpdateEndpoint = useCallback(async (id: number, method: string, path: string) => {
+    await invoke('updateEndpoint', { id, method, path })
+    await loadData(false)
+  }, [invoke])
+
+  const handleDeleteEndpoint = useCallback(async (id: number) => {
+    if (activeNode && activeNode.endpointId === id) {
+      setActiveNode(null)
+    }
+    await invoke('deleteEndpoint', { id })
+    await loadData(false)
+  }, [activeNode, invoke])
+
   return (
     <Flex style={{ height: '100vh' }} direction="column">
       <Header environment={environment} onEnvironmentChange={setEnvironment} onSettingsClick={() => setSettingsOpen(true)} />
@@ -606,6 +634,9 @@ function AppContent() {
               onImportSavedRequests={handleImportSavedRequests}
               onExportRepoSavedRequests={handleExportRepoSavedRequests}
               onImportRepoSavedRequests={handleImportRepoSavedRequests}
+              onOpenCreateEndpointDialog={handleOpenCreateEndpointDialog}
+              onUpdateEndpoint={handleUpdateEndpoint}
+              onDeleteEndpoint={handleDeleteEndpoint}
             />
 
             {settingsOpen ? (
@@ -629,6 +660,7 @@ function AppContent() {
                 onLoadingStart={handleLoadingStart}
                 onSend={handleSend}
                 onCancel={handleCancel}
+                onUpdateEndpoint={handleUpdateEndpoint}
               />
             )}
           </>
@@ -651,6 +683,18 @@ function AppContent() {
         onAddRepositories={handleAddRepositories}
         existingPaths={new Set(repositories.map((r) => r.path))}
       />
+      {createEndpointDialog && (
+        <CreateEndpointDialog
+          open={createEndpointDialog.open}
+          onOpenChange={(open) => {
+            if (!open) setCreateEndpointDialog(null)
+          }}
+          onCreateEndpoint={(method, path) =>
+            handleCreateEndpoint(createEndpointDialog.serviceId, createEndpointDialog.endpointGroupName, method, path)
+          }
+          endpointGroupName={createEndpointDialog.endpointGroupName}
+        />
+      )}
     </Flex>
   )
 }

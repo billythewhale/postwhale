@@ -101,6 +101,12 @@ func (h *Handler) HandleRequest(request IPCRequest) IPCResponse {
 		response = h.handleExportRepoSavedRequests(request.Data)
 	case "importRepoSavedRequests":
 		response = h.handleImportRepoSavedRequests(request.Data)
+	case "createCustomEndpoint":
+		response = h.handleCreateCustomEndpoint(request.Data)
+	case "updateEndpoint":
+		response = h.handleUpdateEndpoint(request.Data)
+	case "deleteEndpoint":
+		response = h.handleDeleteEndpoint(request.Data)
 	case "runShellCommand":
 		response = h.handleRunShellCommand(request.Data)
 	default:
@@ -150,6 +156,7 @@ func endpointToResponseMap(ep db.Endpoint) map[string]interface{} {
 		"path":                  ep.Path,
 		"endpointGroupName":     ep.EndpointGroupName,
 		"endpointGroupFilePath": ep.EndpointGroupFilePath,
+		"isCustom":              ep.IsCustom,
 	}
 
 	if spec := parseEndpointSpec(ep.SpecJSON); spec != nil {
@@ -787,8 +794,11 @@ func (h *Handler) handleRefreshRepository(data json.RawMessage) IPCResponse {
 			}
 		}
 
-		// Remove endpoints that no longer exist for this service
+		// Remove endpoints that no longer exist for this service (preserve custom endpoints)
 		for _, existingEp := range existingEndpoints {
+			if existingEp.IsCustom {
+				continue
+			}
 			key := existingEp.EndpointGroupName + ":" + existingEp.Method + ":" + existingEp.Path
 			if !scannedEndpoints[key] {
 				_, _ = h.database.Exec("DELETE FROM endpoints WHERE id = ?", existingEp.ID)
@@ -1158,6 +1168,101 @@ func (h *Handler) handleImportRepoSavedRequests(data json.RawMessage) IPCRespons
 		Data: map[string]interface{}{
 			"results": imported,
 		},
+	}
+}
+
+func (h *Handler) handleCreateCustomEndpoint(data json.RawMessage) IPCResponse {
+	var input struct {
+		ServiceID         int64  `json:"serviceId"`
+		Method            string `json:"method"`
+		Path              string `json:"path"`
+		EndpointGroupName string `json:"endpointGroupName"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	if input.EndpointGroupName == "" {
+		input.EndpointGroupName = "public"
+	}
+
+	id, err := db.AddEndpoint(h.database, db.Endpoint{
+		ServiceID:         input.ServiceID,
+		Method:            input.Method,
+		Path:              input.Path,
+		OperationID:       "",
+		SpecJSON:          "{}",
+		EndpointGroupName: input.EndpointGroupName,
+		IsCustom:          true,
+	})
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to create endpoint: %v", err),
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"id": id,
+		},
+	}
+}
+
+func (h *Handler) handleUpdateEndpoint(data json.RawMessage) IPCResponse {
+	var input struct {
+		ID     int64  `json:"id"`
+		Method string `json:"method"`
+		Path   string `json:"path"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	if err := db.UpdateEndpoint(h.database, input.ID, input.Method, input.Path); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to update endpoint: %v", err),
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data:    map[string]interface{}{"updated": true},
+	}
+}
+
+func (h *Handler) handleDeleteEndpoint(data json.RawMessage) IPCResponse {
+	var input struct {
+		ID int64 `json:"id"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	if err := db.DeleteEndpoint(h.database, input.ID); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to delete endpoint: %v", err),
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data:    map[string]interface{}{"deleted": true},
 	}
 }
 

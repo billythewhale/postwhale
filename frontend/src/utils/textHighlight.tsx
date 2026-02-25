@@ -7,20 +7,16 @@ interface HighlightMatchProps {
   fw?: number
   c?: string
   style?: React.CSSProperties
+  onDoubleClick?: (e: React.MouseEvent) => void
 }
 
-/**
- * Highlights matching portions of text with case-insensitive search
- * Returns Text component with Mark for highlighted portions
- */
-export function HighlightMatch({ text, query, size, fw, c, style }: HighlightMatchProps) {
+export function HighlightMatch({ text, query, size, fw, c, style, onDoubleClick }: HighlightMatchProps) {
   const { colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
 
-  // No query or empty query - return text as-is
   if (!query || !query.trim()) {
     return (
-      <Text size={size} fw={fw} c={c} style={style}>
+      <Text size={size} fw={fw} c={c} style={style} onDoubleClick={onDoubleClick}>
         {text}
       </Text>
     )
@@ -30,26 +26,22 @@ export function HighlightMatch({ text, query, size, fw, c, style }: HighlightMat
   const textLower = text.toLowerCase()
   const index = textLower.indexOf(queryLower)
 
-  // No match found - return text as-is
   if (index === -1) {
     return (
-      <Text size={size} fw={fw} c={c} style={style}>
+      <Text size={size} fw={fw} c={c} style={style} onDoubleClick={onDoubleClick}>
         {text}
       </Text>
     )
   }
 
-  // Split text into before, match, and after
   const before = text.slice(0, index)
   const match = text.slice(index, index + query.length)
   const after = text.slice(index + query.length)
 
   return (
-    <Text size={size} fw={fw} c={c} style={style}>
+    <Text size={size} fw={fw} c={c} style={style} onDoubleClick={onDoubleClick}>
       {before}
-      <Mark
-        color={isDark ? "yellow" : "blue"}
-      >
+      <Mark color={isDark ? "yellow" : "blue"}>
         {match}
       </Mark>
       {after}

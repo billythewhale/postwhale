@@ -33,6 +33,9 @@ interface SidebarProps {
   onImportSavedRequests: (serviceId: number) => void
   onExportRepoSavedRequests: (repoId: number) => void
   onImportRepoSavedRequests: (repoId: number) => void
+  onOpenCreateEndpointDialog: (serviceId: number, endpointGroupName: string) => void
+  onUpdateEndpoint: (id: number, method: string, path: string) => void
+  onDeleteEndpoint: (id: number) => void
 }
 
 const getEndpointGroupId = (serviceId: number, groupName?: string) => `${serviceId}:${groupName || 'public'}`
@@ -60,6 +63,9 @@ export function Sidebar({
   onImportSavedRequests,
   onExportRepoSavedRequests,
   onImportRepoSavedRequests,
+  onOpenCreateEndpointDialog,
+  onUpdateEndpoint,
+  onDeleteEndpoint,
 }: SidebarProps) {
   const { colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
@@ -192,6 +198,9 @@ export function Sidebar({
                   onImportSavedRequests={onImportSavedRequests}
                   onExportRepoSavedRequests={onExportRepoSavedRequests}
                   onImportRepoSavedRequests={onImportRepoSavedRequests}
+                  onOpenCreateEndpointDialog={onOpenCreateEndpointDialog}
+                  onUpdateEndpoint={onUpdateEndpoint}
+                  onDeleteEndpoint={onDeleteEndpoint}
                 />
               )
             })}

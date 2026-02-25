@@ -1,6 +1,6 @@
 import { useState, type MouseEvent } from 'react'
 import { Box, Flex, Group, Text, Stack } from '@mantine/core'
-import { IconChevronRight, IconChevronDown, IconDownload, IconUpload } from '@tabler/icons-react'
+import { IconChevronRight, IconChevronDown, IconDownload, IconUpload, IconPlus } from '@tabler/icons-react'
 import type { Service, Endpoint, SavedRequest } from '@/types'
 import { HighlightMatch } from '@/utils/textHighlight'
 import { FavoriteToggle } from './FavoriteToggle'
@@ -38,6 +38,9 @@ interface ServiceNodeProps {
   onDeleteSavedRequest: (id: number) => void
   onExportSavedRequests: (serviceId: number) => void
   onImportSavedRequests: (serviceId: number) => void
+  onOpenCreateEndpointDialog: (serviceId: number, endpointGroupName: string) => void
+  onUpdateEndpoint: (id: number, method: string, path: string) => void
+  onDeleteEndpoint: (id: number) => void
 }
 
 export function ServiceNode({
@@ -71,6 +74,9 @@ export function ServiceNode({
   onDeleteSavedRequest,
   onExportSavedRequests,
   onImportSavedRequests,
+  onOpenCreateEndpointDialog,
+  onUpdateEndpoint,
+  onDeleteEndpoint,
 }: ServiceNodeProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null)
@@ -78,11 +84,22 @@ export function ServiceNode({
     opened: false,
     position: { x: 0, y: 0 },
   })
+  const [groupContextMenu, setGroupContextMenu] = useState<{
+    opened: boolean
+    position: { x: number; y: number }
+    groupName: string
+  }>({ opened: false, position: { x: 0, y: 0 }, groupName: '' })
 
   const handleContextMenu = (e: MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setContextMenu({ opened: true, position: { x: e.clientX, y: e.clientY } })
+  }
+
+  const handleGroupContextMenu = (e: MouseEvent, groupName: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setGroupContextMenu({ opened: true, position: { x: e.clientX, y: e.clientY }, groupName })
   }
 
   const groupedEndpoints = endpoints.reduce<Record<string, Endpoint[]>>((acc, endpoint) => {
@@ -137,6 +154,8 @@ export function ServiceNode({
         onCreateNewRequest={() => onCreateNewRequest(endpoint.id)}
         onCloneSavedRequest={onCloneSavedRequest}
         onDeleteSavedRequest={onDeleteSavedRequest}
+        onUpdateEndpoint={onUpdateEndpoint}
+        onDeleteEndpoint={onDeleteEndpoint}
       />
     )
   }
@@ -193,6 +212,15 @@ export function ServiceNode({
           onClose={() => setContextMenu((prev) => ({ ...prev, opened: false }))}
         >
           <ContextMenuItem
+            leftSection={<IconPlus size={14} />}
+            onClick={() => {
+              setContextMenu((prev) => ({ ...prev, opened: false }))
+              onOpenCreateEndpointDialog(service.id, 'internal')
+            }}
+          >
+            New Endpoint
+          </ContextMenuItem>
+          <ContextMenuItem
             leftSection={<IconUpload size={14} />}
             onClick={() => {
               setContextMenu((prev) => ({ ...prev, opened: false }))
@@ -209,6 +237,24 @@ export function ServiceNode({
             }}
           >
             Import Saved Requests
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
+
+      {groupContextMenu.opened && (
+        <ContextMenu
+          position={groupContextMenu.position}
+          onClose={() => setGroupContextMenu((prev) => ({ ...prev, opened: false }))}
+        >
+          <ContextMenuItem
+            leftSection={<IconPlus size={14} />}
+            onClick={() => {
+              const groupName = groupContextMenu.groupName
+              setGroupContextMenu((prev) => ({ ...prev, opened: false }))
+              onOpenCreateEndpointDialog(service.id, groupName)
+            }}
+          >
+            New Endpoint
           </ContextMenuItem>
         </ContextMenu>
       )}
@@ -247,6 +293,7 @@ export function ServiceNode({
 
                     <Box
                       onClick={() => onToggleEndpointGroup(group.id)}
+                      onContextMenu={(e: MouseEvent) => handleGroupContextMenu(e, group.name)}
                       className="sidebar-nav-item"
                       style={(theme) => ({
                         flex: 1,

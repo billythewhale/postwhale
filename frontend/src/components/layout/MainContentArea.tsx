@@ -31,6 +31,7 @@ interface MainContentAreaProps {
     authEnabled: boolean
   }) => void
   onCancel: () => void
+  onUpdateEndpoint?: (id: number, method: string, path: string) => void
 }
 
 export function MainContentArea({
@@ -51,6 +52,7 @@ export function MainContentArea({
   onLoadingStart,
   onSend,
   onCancel,
+  onUpdateEndpoint,
 }: MainContentAreaProps) {
   const { colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
@@ -76,6 +78,7 @@ export function MainContentArea({
             onCancel={onCancel}
             isLoading={isLoading}
             isSaving={isSaving}
+            onUpdateEndpoint={onUpdateEndpoint}
           />
         </Panel>
 

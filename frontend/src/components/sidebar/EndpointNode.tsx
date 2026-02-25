@@ -1,6 +1,6 @@
-import { useState, type MouseEvent } from 'react'
-import { Box, Flex, Group, Badge, Stack } from '@mantine/core'
-import { IconPlus, IconChevronRight, IconChevronDown } from '@tabler/icons-react'
+import { useState, useRef, useEffect, type MouseEvent } from 'react'
+import { Box, Flex, Group, Badge, Stack, Menu, TextInput } from '@mantine/core'
+import { IconPlus, IconChevronRight, IconChevronDown, IconTrash } from '@tabler/icons-react'
 import type { Endpoint, SavedRequest } from '@/types'
 import { getMethodColor } from '@/utils/http'
 import { HighlightMatch } from '@/utils/textHighlight'
@@ -8,6 +8,7 @@ import { FavoriteToggle } from './FavoriteToggle'
 import { DirtyIndicator } from './DirtyIndicator'
 import { SavedRequestNode } from './SavedRequestNode'
 import { ContextMenu, ContextMenuItem } from './ContextMenu'
+import { DeleteConfirmModal } from '@/components/request/DeleteConfirmModal'
 
 interface EndpointNodeProps {
   endpoint: Endpoint
@@ -30,6 +31,8 @@ interface EndpointNodeProps {
   onCreateNewRequest: () => void
   onCloneSavedRequest: (id: number) => void
   onDeleteSavedRequest: (id: number) => void
+  onUpdateEndpoint?: (id: number, method: string, path: string) => void
+  onDeleteEndpoint?: (id: number) => void
 }
 
 export function EndpointNode({
@@ -53,15 +56,44 @@ export function EndpointNode({
   onCreateNewRequest,
   onCloneSavedRequest,
   onDeleteSavedRequest,
+  onUpdateEndpoint,
+  onDeleteEndpoint,
 }: EndpointNodeProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ opened: boolean; position: { x: number; y: number } }>({
     opened: false,
     position: { x: 0, y: 0 },
   })
+  const [isEditingPath, setIsEditingPath] = useState(false)
+  const [editingPath, setEditingPath] = useState(endpoint.path)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const pathInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isEditingPath && pathInputRef.current) {
+      pathInputRef.current.focus()
+      pathInputRef.current.select()
+    }
+  }, [isEditingPath])
 
   const tempConfigId = `temp_${endpoint.id}`
   const isTempDirty = dirtyConfigIds.has(tempConfigId)
+  const isCustom = endpoint.isCustom === true
+
+  const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
+
+  const handlePathEditCommit = () => {
+    const trimmed = editingPath.trim()
+    if (trimmed && trimmed !== endpoint.path && onUpdateEndpoint) {
+      onUpdateEndpoint(endpoint.id, endpoint.method, trimmed)
+    }
+    setIsEditingPath(false)
+  }
+
+  const handlePathEditCancel = () => {
+    setEditingPath(endpoint.path)
+    setIsEditingPath(false)
+  }
 
   const handleContextMenu = (e: MouseEvent) => {
     e.preventDefault()
@@ -143,20 +175,69 @@ export function EndpointNode({
             fontWeight: isSelected ? 500 : 400,
           })}
         >
-          <Badge color={getMethodColor(endpoint.method)} size="xs" variant="filled">
-            {endpoint.method}
-          </Badge>
-          <HighlightMatch
-            text={endpoint.path}
-            query={searchQuery}
-            size="sm"
-            style={{
-              flex: 1,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          />
+          {isCustom ? (
+            <Menu position="bottom-start" withinPortal>
+              <Menu.Target>
+                <Badge
+                  color={getMethodColor(endpoint.method)}
+                  size="xs"
+                  variant="filled"
+                  style={{ cursor: 'pointer' }}
+                  onClick={(e: MouseEvent) => e.stopPropagation()}
+                >
+                  {endpoint.method}
+                </Badge>
+              </Menu.Target>
+              <Menu.Dropdown>
+                {HTTP_METHODS.map((m) => (
+                  <Menu.Item
+                    key={m}
+                    onClick={() => onUpdateEndpoint?.(endpoint.id, m, endpoint.path)}
+                  >
+                    <Badge color={getMethodColor(m)} size="xs" variant="filled">{m}</Badge>
+                  </Menu.Item>
+                ))}
+              </Menu.Dropdown>
+            </Menu>
+          ) : (
+            <Badge color={getMethodColor(endpoint.method)} size="xs" variant="filled">
+              {endpoint.method}
+            </Badge>
+          )}
+          {isCustom && isEditingPath ? (
+            <TextInput
+              ref={pathInputRef}
+              size="xs"
+              value={editingPath}
+              onChange={(e) => setEditingPath(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handlePathEditCommit()
+                if (e.key === 'Escape') handlePathEditCancel()
+              }}
+              onBlur={handlePathEditCommit}
+              onClick={(e: MouseEvent) => e.stopPropagation()}
+              style={{ flex: 1 }}
+              styles={{ input: { fontSize: 'var(--mantine-font-size-sm)', padding: '0 4px', height: 24 } }}
+            />
+          ) : (
+            <HighlightMatch
+              text={endpoint.path}
+              query={searchQuery}
+              size="sm"
+              onDoubleClick={isCustom ? (e: MouseEvent) => {
+                e.stopPropagation()
+                setEditingPath(endpoint.path)
+                setIsEditingPath(true)
+              } : undefined}
+              style={{
+                flex: 1,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                cursor: isCustom ? 'text' : undefined,
+              }}
+            />
+          )}
         </Box>
         <DirtyIndicator
           isDirty={isTempDirty}
@@ -174,8 +255,27 @@ export function EndpointNode({
           <ContextMenuItem leftSection={<IconPlus size={14} />} onClick={handleNewRequest}>
             New Request
           </ContextMenuItem>
+          {isCustom && (
+            <ContextMenuItem
+              leftSection={<IconTrash size={14} />}
+              color="red"
+              onClick={() => {
+                setContextMenu((prev) => ({ ...prev, opened: false }))
+                setShowDeleteConfirm(true)
+              }}
+            >
+              Delete Endpoint
+            </ContextMenuItem>
+          )}
         </ContextMenu>
       )}
+
+      <DeleteConfirmModal
+        opened={showDeleteConfirm}
+        itemName={`${endpoint.method} ${endpoint.path}`}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => onDeleteEndpoint?.(endpoint.id)}
+      />
 
       {isExpanded && savedRequests.length > 0 && (
         <Box ml={48} mt={2}>

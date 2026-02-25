@@ -47,6 +47,9 @@ interface RepositoryNodeProps {
   onImportSavedRequests: (serviceId: number) => void
   onExportRepoSavedRequests: (repoId: number) => void
   onImportRepoSavedRequests: (repoId: number) => void
+  onOpenCreateEndpointDialog: (serviceId: number, endpointGroupName: string) => void
+  onUpdateEndpoint: (id: number, method: string, path: string) => void
+  onDeleteEndpoint: (id: number) => void
 }
 
 export function RepositoryNode({
@@ -88,6 +91,9 @@ export function RepositoryNode({
   onImportSavedRequests,
   onExportRepoSavedRequests,
   onImportRepoSavedRequests,
+  onOpenCreateEndpointDialog,
+  onUpdateEndpoint,
+  onDeleteEndpoint,
 }: RepositoryNodeProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false)
@@ -229,6 +235,9 @@ export function RepositoryNode({
                   onDeleteSavedRequest={onDeleteSavedRequest}
                   onExportSavedRequests={onExportSavedRequests}
                   onImportSavedRequests={onImportSavedRequests}
+                  onOpenCreateEndpointDialog={onOpenCreateEndpointDialog}
+                  onUpdateEndpoint={onUpdateEndpoint}
+                  onDeleteEndpoint={onDeleteEndpoint}
                 />
               )
             })}

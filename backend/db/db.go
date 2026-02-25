@@ -36,6 +36,7 @@ type Endpoint struct {
 	SpecJSON              string
 	EndpointGroupName     string
 	EndpointGroupFilePath string
+	IsCustom              bool
 }
 
 // Request represents a saved request in the database
@@ -115,6 +116,7 @@ func InitDB(dbPath string) (*sql.DB, error) {
 		spec_json TEXT NOT NULL,
 		endpoint_group_name TEXT NOT NULL DEFAULT 'public',
 		endpoint_group_file_path TEXT NOT NULL DEFAULT '',
+		is_custom INTEGER NOT NULL DEFAULT 0,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE,
 		UNIQUE(service_id, method, path, endpoint_group_name)
@@ -151,6 +153,11 @@ func InitDB(dbPath string) (*sql.DB, error) {
 	}
 
 	if err := migrateLegacyEndpointsSchema(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+
+	if err := migrateAddIsCustomColumn(db); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -260,6 +267,19 @@ func migrateLegacyEndpointsSchema(db *sql.DB) error {
 	}
 
 	return nil
+}
+
+func migrateAddIsCustomColumn(db *sql.DB) error {
+	hasColumn, err := tableHasColumn(db, "endpoints", "is_custom")
+	if err != nil {
+		return err
+	}
+	if hasColumn {
+		return nil
+	}
+
+	_, err = db.Exec("ALTER TABLE endpoints ADD COLUMN is_custom INTEGER NOT NULL DEFAULT 0")
+	return err
 }
 
 // AddRepository adds a new repository to the database
@@ -415,8 +435,13 @@ func AddEndpoint(db *sql.DB, endpoint Endpoint) (int64, error) {
 		return 0, fmt.Errorf("invalid HTTP method: %s", endpoint.Method)
 	}
 
+	isCustomInt := 0
+	if endpoint.IsCustom {
+		isCustomInt = 1
+	}
+
 	result, err := db.Exec(
-		"INSERT INTO endpoints (service_id, method, path, operation_id, spec_json, endpoint_group_name, endpoint_group_file_path) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO endpoints (service_id, method, path, operation_id, spec_json, endpoint_group_name, endpoint_group_file_path, is_custom) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
 		endpoint.ServiceID,
 		endpoint.Method,
 		endpoint.Path,
@@ -424,6 +449,7 @@ func AddEndpoint(db *sql.DB, endpoint Endpoint) (int64, error) {
 		endpoint.SpecJSON,
 		endpoint.EndpointGroupName,
 		endpoint.EndpointGroupFilePath,
+		isCustomInt,
 	)
 	if err != nil {
 		return 0, err
@@ -435,7 +461,7 @@ func AddEndpoint(db *sql.DB, endpoint Endpoint) (int64, error) {
 // GetEndpointsByService retrieves all endpoints for a service
 func GetEndpointsByService(db *sql.DB, serviceID int64) ([]Endpoint, error) {
 	rows, err := db.Query(
-		"SELECT id, service_id, method, path, operation_id, spec_json, endpoint_group_name, endpoint_group_file_path FROM endpoints WHERE service_id = ? ORDER BY endpoint_group_name, path, method",
+		"SELECT id, service_id, method, path, operation_id, spec_json, endpoint_group_name, endpoint_group_file_path, is_custom FROM endpoints WHERE service_id = ? ORDER BY endpoint_group_name, path, method",
 		serviceID,
 	)
 	if err != nil {
@@ -443,7 +469,6 @@ func GetEndpointsByService(db *sql.DB, serviceID int64) ([]Endpoint, error) {
 	}
 	defer rows.Close()
 
-	// Initialize as empty slice, not nil
 	endpoints := []Endpoint{}
 	for rows.Next() {
 		var ep Endpoint
@@ -456,13 +481,13 @@ func GetEndpointsByService(db *sql.DB, serviceID int64) ([]Endpoint, error) {
 			&ep.SpecJSON,
 			&ep.EndpointGroupName,
 			&ep.EndpointGroupFilePath,
+			&ep.IsCustom,
 		); err != nil {
 			return nil, err
 		}
 		endpoints = append(endpoints, ep)
 	}
 
-	// Check for errors during iteration
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -473,7 +498,7 @@ func GetEndpointsByService(db *sql.DB, serviceID int64) ([]Endpoint, error) {
 // GetAllEndpoints retrieves all endpoints from the database
 func GetAllEndpoints(db *sql.DB) ([]Endpoint, error) {
 	rows, err := db.Query(
-		"SELECT id, service_id, method, path, operation_id, spec_json, endpoint_group_name, endpoint_group_file_path FROM endpoints ORDER BY endpoint_group_name, path, method",
+		"SELECT id, service_id, method, path, operation_id, spec_json, endpoint_group_name, endpoint_group_file_path, is_custom FROM endpoints ORDER BY endpoint_group_name, path, method",
 	)
 	if err != nil {
 		return nil, err
@@ -492,6 +517,7 @@ func GetAllEndpoints(db *sql.DB) ([]Endpoint, error) {
 			&ep.SpecJSON,
 			&ep.EndpointGroupName,
 			&ep.EndpointGroupFilePath,
+			&ep.IsCustom,
 		); err != nil {
 			return nil, err
 		}
@@ -503,6 +529,59 @@ func GetAllEndpoints(db *sql.DB) ([]Endpoint, error) {
 	}
 
 	return endpoints, nil
+}
+
+// UpdateEndpoint updates method and path for a custom endpoint
+func UpdateEndpoint(db *sql.DB, id int64, method string, path string) error {
+	if id == 0 {
+		return fmt.Errorf("endpoint id cannot be empty")
+	}
+	if method == "" {
+		return fmt.Errorf("endpoint method cannot be empty")
+	}
+	if path == "" {
+		return fmt.Errorf("endpoint path cannot be empty")
+	}
+
+	result, err := db.Exec(
+		"UPDATE endpoints SET method = ?, path = ? WHERE id = ? AND is_custom = 1",
+		method, path, id,
+	)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("endpoint not found or not a custom endpoint")
+	}
+
+	return nil
+}
+
+// DeleteEndpoint deletes a custom endpoint
+func DeleteEndpoint(db *sql.DB, id int64) error {
+	if id == 0 {
+		return fmt.Errorf("endpoint id cannot be empty")
+	}
+
+	result, err := db.Exec("DELETE FROM endpoints WHERE id = ? AND is_custom = 1", id)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("endpoint not found or not a custom endpoint")
+	}
+
+	return nil
 }
 
 // AddRequest adds a new request to the database

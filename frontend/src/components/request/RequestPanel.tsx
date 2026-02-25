@@ -43,6 +43,7 @@ interface RequestPanelProps {
   onCancel: () => void
   isLoading: boolean
   isSaving: boolean
+  onUpdateEndpoint?: (id: number, method: string, path: string) => void
 }
 
 export function RequestPanel({
@@ -62,6 +63,7 @@ export function RequestPanel({
   onCancel,
   isLoading,
   isSaving,
+  onUpdateEndpoint,
 }: RequestPanelProps) {
   const { colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
@@ -77,7 +79,13 @@ export function RequestPanel({
   const [nameError, setNameError] = useState<string | null>(null)
   const [isHoveringName, setIsHoveringName] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [isEditingPath, setIsEditingPath] = useState(false)
+  const [editingPath, setEditingPath] = useState('')
+  const [isHoveringPath, setIsHoveringPath] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
+  const pathInputRef = useRef<HTMLInputElement>(null)
+
+  const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
 
   if (!endpoint || !config) {
     return (
@@ -114,12 +122,64 @@ export function RequestPanel({
                 <IconStar size={20} style={{ color: isDark ? '#888' : '#0C70F2' }} />
               )}
             </ActionIcon>
-            <Badge color={getMethodColor(endpoint.method)} size="lg" variant="filled">
-              {endpoint.method}
-            </Badge>
-            <Text size="lg" fw={600} style={{ fontFamily: 'monospace' }}>
-              {endpoint.path}
-            </Text>
+            {endpoint.isCustom && onUpdateEndpoint ? (
+              <Menu position="bottom-start" withinPortal>
+                <Menu.Target>
+                  <Badge color={getMethodColor(endpoint.method)} size="lg" variant="filled" style={{ cursor: 'pointer' }}>
+                    {endpoint.method}
+                  </Badge>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  {HTTP_METHODS.map((m) => (
+                    <Menu.Item key={m} onClick={() => onUpdateEndpoint(endpoint.id, m, endpoint.path)}>
+                      <Badge color={getMethodColor(m)} size="sm" variant="filled">{m}</Badge>
+                    </Menu.Item>
+                  ))}
+                </Menu.Dropdown>
+              </Menu>
+            ) : (
+              <Badge color={getMethodColor(endpoint.method)} size="lg" variant="filled">
+                {endpoint.method}
+              </Badge>
+            )}
+            {endpoint.isCustom && onUpdateEndpoint ? (
+              isEditingPath ? (
+                <TextInput
+                  ref={pathInputRef}
+                  value={editingPath}
+                  onChange={(e) => setEditingPath(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handlePathEditCommit()
+                    if (e.key === 'Escape') handlePathEditCancel()
+                  }}
+                  onBlur={handlePathEditCommit}
+                  autoFocus
+                  size="md"
+                  styles={{ input: { fontFamily: 'monospace', fontWeight: 600 } }}
+                />
+              ) : (
+                <Group
+                  gap={4}
+                  align="center"
+                  onMouseEnter={() => setIsHoveringPath(true)}
+                  onMouseLeave={() => setIsHoveringPath(false)}
+                  onClick={() => {
+                    setEditingPath(endpoint.path)
+                    setIsEditingPath(true)
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <Text size="lg" fw={600} style={{ fontFamily: 'monospace' }}>
+                    {endpoint.path}
+                  </Text>
+                  {isHoveringPath && <IconPencil size={16} style={{ opacity: 0.5 }} />}
+                </Group>
+              )
+            ) : (
+              <Text size="lg" fw={600} style={{ fontFamily: 'monospace' }}>
+                {endpoint.path}
+              </Text>
+            )}
 
             <Divider orientation="vertical" />
 
@@ -349,6 +409,19 @@ export function RequestPanel({
     setIsEditingName(false)
     setIsSaveAsNewMode(false)
     setNameError(null)
+  }
+
+  function handlePathEditCommit() {
+    const trimmed = editingPath.trim()
+    if (trimmed && trimmed !== endpoint!.path && onUpdateEndpoint) {
+      onUpdateEndpoint(endpoint!.id, endpoint!.method, trimmed)
+    }
+    setIsEditingPath(false)
+  }
+
+  function handlePathEditCancel() {
+    setEditingPath(endpoint!.path)
+    setIsEditingPath(false)
   }
 
   function handleFinishEditing() {

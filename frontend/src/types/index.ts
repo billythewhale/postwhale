@@ -22,7 +22,8 @@ export interface Endpoint {
   operationId: string;
   endpointGroupName?: string;
   endpointGroupFilePath?: string;
-  spec?: EndpointSpec; // Optional - backend may not include this field
+  isCustom?: boolean;
+  spec?: EndpointSpec;
 }
 
 export interface EndpointSpec {
