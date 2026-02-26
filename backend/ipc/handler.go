@@ -814,7 +814,8 @@ func (h *Handler) handleRefreshRepository(data json.RawMessage) IPCResponse {
 					ON CONFLICT(service_id, method, path, endpoint_group_name) DO UPDATE SET
 						operation_id = excluded.operation_id,
 						spec_json = excluded.spec_json,
-						endpoint_group_file_path = excluded.endpoint_group_file_path
+						endpoint_group_file_path = excluded.endpoint_group_file_path,
+						is_custom = 0
 				`, serviceID, endpoint.Method, endpoint.Path, endpoint.OperationID, serializeEndpointSpec(endpoint), group.Name, group.FilePath)
 				if err == nil {
 					endpointsAdded++
