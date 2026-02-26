@@ -515,7 +515,11 @@ async function handleInstallLatestRelease(data = {}) {
         }
       }
     } finally {
-      await fs.promises.rm(extractDir, { recursive: true, force: true });
+      try {
+        await fs.promises.rm(extractDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
+      } catch (_) {
+        // cleanup failure is non-fatal
+      }
     }
 
     const result = await dialog.showMessageBox({
