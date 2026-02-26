@@ -38,6 +38,8 @@ interface ServiceNodeProps {
   onDeleteSavedRequest: (id: number) => void
   onExportSavedRequests: (serviceId: number) => void
   onImportSavedRequests: (serviceId: number) => void
+  onExportCustomEndpoints: (serviceId: number) => void
+  onImportCustomEndpoints: (serviceId: number) => void
   onOpenCreateEndpointDialog: (serviceId: number, endpointGroupName: string) => void
   onUpdateEndpoint: (id: number, method: string, path: string) => void
   onDeleteEndpoint: (id: number) => void
@@ -74,6 +76,8 @@ export function ServiceNode({
   onDeleteSavedRequest,
   onExportSavedRequests,
   onImportSavedRequests,
+  onExportCustomEndpoints,
+  onImportCustomEndpoints,
   onOpenCreateEndpointDialog,
   onUpdateEndpoint,
   onDeleteEndpoint,
@@ -237,6 +241,24 @@ export function ServiceNode({
             }}
           >
             Import Saved Requests
+          </ContextMenuItem>
+          <ContextMenuItem
+            leftSection={<IconUpload size={14} />}
+            onClick={() => {
+              setContextMenu((prev) => ({ ...prev, opened: false }))
+              onExportCustomEndpoints(service.id)
+            }}
+          >
+            Export Custom Endpoints
+          </ContextMenuItem>
+          <ContextMenuItem
+            leftSection={<IconDownload size={14} />}
+            onClick={() => {
+              setContextMenu((prev) => ({ ...prev, opened: false }))
+              onImportCustomEndpoints(service.id)
+            }}
+          >
+            Import Custom Endpoints
           </ContextMenuItem>
         </ContextMenu>
       )}

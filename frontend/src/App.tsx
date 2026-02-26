@@ -551,6 +551,70 @@ function AppContent() {
     }
   }
 
+  const handleExportCustomEndpoints = async (serviceId: number) => {
+    setIsExporting(true)
+    try {
+      setError(null)
+      const result = await invoke<ExportResult>('exportCustomEndpoints', { serviceId })
+      if (result.count === 0) {
+        setError('No custom endpoints to export')
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to export custom endpoints'
+      setError(msg)
+      addError(msg)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleImportCustomEndpoints = async (serviceId: number) => {
+    setIsImporting(true)
+    try {
+      setError(null)
+      const result = await invoke<ImportResult>('importCustomEndpoints', { serviceId })
+      if (result.errors.length > 0) {
+        setError(`Import completed with warnings: ${result.errors.join(', ')}`)
+      }
+      await loadData(false)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to import custom endpoints'
+      setError(msg)
+      addError(msg)
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
+  const handleExportRepoCustomEndpoints = async (repoId: number) => {
+    setIsExporting(true)
+    try {
+      setError(null)
+      await invoke<{ results: ExportResult[] }>('exportRepoCustomEndpoints', { repoId })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to export repository custom endpoints'
+      setError(msg)
+      addError(msg)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleImportRepoCustomEndpoints = async (repoId: number) => {
+    setIsImporting(true)
+    try {
+      setError(null)
+      await invoke<{ results: Record<string, ImportResult> }>('importRepoCustomEndpoints', { repoId })
+      await loadData(false)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to import repository custom endpoints'
+      setError(msg)
+      addError(msg)
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
   const handleCheckPath = (path: string) => invoke<CheckPathResult>('checkPath', { path })
   const handleScanDirectory = (path: string) => invoke<ScanDirectoryResult>('scanDirectory', { path })
 
@@ -634,6 +698,10 @@ function AppContent() {
               onImportSavedRequests={handleImportSavedRequests}
               onExportRepoSavedRequests={handleExportRepoSavedRequests}
               onImportRepoSavedRequests={handleImportRepoSavedRequests}
+              onExportCustomEndpoints={handleExportCustomEndpoints}
+              onImportCustomEndpoints={handleImportCustomEndpoints}
+              onExportRepoCustomEndpoints={handleExportRepoCustomEndpoints}
+              onImportRepoCustomEndpoints={handleImportRepoCustomEndpoints}
               onOpenCreateEndpointDialog={handleOpenCreateEndpointDialog}
               onUpdateEndpoint={handleUpdateEndpoint}
               onDeleteEndpoint={handleDeleteEndpoint}

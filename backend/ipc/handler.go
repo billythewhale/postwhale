@@ -101,6 +101,14 @@ func (h *Handler) HandleRequest(request IPCRequest) IPCResponse {
 		response = h.handleExportRepoSavedRequests(request.Data)
 	case "importRepoSavedRequests":
 		response = h.handleImportRepoSavedRequests(request.Data)
+	case "exportCustomEndpoints":
+		response = h.handleExportCustomEndpoints(request.Data)
+	case "importCustomEndpoints":
+		response = h.handleImportCustomEndpoints(request.Data)
+	case "exportRepoCustomEndpoints":
+		response = h.handleExportRepoCustomEndpoints(request.Data)
+	case "importRepoCustomEndpoints":
+		response = h.handleImportRepoCustomEndpoints(request.Data)
 	case "createCustomEndpoint":
 		response = h.handleCreateCustomEndpoint(request.Data)
 	case "updateEndpoint":
@@ -1151,6 +1159,140 @@ func (h *Handler) handleImportRepoSavedRequests(data json.RawMessage) IPCRespons
 		return IPCResponse{
 			Success: false,
 			Error:   fmt.Sprintf("failed to import repo saved requests: %v", err),
+		}
+	}
+
+	imported := make(map[string]interface{})
+	for serviceID, r := range results {
+		imported[serviceID] = map[string]interface{}{
+			"added":    r.Added,
+			"replaced": r.Replaced,
+			"skipped":  r.Skipped,
+			"errors":   r.Errors,
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"results": imported,
+		},
+	}
+}
+
+func (h *Handler) handleExportCustomEndpoints(data json.RawMessage) IPCResponse {
+	var input struct {
+		ServiceID int64 `json:"serviceId"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	result, err := portability.ExportServiceCustomEndpoints(h.database, input.ServiceID)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to export custom endpoints: %v", err),
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"filePath": result.FilePath,
+			"count":    result.Count,
+		},
+	}
+}
+
+func (h *Handler) handleImportCustomEndpoints(data json.RawMessage) IPCResponse {
+	var input struct {
+		ServiceID int64 `json:"serviceId"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	result, err := portability.ImportServiceCustomEndpoints(h.database, input.ServiceID)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to import custom endpoints: %v", err),
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"added":    result.Added,
+			"replaced": result.Replaced,
+			"skipped":  result.Skipped,
+			"errors":   result.Errors,
+		},
+	}
+}
+
+func (h *Handler) handleExportRepoCustomEndpoints(data json.RawMessage) IPCResponse {
+	var input struct {
+		RepoID int64 `json:"repoId"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	results, err := portability.ExportRepoCustomEndpoints(h.database, input.RepoID)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to export repo custom endpoints: %v", err),
+		}
+	}
+
+	exported := make([]map[string]interface{}, len(results))
+	for i, r := range results {
+		exported[i] = map[string]interface{}{
+			"filePath": r.FilePath,
+			"count":    r.Count,
+		}
+	}
+
+	return IPCResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"results": exported,
+		},
+	}
+}
+
+func (h *Handler) handleImportRepoCustomEndpoints(data json.RawMessage) IPCResponse {
+	var input struct {
+		RepoID int64 `json:"repoId"`
+	}
+
+	if err := json.Unmarshal(data, &input); err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid request data: %v", err),
+		}
+	}
+
+	results, err := portability.ImportRepoCustomEndpoints(h.database, input.RepoID)
+	if err != nil {
+		return IPCResponse{
+			Success: false,
+			Error:   fmt.Sprintf("failed to import repo custom endpoints: %v", err),
 		}
 	}
 

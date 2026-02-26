@@ -43,3 +43,15 @@ type ExportResult struct {
 	FilePath string
 	Count    int
 }
+
+type PortableCustomEndpoint struct {
+	Method            string `yaml:"method"`
+	Path              string `yaml:"path"`
+	EndpointGroupName string `yaml:"endpoint_group_name"`
+}
+
+type CustomEndpointsFile struct {
+	Version         int                      `yaml:"version"`
+	ServiceID       string                   `yaml:"service_id"`
+	CustomEndpoints []PortableCustomEndpoint `yaml:"custom_endpoints"`
+}

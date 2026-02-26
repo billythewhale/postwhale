@@ -33,6 +33,10 @@ interface SidebarProps {
   onImportSavedRequests: (serviceId: number) => void
   onExportRepoSavedRequests: (repoId: number) => void
   onImportRepoSavedRequests: (repoId: number) => void
+  onExportCustomEndpoints: (serviceId: number) => void
+  onImportCustomEndpoints: (serviceId: number) => void
+  onExportRepoCustomEndpoints: (repoId: number) => void
+  onImportRepoCustomEndpoints: (repoId: number) => void
   onOpenCreateEndpointDialog: (serviceId: number, endpointGroupName: string) => void
   onUpdateEndpoint: (id: number, method: string, path: string) => void
   onDeleteEndpoint: (id: number) => void
@@ -63,6 +67,10 @@ export function Sidebar({
   onImportSavedRequests,
   onExportRepoSavedRequests,
   onImportRepoSavedRequests,
+  onExportCustomEndpoints,
+  onImportCustomEndpoints,
+  onExportRepoCustomEndpoints,
+  onImportRepoCustomEndpoints,
   onOpenCreateEndpointDialog,
   onUpdateEndpoint,
   onDeleteEndpoint,
@@ -198,6 +206,10 @@ export function Sidebar({
                   onImportSavedRequests={onImportSavedRequests}
                   onExportRepoSavedRequests={onExportRepoSavedRequests}
                   onImportRepoSavedRequests={onImportRepoSavedRequests}
+                  onExportCustomEndpoints={onExportCustomEndpoints}
+                  onImportCustomEndpoints={onImportCustomEndpoints}
+                  onExportRepoCustomEndpoints={onExportRepoCustomEndpoints}
+                  onImportRepoCustomEndpoints={onImportRepoCustomEndpoints}
                   onOpenCreateEndpointDialog={onOpenCreateEndpointDialog}
                   onUpdateEndpoint={onUpdateEndpoint}
                   onDeleteEndpoint={onDeleteEndpoint}

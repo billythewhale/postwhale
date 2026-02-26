@@ -47,6 +47,10 @@ interface RepositoryNodeProps {
   onImportSavedRequests: (serviceId: number) => void
   onExportRepoSavedRequests: (repoId: number) => void
   onImportRepoSavedRequests: (repoId: number) => void
+  onExportCustomEndpoints: (serviceId: number) => void
+  onImportCustomEndpoints: (serviceId: number) => void
+  onExportRepoCustomEndpoints: (repoId: number) => void
+  onImportRepoCustomEndpoints: (repoId: number) => void
   onOpenCreateEndpointDialog: (serviceId: number, endpointGroupName: string) => void
   onUpdateEndpoint: (id: number, method: string, path: string) => void
   onDeleteEndpoint: (id: number) => void
@@ -91,6 +95,10 @@ export function RepositoryNode({
   onImportSavedRequests,
   onExportRepoSavedRequests,
   onImportRepoSavedRequests,
+  onExportCustomEndpoints,
+  onImportCustomEndpoints,
+  onExportRepoCustomEndpoints,
+  onImportRepoCustomEndpoints,
   onOpenCreateEndpointDialog,
   onUpdateEndpoint,
   onDeleteEndpoint,
@@ -178,6 +186,24 @@ export function RepositoryNode({
             Import All Saved Requests
           </ContextMenuItem>
           <ContextMenuItem
+            leftSection={<IconUpload size={14} />}
+            onClick={() => {
+              setContextMenu((prev) => ({ ...prev, opened: false }))
+              onExportRepoCustomEndpoints(repo.id)
+            }}
+          >
+            Export All Custom Endpoints
+          </ContextMenuItem>
+          <ContextMenuItem
+            leftSection={<IconDownload size={14} />}
+            onClick={() => {
+              setContextMenu((prev) => ({ ...prev, opened: false }))
+              onImportRepoCustomEndpoints(repo.id)
+            }}
+          >
+            Import All Custom Endpoints
+          </ContextMenuItem>
+          <ContextMenuItem
             leftSection={<IconTrash size={14} />}
             color="red"
             onClick={() => {
@@ -235,6 +261,8 @@ export function RepositoryNode({
                   onDeleteSavedRequest={onDeleteSavedRequest}
                   onExportSavedRequests={onExportSavedRequests}
                   onImportSavedRequests={onImportSavedRequests}
+                  onExportCustomEndpoints={onExportCustomEndpoints}
+                  onImportCustomEndpoints={onImportCustomEndpoints}
                   onOpenCreateEndpointDialog={onOpenCreateEndpointDialog}
                   onUpdateEndpoint={onUpdateEndpoint}
                   onDeleteEndpoint={onDeleteEndpoint}
