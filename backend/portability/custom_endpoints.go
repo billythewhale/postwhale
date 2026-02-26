@@ -9,7 +9,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const CustomEndpointsFileName = "postwhale.endpoints.yml"
+func customEndpointsFileName(collectionName string) string {
+	return fmt.Sprintf("postwhale.%s.yml", collectionName)
+}
 
 type customEndpointRow struct {
 	ID                int64
@@ -39,7 +41,7 @@ func GetCustomEndpoints(db *sql.DB, serviceID int64) ([]customEndpointRow, error
 	return results, rows.Err()
 }
 
-func ExportServiceCustomEndpoints(db *sql.DB, serviceID int64) (*ExportResult, error) {
+func ExportServiceCustomEndpoints(db *sql.DB, serviceID int64, collectionName string) (*ExportResult, error) {
 	svcID, svcPath, err := GetServicePath(db, serviceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service path: %w", err)
@@ -68,7 +70,7 @@ func ExportServiceCustomEndpoints(db *sql.DB, serviceID int64) (*ExportResult, e
 		})
 	}
 
-	filePath := filepath.Join(svcPath, CustomEndpointsFileName)
+	filePath := filepath.Join(svcPath, customEndpointsFileName(collectionName))
 	data, err := yaml.Marshal(&file)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal YAML: %w", err)
@@ -110,17 +112,18 @@ func buildEndpointMapWithCustomFlag(db *sql.DB, serviceID int64) (map[string]end
 	return m, rows.Err()
 }
 
-func ImportServiceCustomEndpoints(db *sql.DB, serviceID int64) (*ImportResult, error) {
+func ImportServiceCustomEndpoints(db *sql.DB, serviceID int64, collectionName string) (*ImportResult, error) {
 	svcID, svcPath, err := GetServicePath(db, serviceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service path: %w", err)
 	}
 
-	filePath := filepath.Join(svcPath, CustomEndpointsFileName)
+	fileName := customEndpointsFileName(collectionName)
+	filePath := filepath.Join(svcPath, fileName)
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("no %s file found in service directory", CustomEndpointsFileName)
+			return nil, fmt.Errorf("no %s file found in service directory", fileName)
 		}
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
@@ -166,7 +169,7 @@ func ImportServiceCustomEndpoints(db *sql.DB, serviceID int64) (*ImportResult, e
 	return result, nil
 }
 
-func ExportRepoCustomEndpoints(db *sql.DB, repoID int64) ([]ExportResult, error) {
+func ExportRepoCustomEndpoints(db *sql.DB, repoID int64, collectionName string) ([]ExportResult, error) {
 	services, err := GetRepoServices(db, repoID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get services: %w", err)
@@ -174,7 +177,7 @@ func ExportRepoCustomEndpoints(db *sql.DB, repoID int64) ([]ExportResult, error)
 
 	var results []ExportResult
 	for _, svc := range services {
-		r, err := ExportServiceCustomEndpoints(db, svc.ID)
+		r, err := ExportServiceCustomEndpoints(db, svc.ID, collectionName)
 		if err != nil {
 			results = append(results, ExportResult{FilePath: svc.ServiceID, Count: -1})
 			continue
@@ -186,7 +189,7 @@ func ExportRepoCustomEndpoints(db *sql.DB, repoID int64) ([]ExportResult, error)
 	return results, nil
 }
 
-func ImportRepoCustomEndpoints(db *sql.DB, repoID int64) (map[string]*ImportResult, error) {
+func ImportRepoCustomEndpoints(db *sql.DB, repoID int64, collectionName string) (map[string]*ImportResult, error) {
 	services, err := GetRepoServices(db, repoID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get services: %w", err)
@@ -199,12 +202,12 @@ func ImportRepoCustomEndpoints(db *sql.DB, repoID int64) (map[string]*ImportResu
 
 	results := make(map[string]*ImportResult)
 	for _, svc := range services {
-		filePath := filepath.Join(repoPath, "services", svc.ServiceID, CustomEndpointsFileName)
+		filePath := filepath.Join(repoPath, "services", svc.ServiceID, customEndpointsFileName(collectionName))
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
 			continue
 		}
 
-		r, err := ImportServiceCustomEndpoints(db, svc.ID)
+		r, err := ImportServiceCustomEndpoints(db, svc.ID, collectionName)
 		if err != nil {
 			results[svc.ServiceID] = &ImportResult{Errors: []string{err.Error()}}
 			continue

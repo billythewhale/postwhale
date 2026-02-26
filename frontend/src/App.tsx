@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Flex, Loader, Stack, Text, Alert } from '@mantine/core'
+import { Flex, Loader, Stack, Text, Alert, Modal, TextInput, Button, Group } from '@mantine/core'
 import { Header } from '@/components/layout/Header'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { MainContentArea } from '@/components/layout/MainContentArea'
@@ -96,6 +96,12 @@ function AppContent() {
     endpointGroupName: string
   } | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [collectionPrompt, setCollectionPrompt] = useState<{
+    action: 'export' | 'import'
+    scope: 'service' | 'repo'
+    id: number
+  } | null>(null)
+  const [collectionNameInput, setCollectionNameInput] = useState('')
   const [statusMessage, setStatusMessage] = useState<string | undefined>(undefined)
   const [statusBarVisible, setStatusBarVisible] = useState(() => {
     const stored = localStorage.getItem('statusBarVisible')
@@ -551,67 +557,69 @@ function AppContent() {
     }
   }
 
-  const handleExportCustomEndpoints = async (serviceId: number) => {
-    setIsExporting(true)
-    try {
-      setError(null)
-      const result = await invoke<ExportResult>('exportCustomEndpoints', { serviceId })
-      if (result.count === 0) {
-        setError('No custom endpoints to export')
+  const handleExportCustomEndpoints = (serviceId: number) => {
+    setCollectionNameInput('')
+    setCollectionPrompt({ action: 'export', scope: 'service', id: serviceId })
+  }
+
+  const handleImportCustomEndpoints = (serviceId: number) => {
+    setCollectionNameInput('')
+    setCollectionPrompt({ action: 'import', scope: 'service', id: serviceId })
+  }
+
+  const handleExportRepoCustomEndpoints = (repoId: number) => {
+    setCollectionNameInput('')
+    setCollectionPrompt({ action: 'export', scope: 'repo', id: repoId })
+  }
+
+  const handleImportRepoCustomEndpoints = (repoId: number) => {
+    setCollectionNameInput('')
+    setCollectionPrompt({ action: 'import', scope: 'repo', id: repoId })
+  }
+
+  const handleCollectionPromptSubmit = async () => {
+    if (!collectionPrompt || !collectionNameInput.trim()) return
+    const { action, scope, id } = collectionPrompt
+    const collectionName = collectionNameInput.trim()
+    setCollectionPrompt(null)
+
+    if (action === 'export') {
+      setIsExporting(true)
+      try {
+        setError(null)
+        if (scope === 'service') {
+          const result = await invoke<ExportResult>('exportCustomEndpoints', { serviceId: id, collectionName })
+          if (result.count === 0) setError('No custom endpoints to export')
+        } else {
+          await invoke<{ results: ExportResult[] }>('exportRepoCustomEndpoints', { repoId: id, collectionName })
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to export custom endpoints'
+        setError(msg)
+        addError(msg)
+      } finally {
+        setIsExporting(false)
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to export custom endpoints'
-      setError(msg)
-      addError(msg)
-    } finally {
-      setIsExporting(false)
-    }
-  }
-
-  const handleImportCustomEndpoints = async (serviceId: number) => {
-    setIsImporting(true)
-    try {
-      setError(null)
-      const result = await invoke<ImportResult>('importCustomEndpoints', { serviceId })
-      if (result.errors.length > 0) {
-        setError(`Import completed with warnings: ${result.errors.join(', ')}`)
+    } else {
+      setIsImporting(true)
+      try {
+        setError(null)
+        if (scope === 'service') {
+          const result = await invoke<ImportResult>('importCustomEndpoints', { serviceId: id, collectionName })
+          if (result.errors.length > 0) {
+            setError(`Import completed with warnings: ${result.errors.join(', ')}`)
+          }
+        } else {
+          await invoke<{ results: Record<string, ImportResult> }>('importRepoCustomEndpoints', { repoId: id, collectionName })
+        }
+        await loadData(false)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to import custom endpoints'
+        setError(msg)
+        addError(msg)
+      } finally {
+        setIsImporting(false)
       }
-      await loadData(false)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to import custom endpoints'
-      setError(msg)
-      addError(msg)
-    } finally {
-      setIsImporting(false)
-    }
-  }
-
-  const handleExportRepoCustomEndpoints = async (repoId: number) => {
-    setIsExporting(true)
-    try {
-      setError(null)
-      await invoke<{ results: ExportResult[] }>('exportRepoCustomEndpoints', { repoId })
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to export repository custom endpoints'
-      setError(msg)
-      addError(msg)
-    } finally {
-      setIsExporting(false)
-    }
-  }
-
-  const handleImportRepoCustomEndpoints = async (repoId: number) => {
-    setIsImporting(true)
-    try {
-      setError(null)
-      await invoke<{ results: Record<string, ImportResult> }>('importRepoCustomEndpoints', { repoId })
-      await loadData(false)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to import repository custom endpoints'
-      setError(msg)
-      addError(msg)
-    } finally {
-      setIsImporting(false)
     }
   }
 
@@ -763,6 +771,33 @@ function AppContent() {
           endpointGroupName={createEndpointDialog.endpointGroupName}
         />
       )}
+
+      <Modal
+        opened={collectionPrompt !== null}
+        onClose={() => setCollectionPrompt(null)}
+        title={collectionPrompt?.action === 'export' ? 'Export Custom Endpoints' : 'Import Custom Endpoints'}
+        size="sm"
+      >
+        <Stack gap="md">
+          <TextInput
+            label="Collection name"
+            description="File will be postwhale.<name>.yml"
+            placeholder="e.g. billy-endpoints"
+            value={collectionNameInput}
+            onChange={(e) => setCollectionNameInput(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && collectionNameInput.trim()) handleCollectionPromptSubmit()
+            }}
+            autoFocus
+          />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setCollectionPrompt(null)}>Cancel</Button>
+            <Button onClick={handleCollectionPromptSubmit} disabled={!collectionNameInput.trim()}>
+              {collectionPrompt?.action === 'export' ? 'Export' : 'Import'}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Flex>
   )
 }

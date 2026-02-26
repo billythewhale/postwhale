@@ -1182,7 +1182,8 @@ func (h *Handler) handleImportRepoSavedRequests(data json.RawMessage) IPCRespons
 
 func (h *Handler) handleExportCustomEndpoints(data json.RawMessage) IPCResponse {
 	var input struct {
-		ServiceID int64 `json:"serviceId"`
+		ServiceID      int64  `json:"serviceId"`
+		CollectionName string `json:"collectionName"`
 	}
 
 	if err := json.Unmarshal(data, &input); err != nil {
@@ -1192,7 +1193,14 @@ func (h *Handler) handleExportCustomEndpoints(data json.RawMessage) IPCResponse 
 		}
 	}
 
-	result, err := portability.ExportServiceCustomEndpoints(h.database, input.ServiceID)
+	if input.CollectionName == "" {
+		return IPCResponse{
+			Success: false,
+			Error:   "collection name is required",
+		}
+	}
+
+	result, err := portability.ExportServiceCustomEndpoints(h.database, input.ServiceID, input.CollectionName)
 	if err != nil {
 		return IPCResponse{
 			Success: false,
@@ -1211,7 +1219,8 @@ func (h *Handler) handleExportCustomEndpoints(data json.RawMessage) IPCResponse 
 
 func (h *Handler) handleImportCustomEndpoints(data json.RawMessage) IPCResponse {
 	var input struct {
-		ServiceID int64 `json:"serviceId"`
+		ServiceID      int64  `json:"serviceId"`
+		CollectionName string `json:"collectionName"`
 	}
 
 	if err := json.Unmarshal(data, &input); err != nil {
@@ -1221,7 +1230,14 @@ func (h *Handler) handleImportCustomEndpoints(data json.RawMessage) IPCResponse 
 		}
 	}
 
-	result, err := portability.ImportServiceCustomEndpoints(h.database, input.ServiceID)
+	if input.CollectionName == "" {
+		return IPCResponse{
+			Success: false,
+			Error:   "collection name is required",
+		}
+	}
+
+	result, err := portability.ImportServiceCustomEndpoints(h.database, input.ServiceID, input.CollectionName)
 	if err != nil {
 		return IPCResponse{
 			Success: false,
@@ -1242,7 +1258,8 @@ func (h *Handler) handleImportCustomEndpoints(data json.RawMessage) IPCResponse 
 
 func (h *Handler) handleExportRepoCustomEndpoints(data json.RawMessage) IPCResponse {
 	var input struct {
-		RepoID int64 `json:"repoId"`
+		RepoID         int64  `json:"repoId"`
+		CollectionName string `json:"collectionName"`
 	}
 
 	if err := json.Unmarshal(data, &input); err != nil {
@@ -1252,7 +1269,14 @@ func (h *Handler) handleExportRepoCustomEndpoints(data json.RawMessage) IPCRespo
 		}
 	}
 
-	results, err := portability.ExportRepoCustomEndpoints(h.database, input.RepoID)
+	if input.CollectionName == "" {
+		return IPCResponse{
+			Success: false,
+			Error:   "collection name is required",
+		}
+	}
+
+	results, err := portability.ExportRepoCustomEndpoints(h.database, input.RepoID, input.CollectionName)
 	if err != nil {
 		return IPCResponse{
 			Success: false,
@@ -1278,7 +1302,8 @@ func (h *Handler) handleExportRepoCustomEndpoints(data json.RawMessage) IPCRespo
 
 func (h *Handler) handleImportRepoCustomEndpoints(data json.RawMessage) IPCResponse {
 	var input struct {
-		RepoID int64 `json:"repoId"`
+		RepoID         int64  `json:"repoId"`
+		CollectionName string `json:"collectionName"`
 	}
 
 	if err := json.Unmarshal(data, &input); err != nil {
@@ -1288,7 +1313,14 @@ func (h *Handler) handleImportRepoCustomEndpoints(data json.RawMessage) IPCRespo
 		}
 	}
 
-	results, err := portability.ImportRepoCustomEndpoints(h.database, input.RepoID)
+	if input.CollectionName == "" {
+		return IPCResponse{
+			Success: false,
+			Error:   "collection name is required",
+		}
+	}
+
+	results, err := portability.ImportRepoCustomEndpoints(h.database, input.RepoID, input.CollectionName)
 	if err != nil {
 		return IPCResponse{
 			Success: false,
