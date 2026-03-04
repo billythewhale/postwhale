@@ -503,8 +503,20 @@ async function handleInstallLatestRelease(data = {}) {
         };
       }
 
-      await fs.promises.rm(targetAppPath, { recursive: true, force: true });
-      await fs.promises.cp(extractedAppPath, targetAppPath, { recursive: true });
+      const backupPath = targetAppPath + '.old';
+      await runCommand('/bin/rm', ['-rf', backupPath]);
+      if (fs.existsSync(targetAppPath)) {
+        await runCommand('/bin/mv', ['-f', targetAppPath, backupPath]);
+      }
+      try {
+        await runCommand('/bin/mv', ['-f', extractedAppPath, targetAppPath]);
+      } catch (mvError) {
+        if (fs.existsSync(backupPath)) {
+          await runCommand('/bin/mv', ['-f', backupPath, targetAppPath]);
+        }
+        throw mvError;
+      }
+      await runCommand('/bin/rm', ['-rf', backupPath]);
 
       try {
         await runCommand('/usr/bin/xattr', ['-dr', 'com.apple.quarantine', targetAppPath]);
@@ -516,7 +528,7 @@ async function handleInstallLatestRelease(data = {}) {
       }
     } finally {
       try {
-        await fs.promises.rm(extractDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
+        await runCommand('/bin/rm', ['-rf', extractDir]);
       } catch (_) {
         // cleanup failure is non-fatal
       }
