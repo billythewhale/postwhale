@@ -730,10 +730,15 @@ func (h *Handler) handleRefreshRepository(data json.RawMessage) IPCResponse {
 
 	// Re-scan the repository
 	scanResult := scanner.ScanRepository(repo.Path)
-	if len(scanResult.Errors) > 0 && len(scanResult.Services) == 0 {
-		return IPCResponse{
-			Success: false,
-			Error:   fmt.Sprintf("scan failed: %s", scanResult.Errors[0]),
+	pathGone := len(scanResult.Errors) > 0 && len(scanResult.Services) == 0
+	if pathGone {
+		if _, err := os.Stat(repo.Path); os.IsNotExist(err) {
+			scanResult.Errors = []string{fmt.Sprintf("repository path no longer exists: %s — all endpoints for this repo will be removed", repo.Path)}
+		} else {
+			return IPCResponse{
+				Success: false,
+				Error:   fmt.Sprintf("scan failed: %s", scanResult.Errors[0]),
+			}
 		}
 	}
 

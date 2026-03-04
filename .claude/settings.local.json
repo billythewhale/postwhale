@@ -13,7 +13,8 @@
       "Bash(ls:*)",
       "Bash(npm run typecheck:*)",
       "Bash(npm run build:*)",
-      "Bash(go test:*)"
+      "Bash(go test:*)",
+      "Bash(git:*)"
     ]
   }
 }
