@@ -98,6 +98,8 @@ function AppContent() {
   } | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [hasUpdate, setHasUpdate] = useState(false)
+  const [showUpdateDot, setShowUpdateDot] = useState(false)
+  const latestVersionRef = useRef<string | null>(null)
   const [collectionPrompt, setCollectionPrompt] = useState<{
     action: 'export' | 'import'
     scope: 'service' | 'repo'
@@ -145,7 +147,14 @@ function AppContent() {
   useEffect(() => {
     loadData()
     invoke<ReleaseCheckResult>('checkForUpdates')
-      .then((r) => setHasUpdate(r.hasUpdate))
+      .then((r) => {
+        setHasUpdate(r.hasUpdate)
+        if (r.hasUpdate) {
+          latestVersionRef.current = r.latestVersion
+          const seen = localStorage.getItem('postwhale:seenUpdateVersion')
+          setShowUpdateDot(seen !== r.latestVersion)
+        }
+      })
       .catch(() => {})
   }, [])
 
@@ -670,7 +679,13 @@ function AppContent() {
 
   return (
     <Flex style={{ height: '100vh' }} direction="column">
-      <Header environment={environment} onEnvironmentChange={setEnvironment} onSettingsClick={() => setSettingsOpen(true)} hasUpdate={hasUpdate} />
+      <Header environment={environment} onEnvironmentChange={setEnvironment} onSettingsClick={() => {
+        setSettingsOpen(true)
+        if (latestVersionRef.current) {
+          localStorage.setItem('postwhale:seenUpdateVersion', latestVersionRef.current)
+        }
+        setShowUpdateDot(false)
+      }} hasUpdate={showUpdateDot} />
 
       {error && (
         <Alert color="red" variant="light" withCloseButton onClose={() => setError(null)}>
