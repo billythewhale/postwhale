@@ -38,6 +38,7 @@ import type {
   RequestResponsePair,
   ExportResult,
   ImportResult,
+  ReleaseCheckResult,
 } from '@/types'
 
 function buildFullUrl(serviceId: string, endpoint: string, env: Environment, authEnabled: boolean): string {
@@ -96,6 +97,7 @@ function AppContent() {
     endpointGroupName: string
   } | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [hasUpdate, setHasUpdate] = useState(false)
   const [collectionPrompt, setCollectionPrompt] = useState<{
     action: 'export' | 'import'
     scope: 'service' | 'repo'
@@ -142,6 +144,9 @@ function AppContent() {
 
   useEffect(() => {
     loadData()
+    invoke<ReleaseCheckResult>('checkForUpdates')
+      .then((r) => setHasUpdate(r.hasUpdate))
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -665,7 +670,7 @@ function AppContent() {
 
   return (
     <Flex style={{ height: '100vh' }} direction="column">
-      <Header environment={environment} onEnvironmentChange={setEnvironment} onSettingsClick={() => setSettingsOpen(true)} />
+      <Header environment={environment} onEnvironmentChange={setEnvironment} onSettingsClick={() => setSettingsOpen(true)} hasUpdate={hasUpdate} />
 
       {error && (
         <Alert color="red" variant="light" withCloseButton onClose={() => setError(null)}>
@@ -716,7 +721,7 @@ function AppContent() {
             />
 
             {settingsOpen ? (
-              <GlobalSettingsPanel onClose={() => setSettingsOpen(false)} />
+              <GlobalSettingsPanel onClose={() => setSettingsOpen(false)} hasUpdate={hasUpdate} />
             ) : (
               <MainContentArea
                 endpoint={activeEndpoint}

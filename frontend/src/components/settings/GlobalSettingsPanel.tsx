@@ -1,4 +1,4 @@
-import { Paper, Group, Title, ActionIcon, Tabs, useMantineColorScheme } from '@mantine/core'
+import { Paper, Group, Title, ActionIcon, Tabs, useMantineColorScheme, Indicator } from '@mantine/core'
 import { IconX } from '@tabler/icons-react'
 import { GlobalHeadersTab } from './GlobalHeadersTab'
 import { AuthenticationTab } from './AuthenticationTab'
@@ -6,9 +6,10 @@ import { UpdatesTab } from './UpdatesTab'
 
 interface GlobalSettingsPanelProps {
   onClose: () => void
+  hasUpdate?: boolean
 }
 
-export function GlobalSettingsPanel({ onClose }: GlobalSettingsPanelProps) {
+export function GlobalSettingsPanel({ onClose, hasUpdate }: GlobalSettingsPanelProps) {
   const { colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
 
@@ -38,7 +39,7 @@ export function GlobalSettingsPanel({ onClose }: GlobalSettingsPanelProps) {
         <Tabs.List>
           <Tabs.Tab value="headers">Global Headers</Tabs.Tab>
           <Tabs.Tab value="auth">Authentication</Tabs.Tab>
-          <Tabs.Tab value="updates">Updates</Tabs.Tab>
+          <Tabs.Tab value="updates" rightSection={hasUpdate ? <Indicator color="blue" size={8} processing /> : undefined}>Updates</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="headers" pt="md" style={{ flex: 1 }}>

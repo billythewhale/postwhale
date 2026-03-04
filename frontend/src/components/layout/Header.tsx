@@ -10,9 +10,10 @@ interface HeaderProps {
   environment: Environment
   onEnvironmentChange: (env: Environment) => void
   onSettingsClick: () => void
+  hasUpdate?: boolean
 }
 
-export function Header({ environment, onEnvironmentChange, onSettingsClick }: HeaderProps) {
+export function Header({ environment, onEnvironmentChange, onSettingsClick, hasUpdate }: HeaderProps) {
   const { setColorScheme, colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
   const [errorHistoryModalOpened, setErrorHistoryModalOpened] = useState(false)
@@ -118,15 +119,17 @@ export function Header({ environment, onEnvironmentChange, onSettingsClick }: He
             onChange={(e) => setAuthEnabled(e.currentTarget.checked)}
           />
 
-          <ActionIcon
-            variant="subtle"
-            onClick={onSettingsClick}
-            aria-label="Global Settings"
-            size="lg"
-            title="Global Settings"
-          >
-            <IconSettings size={20} />
-          </ActionIcon>
+          <Indicator disabled={!hasUpdate} color="blue" size={8} offset={4} withBorder>
+            <ActionIcon
+              variant="subtle"
+              onClick={onSettingsClick}
+              aria-label="Global Settings"
+              size="lg"
+              title="Global Settings"
+            >
+              <IconSettings size={20} />
+            </ActionIcon>
+          </Indicator>
 
           {errors.length > 0 && (
             <Indicator label={errors.length} size={16} color="red" offset={7}>
