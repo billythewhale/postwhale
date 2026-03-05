@@ -532,6 +532,11 @@ async function handleInstallLatestRelease(data = {}) {
       } catch (_) {
         // cleanup failure is non-fatal
       }
+      try {
+        fs.unlinkSync(zipPath);
+      } catch (_) {
+        // cleanup failure is non-fatal
+      }
     }
 
     const result = await dialog.showMessageBox({
